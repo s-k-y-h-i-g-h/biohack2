@@ -13,11 +13,11 @@
 
 **Purpose**: Initialize Rust workspace with Leptos frontend
 
-- [ ] T001 Create root `Cargo.toml` workspace manifest with members: `engine`, `web`
-- [ ] T002 [P] Create `engine/Cargo.toml` — dependencies: serde, sqlx (sqlite runtime), chrono, uuid, leptos (optional for shared types)
-- [ ] T003 [P] Create `web/Cargo.toml` — dependencies: leptos, leptos_router, leptos_dom, sqlx (sqlite wasm), serde, serde_json, wasm-bindgen
-- [ ] T004 [P] Create `.gitignore` with Rust + WASM artifacts: `target/`, `*.wasm`, `*.js`, `*.map`, `node_modules/`, `.env*`
-- [ ] T005 Create root `README.md` with build instructions: `cargo leptos watch`
+- [X] T001 Create root `Cargo.toml` workspace manifest with members: `engine`, `web`
+- [X] T002 [P] Create `engine/Cargo.toml` — dependencies: serde, sqlx (sqlite runtime), chrono, uuid, leptos (optional for shared types)
+- [X] T003 [P] Create `web/Cargo.toml` — dependencies: leptos, leptos_router, leptos_dom, sqlx (sqlite wasm), serde, serde_json, wasm-bindgen
+- [X] T004 [P] Create `.gitignore` with Rust + WASM artifacts: `target/`, `*.wasm`, `*.js`, `*.map`, `node_modules/`, `.env*`
+- [X] T005 Create root `README.md` with build instructions: `cargo leptos watch`
 
 **Checkpoint**: Workspace compiles (`cargo check --workspace`)
 
@@ -29,18 +29,18 @@
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T006 Create `engine/src/lib.rs` — public exports for all modules
-- [ ] T007 [P] Create `engine/src/models.rs` — define all Rust structs: LogEntry, CatalogItem, Stack, StackItem, VitalsEntry, Alert, Insight with serde derive
-- [ ] T008 [P] Create `engine/src/safety.rs` — 3 protocols: stimulant tachycardia, hypertensive urgency, serotonin syndrome (ported from biohack CLI)
-- [ ] T009 [P] Create `engine/src/catalog.rs` — 27-substance seed database from biohack CLI
-- [ ] T010 Create `engine/src/db.rs` — SQLite schema, migrations, CRUD operations using sqlx
-- [ ] T011 [P] Create `engine/tests/safety_tests.rs` — unit tests for 3 safety protocols
-- [ ] T012 [P] Create `engine/tests/integration_tests.rs` — end-to-end scenario tests
-- [ ] T013 Create `web/src/main.rs` — Leptos app entry point with router setup
-- [ ] T014 Create `web/src/router.rs` — Leptos Router with routes: /, /log, /history, /vitals, /stacks, /insights, /settings
-- [ ] T015 Create `web/src/app.rs` — App component with Layout shell and route matching
-- [ ] T016 [P] Create `web/src/components/layout.rs` — navigation shell, responsive design, offline indicator
-- [ ] T017 [P] Create `web/src/styles/global.css` — CSS variables for light/dark theme, responsive breakpoints
+- [X] T006 Create `engine/src/lib.rs` — public exports for all modules
+- [X] T007 [P] Create `engine/src/models.rs` — define all Rust structs: LogEntry, CatalogItem, Stack, StackItem, VitalsEntry, Alert, Insight with serde derive
+- [X] T008 [P] Create `engine/src/safety.rs` — 3 protocols: stimulant tachycardia, hypertensive urgency, serotonin syndrome (ported from biohack CLI)
+- [X] T009 [P] Create `engine/src/catalog.rs` — 27-substance seed database from biohack CLI
+- [X] T010 Create `engine/src/db.rs` — SQLite schema, migrations, CRUD operations using sqlx
+- [X] T011 [P] Create `engine/tests/safety_tests.rs` — unit tests for 3 safety protocols
+- [X] T012 [P] Create `engine/tests/integration_tests.rs` — end-to-end scenario tests
+- [X] T013 Create `web/src/main.rs` — Leptos app entry point with router setup
+- [X] T014 Create `web/src/router.rs` — Leptos Router with routes: /, /log, /history, /vitals, /stacks, /insights, /settings
+- [X] T015 Create `web/src/app.rs` — App component with Layout shell and route matching
+- [X] T016 [P] Create `web/src/components/layout.rs` — navigation shell, responsive design, offline indicator
+- [X] T017 [P] Create `web/src/styles/global.css` — CSS variables for light/dark theme, responsive breakpoints
 
 **Checkpoint**: Engine tests pass (`cargo test -p engine --release`), web app builds (`cargo leptos build`)
 
