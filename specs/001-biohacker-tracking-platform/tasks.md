@@ -177,20 +177,70 @@
 
 ---
 
-## Phase 8: Polish & Cross-Cutting Concerns
+## Phase 8: User Story 6 - Insights and Analysis (Priority: P6)
+
+**Goal**: Users can view correlations between their supplements/actions and vital sign changes over time. Dashboard surfaces actionable insights.
+
+**Independent Test**: Log 14+ days of correlated data → open insights dashboard → verify correlations displayed with supporting data points.
+
+**Acceptance Criteria**:
+- AC-1: Dashboard shows ≥1 correlation after 2+ weeks of data
+- AC-2: Each insight includes confidence score and supporting data point count
+- AC-3: Clicking insight shows contributing log entries
+
+### Implementation
+
+- [ ] T071 [US6] Create Insight model in `web/src/models/Insight.ts` — type definitions, validation (minimum 7 data points)
+- [ ] T072 [US6] Implement insights service in `web/src/services/InsightsService.ts` — correlation engine, trend analysis
+- [ ] T073 [P] [US6] Create InsightsFeed component in `web/src/components/InsightsFeed.tsx` — list of generated insights
+- [ ] T074 [P] [US6] Create CorrelationCard component in `web/src/components/CorrelationCard.tsx` — individual insight display with confidence meter
+- [ ] T075 [US6] Create InsightsPage in `web/src/pages/InsightsPage.tsx` — mount InsightsFeed, handle click-to-detail
+- [ ] T076 [P] [US6] Implement correlation algorithm in `web/src/services/CorrelationEngine.ts` — statistical analysis of log/vitals overlap
+- [ ] T077 [P] [US6] Add "insufficient data" empty state in InsightsFeed when <7 overlapping points
+
+**Checkpoint**: User Stories 1-6 functional — user can log, inspect, view vitals, manage stacks, see safety alerts, and get insights.
+
+---
+
+## Phase 9: User Story 7 - Notes and Realizations (Priority: P7)
+
+**Goal**: Users can attach free-text notes to any log entry. Notes searchable and visible in history view.
+
+**Independent Test**: Add note to log entry → find entry in history → verify note displayed. Search for keyword → verify note appears in results.
+
+**Acceptance Criteria**:
+- AC-1: Note attached to log entry and visible in history
+- AC-2: Note search returns entries containing keyword
+- AC-3: Note editing updates existing entry
+
+### Implementation
+
+- [ ] T078 [US7] Update LogEntry model in `web/src/models/LogEntry.ts` — add `notes` field (already exists, verify)
+- [ ] T079 [US7] Implement note service in `web/src/services/NoteService.ts` — CRUD for notes on log entries
+- [ ] T080 [P] [US7] Create NoteInput component in `web/src/components/NoteInput.tsx` — inline note editor on log entries
+- [ ] T081 [P] [US7] Create NoteDisplay component in `web/src/components/NoteDisplay.tsx` — rendered note with timestamp
+- [ ] T082 [US7] Integrate notes into HistoryView in `web/src/components/HistoryView.tsx` — show notes on each entry
+- [ ] T083 [P] [US7] Add full-text search for notes in `web/src/services/SearchService.ts` — index and query notes
+- [ ] T084 [P] [US7] Create NoteSearchComponent in `web/src/components/NoteSearch.tsx` — search UI with results
+
+**Checkpoint**: All 7 user stories functional — complete application with logging, history, vitals, stacks, safety, insights, and notes.
+
+---
+
+## Phase 10: Polish & Cross-Cutting Concerns
 
 **Purpose**: Improvements affecting multiple user stories
 
-- [ ] T061 [P] Create Settings page in `web/src/pages/SettingsPage.tsx` — theme toggle, units (metric/imperial), data export
-- [ ] T062 [P] Implement data export in `web/src/services/ExportService.ts` — CSV/JSON export for all log entries (SC-008)
-- [ ] T063 [P] Add PWA manifest in `web/public/manifest.json` — app name, icons, offline support
-- [ ] T064 [P] Create Service Worker in `web/src/service-worker.ts` — cache assets, enable offline use
-- [ ] T065 [P] Add responsive design breakpoints in `web/src/styles/global.css` — mobile, tablet, desktop layouts
-- [ ] T066 [P] Implement dark mode support in `web/src/components/ThemeToggle.tsx` — CSS variables for light/dark themes
-- [ ] T067 [P] Add accessibility attributes (ARIA labels, keyboard navigation) across all components
-- [ ] T068 [P] Run quickstart validation scenarios from `specs/001-biohacker-tracking-platform/quickstart.md` (VS-001 through VS-008)
-- [ ] T069 [P] Update README.md with setup instructions and architecture overview
-- [ ] T070 [P] Run full test suite and verify all tests pass: `npm test` and `cargo test --release`
+- [ ] T095 [P] Create Settings page in `web/src/pages/SettingsPage.tsx` — theme toggle, units (metric/imperial), data export
+- [ ] T096 [P] Implement data export in `web/src/services/ExportService.ts` — CSV/JSON export for all log entries (SC-008)
+- [ ] T097 [P] Add PWA manifest in `web/public/manifest.json` — app name, icons, offline support
+- [ ] T098 [P] Create Service Worker in `web/src/service-worker.ts` — cache assets, enable offline use
+- [ ] T099 [P] Add responsive design breakpoints in `web/src/styles/global.css` — mobile, tablet, desktop layouts
+- [ ] T100 [P] Implement dark mode support in `web/src/components/ThemeToggle.tsx` — CSS variables for light/dark themes
+- [ ] T101 [P] Add accessibility attributes (ARIA labels, keyboard navigation) across all components
+- [ ] T102 [P] Run quickstart validation scenarios from `specs/001-biohacker-tracking-platform/quickstart.md` (VS-001 through VS-008)
+- [ ] T103 [P] Update README.md with setup instructions and architecture overview
+- [ ] T104 [P] Run full test suite and verify all tests pass: `npm test` and `cargo test --release`
 
 ---
 
@@ -285,5 +335,7 @@ With multiple developers:
 - **Phase 5 (US3)**: 10 tasks
 - **Phase 6 (US4)**: 8 tasks
 - **Phase 7 (US5)**: 8 tasks
-- **Phase 8 (Polish)**: 10 tasks
-- **Total**: 70 tasks
+- **Phase 8 (US6)**: 7 tasks
+- **Phase 9 (US7)**: 7 tasks
+- **Phase 10 (Polish)**: 10 tasks
+- **Total**: 84 tasks
