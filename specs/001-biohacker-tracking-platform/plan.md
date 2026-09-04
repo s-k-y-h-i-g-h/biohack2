@@ -12,24 +12,26 @@ The existing `biohack` Rust CLI (with 27-substance database and 3 deterministic 
 
 ## Technical Context
 
-**Language/Version**: Swift 5.9+ (iOS); Kotlin 1.9+ (Android); Rust 2024 (shared engine)
+**Language/Version**: Swift 5.9+ (iOS); Kotlin 1.9+ (Android); TypeScript 5.x + SolidJS (web); Rust 2024 (shared engine)
 
 **Primary Dependencies**: 
 - Frontend iOS: Swift + SwiftUI
 - Frontend Android: Kotlin + Jetpack Compose
+- Frontend Web: TypeScript + SolidJS (reactive, local-first patterns)
 - Backend: Rust 2024 (shared engine with biohack CLI)
-- Database: SQLite (native on both platforms)
-- Cloud sync: Supabase or self-hosted (optional)
+- Database: SQLite (native on mobile); PostgreSQL (cloud backend)
+- Cloud sync: OAuth 2.0 / OIDC
 - BLE: CoreBluetooth (iOS), BleManager (Android) for wearable integration
 
 **Storage**: 
-- Local: SQLite (native on both platforms, ACID compliant)
-- Cloud: Encrypted PostgreSQL (optional, on-device primary source of truth)
+- Mobile local: SQLite (native, ACID compliant)
+- Web local: IndexedDB (offline-capable via service worker)
+- Cloud: Encrypted PostgreSQL (synced across all platforms)
 - Catalog: Embedded JSON seed (27 substances from biohack) + periodic updates via app releases
 
 **Testing**: Swift Concurrency tests (iOS); Kotlin coroutines + JUnit (Android); Rust test suite (backend/safety engine — reuse from biohack)
 
-**Target Platform**: iOS 16+ and Android 14+ native; optional web companion (PWA) for desktop access
+**Target Platform**: iOS 16+ and Android 14+ native (primary); web application (optional, cloud-synced) for desktop access
 
 **Project Type**: Native mobile application (iOS + Android) with optional web companion
 
@@ -53,10 +55,10 @@ The existing `biohack` Rust CLI (with 27-substance database and 3 deterministic 
 - Data at rest in cloud MUST be encrypted
 
 **Scale/Scope**:
-- Single user, local-first
+- Single user, local-first on mobile; cloud-synced across devices
 - 27-substance seed database (from biohack)
 - Native iOS (SwiftUI) and Android (Compose) apps
-- Optional web companion for desktop
+- Web application for desktop access (TypeScript + SolidJS)
 - Optional BLE integration for wearables (Oura, Whoop, Apple Watch)
 
 ## Constitution Check
@@ -67,9 +69,9 @@ The existing `biohack` Rust CLI (with 27-substance database and 3 deterministic 
 |-----------|------------|-------|
 | I. Open Source Foundation | ✅ | Reuse biohack CLI engine (Rust); select permissively licensed frontend frameworks |
 | II. Comprehensive Test Coverage | ✅ | Plan includes unit tests (Rust safety engine), integration tests (app flows), contract tests (API) |
-|| III. Smooth UX | ✅ | Native UI with SwiftUI/Compose; offline-first reduces latency; push notifications for alerts |
+|| III. Smooth UX | ✅ | Native UI (SwiftUI/Compose) + web app; offline-first on mobile; push notifications for alerts |
 || IV. Performance | ✅ | Performance targets defined in SCs; local-first ensures sub-second response times |
-|| V. Modular Architecture | ✅ | Clear separation: backend engine (Rust), iOS frontend (Swift), Android frontend (Kotlin), sync service (optional) |
+|| V. Modular Architecture | ✅ | Clear separation: backend engine (Rust), iOS frontend (Swift), Android frontend (Kotlin), web frontend (TypeScript), sync service (optional) |
 
 **Gates**: All gates pass. No violations requiring justification.
 
@@ -124,6 +126,15 @@ src/
 │   │   │   └── di/         # Hilt modules
 │   │   └── res/
 │   └── tests/
+├── web/                 # Web application (desktop access)
+│   ├── src/
+│   │   ├── components/  # LogForm, HistoryTable, VitalsChart, StackBuilder
+│   │   ├── pages/       # Dashboard, History, Vitals, Stacks, Insights
+│   │   ├── services/    # IndexedDBService, CloudSyncService, SafetyEngineService
+│   │   ├── workers/     # Safety check Web Worker
+│   │   └── App.tsx
+│   ├── public/
+│   └── tests/
 ├── sync/                # Optional: Cloud sync service (Rust backend)
 │   ├── src/
 │   │   ├── auth.rs      # OAuth flows
@@ -134,7 +145,7 @@ src/
     └── schema.rs
 ```
 
-**Structure Decision**: Hybrid architecture with Rust engine (reused from biohack CLI) for safety-critical logic, native iOS (SwiftUI) and Android (Jetpack Compose) frontends. Cloud sync is a separate optional module. This aligns with Constitution V (modular architecture for multiple frontends).
+**Structure Decision**: Hybrid architecture with Rust engine (reused from biohack CLI) for safety-critical logic, native iOS (SwiftUI) and Android (Jetpack Compose) frontends, plus TypeScript web app for desktop. Cloud sync is a separate optional module. This aligns with Constitution V (modular architecture for multiple frontends).
 
 ## Complexity Tracking
 
