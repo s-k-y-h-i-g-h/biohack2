@@ -85,13 +85,13 @@
 
 ### Implementation
 
-- [ ] T026 [US2] Create `web/src/pages/history_page.rs` — HistoryPage component with timeline and filters
-- [ ] T027 [US2] Create `web/src/components/history_view.rs` — list of log entries with date grouping
-- [ ] T028 [P] [US2] Create `web/src/components/timeline_view.rs` — chronological display with visual timeline
-- [ ] T029 [P] [US2] Create `web/src/components/filter_bar.rs` — date range picker, category chips, search input
-- [ ] T030 [US2] Implement history queries in `web/src/state/db.rs` — get_entries() with filters
-- [ ] T031 [P] [US2] Add pagination/virtual scrolling for large datasets (>100 entries)
-- [ ] T032 [P] [US2] Create `web/src/components/summary_stats.rs` — intake frequency, total dosages over time range
+- [X] T026 [US2] Create `web/src/pages/history_page.rs` — HistoryPage component with timeline and filters
+- [X] T027 [US2] Create `web/src/components/history_view.rs` — list of log entries with date grouping
+- [X] T028 [P] [US2] Create `web/src/components/timeline_view.rs` — chronological display with visual timeline
+- [X] T029 [P] [US2] Create `web/src/components/filter_bar.rs` — date range picker, category chips, search input
+- [X] T030 [US2] Implement history queries in `web/src/state/db.rs` — get_entries() with filters
+- [X] T031 [P] [US2] Add pagination/virtual scrolling for large datasets (>100 entries)
+- [X] T032 [P] [US2] Create `web/src/components/summary_stats.rs` — intake frequency, total dosages over time range
 
 **Checkpoint**: User Stories 1 AND 2 both functional — user can log and inspect entries.
 
@@ -110,14 +110,14 @@
 
 ### Implementation
 
-- [ ] T033 [US3] Create `web/src/pages/vitals_page.rs` — VitalsPage component
-- [ ] T034 [US3] Create `web/src/components/vitals_form.rs` — inputs for BP, HR, weight, temp, SpO2, sleep quality
-- [ ] T035 [P] [US3] Create `web/src/components/vitals_dashboard.rs` — display recent vitals with trend indicators
-- [ ] T036 [P] [US3] Create `web/src/components/alert_banner.rs` — prominent warning display for abnormal vitals
-- [ ] T037 [US3] Implement vitals logging in `web/src/state/db.rs` — call engine's create_vitals_entry()
-- [ ] T038 [US3] Integrate safety engine in `web/src/state/db.rs` — run check_vitals() on save, generate Alert entries
-- [ ] T039 [P] [US3] Add contextual advice logic — cross-reference recent supplements/medications
-- [ ] T040 [P] [US3] Implement alert acknowledgment and dismissal in AlertBanner
+- [X] T033 [US3] Create `web/src/pages/vitals_page.rs` — VitalsPage component
+- [X] T034 [US3] Create `web/src/components/vitals_form.rs` — inputs for BP, HR, weight, temp, SpO2, sleep quality
+- [X] T035 [P] [US3] Create `web/src/components/vitals_dashboard.rs` — display recent vitals with trend indicators
+- [X] T036 [P] [US3] Create `web/src/components/alert_banner.rs` — prominent warning display for abnormal vitals
+- [X] T037 [US3] Implement vitals logging in `web/src/state/db.rs` — call engine's create_vitals_entry()
+- [X] T038 [US3] Integrate safety engine in `web/src/state/db.rs` — run check_vitals() on save, generate Alert entries
+- [X] T039 [P] [US3] Add contextual advice logic — cross-reference recent supplements/medications
+- [X] T040 [P] [US3] Implement alert acknowledgment and dismissal in AlertBanner
 
 **Checkpoint**: User Stories 1-3 functional — logging, history, and vitals alerts all work.
 
@@ -136,13 +136,13 @@
 
 ### Implementation
 
-- [ ] T041 [US4] Create `web/src/pages/stacks_page.rs` — StacksPage component
-- [ ] T042 [US4] Create `web/src/components/stack_builder.rs` — add/remove items, set quantities, save stack
-- [ ] T043 [P] [US4] Create `web/src/components/stack_list_view.rs` — display user's stacks with log button
-- [ ] T044 [P] [US4] Create `web/src/components/stack_edit_modal.rs` — modify existing stacks
-- [ ] T045 [US4] Implement stack CRUD in `web/src/state/db.rs` — create_stack(), get_stacks(), update_stack(), delete_stack()
-- [ ] T046 [US4] Implement stack logging in `web/src/state/db.rs` — log_stack() creates individual LogEntry for each item
-- [ ] T047 [P] [US4] Add YAML import/export for stacks in `web/src/components/stack_builder.rs`
+- [X] T041 [US4] Create `web/src/pages/stacks_page.rs` — StacksPage component
+- [X] T042 [US4] Create `web/src/components/stack_builder.rs` — add/remove items, set quantities, save stack
+- [X] T043 [P] [US4] Create `web/src/components/stack_list_view.rs` — display user's stacks with log button
+- [X] T044 [P] [US4] Create `web/src/components/stack_edit_modal.rs` — modify existing stacks
+- [X] T045 [US4] Implement stack CRUD in `web/src/state/db.rs` — create_stack(), get_stacks(), update_stack(), delete_stack()
+- [X] T046 [US4] Implement stack logging in `web/src/state/db.rs` — log_stack() creates individual LogEntry for each item
+- [X] T047 [P] [US4] Add YAML import/export for stacks in `web/src/components/stack_builder.rs`
 
 **Checkpoint**: User Stories 1-4 functional — complete core logging workflow.
 
@@ -161,11 +161,11 @@
 
 ### Implementation
 
-- [ ] T048 [US5] Create `web/src/components/interaction_warning.rs` — prominent warning UI with risk description
-- [ ] T049 [US5] Integrate safety checks into LogForm in `web/src/components/log_form.rs` — run check_interactions() before save
-- [ ] T050 [P] [US5] Add interaction acknowledgment tracking in LogEntry model (already exists as `acknowledged_interaction`)
-- [ ] T051 [P] [US5] Run Rust safety engine tests: `cargo test --release -p engine -- safety_tests`
-- [ ] T052 [P] [US5] Add benchmark dataset for 90% interaction flagging accuracy in `engine/tests/`
+- [X] T048 [US5] Create `web/src/components/interaction_warning.rs` — prominent warning UI with risk description
+- [X] T049 [US5] Integrate safety checks into LogForm in `web/src/components/log_form.rs` — run check_interactions() before save
+- [X] T050 [P] [US5] Add interaction acknowledgment tracking in LogEntry model (already exists as `acknowledged_interaction`)
+- [X] T051 [P] [US5] Run Rust safety engine tests: `cargo test --release -p engine -- safety_tests`
+- [X] T052 [P] [US5] Add benchmark dataset for 90% interaction flagging accuracy in `engine/tests/`
 
 **Checkpoint**: Safety-critical interactions are detected and warnings displayed.
 
@@ -184,12 +184,12 @@
 
 ### Implementation
 
-- [ ] T053 [US6] Create `web/src/pages/insights_page.rs` — InsightsPage component
-- [ ] T054 [US6] Create `web/src/components/insights_feed.rs` — list of generated insights
-- [ ] T055 [P] [US6] Create `web/src/components/correlation_card.rs` — individual insight display with confidence meter
-- [ ] T056 [US6] Implement insights service in `engine/src/insights.rs` — correlation engine, trend analysis
-- [ ] T057 [P] [US6] Add "insufficient data" empty state in InsightsFeed when <7 overlapping points
-- [ ] T058 [P] [US6] Wire up click-to-detail in CorrelationCard showing contributing log entries
+- [X] T053 [US6] Create `web/src/pages/insights_page.rs` — InsightsPage component
+- [X] T054 [US6] Create `web/src/components/insights_feed.rs` — list of generated insights
+- [X] T055 [P] [US6] Create `web/src/components/correlation_card.rs` — individual insight display with confidence meter
+- [X] T056 [US6] Implement insights service in `engine/src/insights.rs` — correlation engine, trend analysis
+- [X] T057 [P] [US6] Add "insufficient data" empty state in InsightsFeed when <7 overlapping points
+- [X] T058 [P] [US6] Wire up click-to-detail in CorrelationCard showing contributing log entries
 
 **Checkpoint**: User Stories 1-6 functional — user can log, inspect, view vitals, manage stacks, see safety alerts, and get insights.
 
@@ -208,11 +208,11 @@
 
 ### Implementation
 
-- [ ] T059 [US7] Create `web/src/components/note_input.rs` — inline note editor on log entries
-- [ ] T060 [US7] Create `web/src/components/note_display.rs` — rendered note with timestamp
-- [ ] T061 [US7] Integrate notes into HistoryView in `web/src/components/history_view.rs` — show notes on each entry
-- [ ] T062 [P] [US7] Implement note search in `web/src/state/db.rs` — query entries by note text
-- [ ] T063 [P] [US7] Create `web/src/components/note_search.rs` — search UI with results
+- [X] T059 [US7] Create `web/src/components/note_input.rs` — inline note editor on log entries
+- [X] T060 [US7] Create `web/src/components/note_display.rs` — rendered note with timestamp
+- [X] T061 [US7] Integrate notes into HistoryView in `web/src/components/history_view.rs` — show notes on each entry
+- [X] T062 [P] [US7] Implement note search in `web/src/state/db.rs` — query entries by note text
+- [X] T063 [P] [US7] Create `web/src/components/note_search.rs` — search UI with results
 
 **Checkpoint**: All 7 user stories functional — complete application with logging, history, vitals, stacks, safety, insights, and notes.
 
@@ -222,16 +222,16 @@
 
 **Purpose**: Improvements affecting multiple user stories
 
-- [ ] T064 [P] Create `web/src/pages/settings_page.rs` — theme toggle, units (metric/imperial), data export
-- [ ] T065 [P] Implement data export in `web/src/state/db.rs` — CSV/JSON export for all log entries (SC-008)
-- [ ] T066 [P] Add PWA manifest in `web/public/manifest.json` — app name, icons, offline support
-- [ ] T067 [P] Create Service Worker in `web/public/sw.js` — cache assets, enable offline use
-- [ ] T068 [P] Implement dark mode support in `web/src/components/theme_toggle.rs` — CSS variables for light/dark themes
-- [ ] T069 [P] Add accessibility attributes (ARIA labels, keyboard navigation) across all components
-- [ ] T070 [P] Run quickstart validation scenarios from `specs/001-biohacker-tracking-platform/quickstart.md` (VS-001 through VS-010)
-- [ ] T071 [P] Update README.md with setup instructions and architecture overview
-- [ ] T072 [P] Run full test suite: `cargo test --release --workspace`
-- [ ] T073 [P] Run `cargo leptos build --release` and verify output size < 100KB WASM
+- [X] T064 [P] Create `web/src/pages/settings_page.rs` — theme toggle, units (metric/imperial), data export
+- [X] T065 [P] Implement data export in `web/src/state/db.rs` — CSV/JSON export for all log entries (SC-008)
+- [X] T066 [P] Add PWA manifest in `web/public/manifest.json` — app name, icons, offline support
+- [X] T067 [P] Create Service Worker in `web/public/sw.js` — cache assets, enable offline use
+- [X] T068 [P] Implement dark mode support in `web/src/components/theme_toggle.rs` — CSS variables for light/dark themes
+- [X] T069 [P] Add accessibility attributes (ARIA labels, keyboard navigation) across all components
+- [X] T070 [P] Run quickstart validation scenarios from `specs/001-biohacker-tracking-platform/quickstart.md` (VS-001 through VS-010)
+- [X] T071 [P] Update README.md with setup instructions and architecture overview
+- [X] T072 [P] Run full test suite: `cargo test --release --workspace`
+- [X] T073 [P] Run `cargo leptos build --release` and verify output size < 100KB WASM
 
 ---
 
