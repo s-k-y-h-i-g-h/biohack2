@@ -6,6 +6,11 @@ use crate::models::*;
 
 pub type DbPool = SqlitePool;
 
+/// Helper to parse DateTime<Utc> from RFC3339 string
+fn parse_datetime(s: &str) -> Option<DateTime<Utc>> {
+    Some(DateTime::parse_from_rfc3339(s).ok()?.with_timezone(&Utc))
+}
+
 /// Initializes the database schema. Call once at startup.
 pub async fn migrate(pool: &DbPool) -> anyhow::Result<()> {
     sqlx::query(
@@ -47,6 +52,12 @@ pub async fn migrate(pool: &DbPool) -> anyhow::Result<()> {
             source TEXT,
             version INTEGER NOT NULL DEFAULT 1
         )"
+    )
+    .execute(pool)
+    .await?;
+
+    sqlx::query(
+        "CREATE INDEX IF NOT EXISTS idx_catalog_category ON catalog_items(category)"
     )
     .execute(pool)
     .await?;
@@ -185,32 +196,37 @@ pub async fn get_log_entry(pool: &DbPool, id: &Uuid) -> anyhow::Result<Option<Lo
 
 pub async fn get_log_entries(pool: &DbPool, filter: &LogEntryFilter) -> anyhow::Result<Vec<LogEntry>> {
     let mut query = String::from("SELECT id, user_id, item_type, item_id, name, quantity, unit, route, timestamp, stack_id, notes, acknowledged_interaction, custom_fields FROM log_entries WHERE 1=1");
-    let mut params: Vec<sqlx::TypeKind> = Vec::new();
+    let mut bind_vars: Vec<String> = Vec::new();
 
     if let Some(ref uid) = filter.user_id {
         query.push_str(" AND user_id = ?");
-        params.push(uid.clone().into());
+        bind_vars.push(uid.clone());
     }
     if let Some(sid) = filter.stack_id {
         query.push_str(" AND stack_id = ?");
-        params.push(sid.to_string().into());
+        bind_vars.push(sid.to_string());
     }
     if let Some(ref start) = filter.start_date {
         query.push_str(" AND timestamp >= ?");
-        params.push(start.to_rfc3339().into());
+        bind_vars.push(start.to_rfc3339());
     }
     if let Some(ref end) = filter.end_date {
         query.push_str(" AND timestamp <= ?");
-        params.push(end.to_rfc3339().into());
+        bind_vars.push(end.to_rfc3339());
     }
     if let Some(cat) = &filter.category {
         query.push_str(" AND item_type = ?");
-        params.push(serde_json::to_string(cat)?.into());
+        bind_vars.push(serde_json::to_string(cat)?);
     }
 
     query.push_str(" ORDER BY timestamp DESC");
 
-    let rows = sqlx::query(&query).fetch_all(pool).await?;
+    let mut q = sqlx::query(&query);
+    for v in bind_vars {
+        q = q.bind(v);
+    }
+    let rows = q.fetch_all(pool).await?;
+
     Ok(rows.into_iter().map(row_to_log_entry).collect())
 }
 
@@ -324,19 +340,19 @@ pub async fn get_stack(pool: &DbPool, id: &Uuid) -> anyhow::Result<Option<Stack>
             .await?;
 
             let stack = Stack {
-                id: Uuid::parse_str(&r.get("id"))?,
-                user_id: r.get("user_id"),
-                name: r.get("name"),
-                description: r.try_get("description")?,
-                created_at: DateTime::<Utc>::from_rfc3339(&r.get::<String, _>("created_at"))?,
-                updated_at: DateTime::<Utc>::from_rfc3339(&r.get::<String, _>("updated_at"))?,
+                id: Uuid::parse_str(&r.try_get::<String, _>("id")?).unwrap_or_default(),
+                user_id: r.try_get::<String, _>("user_id")?,
+                name: r.try_get::<String, _>("name")?,
+                description: r.try_get::<Option<String>, _>("description")?,
+                created_at: parse_datetime(&r.try_get::<String, _>("created_at")?).unwrap_or_default(),
+                updated_at: parse_datetime(&r.try_get::<String, _>("updated_at")?).unwrap_or_default(),
                 items: items_rows
                     .into_iter()
                     .map(|row| StackItem {
-                        item_id: Uuid::parse_str(&row.get::<String, _>("item_id")).unwrap_or_default(),
-                        quantity: row.get("quantity"),
-                        unit: row.get("unit"),
-                        note: row.get("note"),
+                        item_id: Uuid::parse_str(&row.try_get::<String, _>("item_id").unwrap_or_default()).unwrap_or_default(),
+                        quantity: row.try_get::<Option<f64>, _>("quantity").unwrap_or(None),
+                        unit: row.try_get::<Option<String>, _>("unit").unwrap_or(None),
+                        note: row.try_get::<Option<String>, _>("note").unwrap_or(None),
                     })
                     .collect(),
             };
@@ -355,7 +371,7 @@ pub async fn get_stacks(pool: &DbPool, user_id: &str) -> anyhow::Result<Vec<Stac
 
     let mut stacks = Vec::new();
     for r in rows {
-        let id = Uuid::parse_str(&r.get::<String, _>("id"))?;
+        let id = Uuid::parse_str(&r.try_get::<String, _>("id")?).unwrap_or_default();
         let items_rows = sqlx::query(
             "SELECT item_id, quantity, unit, note FROM stack_items WHERE stack_id = ?1"
         )
@@ -365,18 +381,18 @@ pub async fn get_stacks(pool: &DbPool, user_id: &str) -> anyhow::Result<Vec<Stac
 
         stacks.push(Stack {
             id,
-            user_id: r.get("user_id"),
-            name: r.get("name"),
-            description: r.try_get("description")?,
-            created_at: DateTime::<Utc>::from_rfc3339(&r.get::<String, _>("created_at"))?,
-            updated_at: DateTime::<Utc>::from_rfc3339(&r.get::<String, _>("updated_at"))?,
+            user_id: r.try_get::<String, _>("user_id")?,
+            name: r.try_get::<String, _>("name")?,
+            description: r.try_get::<Option<String>, _>("description")?,
+            created_at: parse_datetime(&r.try_get::<String, _>("created_at")?).unwrap_or_default(),
+            updated_at: parse_datetime(&r.try_get::<String, _>("updated_at")?).unwrap_or_default(),
             items: items_rows
                 .into_iter()
                 .map(|row| StackItem {
-                    item_id: Uuid::parse_str(&row.get::<String, _>("item_id")).unwrap_or_default(),
-                    quantity: row.get("quantity"),
-                    unit: row.get("unit"),
-                    note: row.get("note"),
+                    item_id: Uuid::parse_str(&row.try_get::<String, _>("item_id").unwrap_or_default()).unwrap_or_default(),
+                    quantity: row.try_get::<Option<f64>, _>("quantity").unwrap_or(None),
+                    unit: row.try_get::<Option<String>, _>("unit").unwrap_or(None),
+                    note: row.try_get::<Option<String>, _>("note").unwrap_or(None),
                 })
                 .collect(),
         });
@@ -445,24 +461,28 @@ pub async fn create_vitals_entry(pool: &DbPool, entry: &VitalsEntry) -> anyhow::
 
 pub async fn get_vitals_entries(pool: &DbPool, filter: &VitalsEntryFilter) -> anyhow::Result<Vec<VitalsEntry>> {
     let mut query = String::from("SELECT id, user_id, timestamp, bp_systolic, bp_diastolic, heart_rate, weight, blood_glucose, temperature, spo2, hrv, sleep_quality, custom_metrics, notes FROM vitals_entries WHERE 1=1");
-    let mut params: Vec<String> = Vec::new();
+    let mut bind_vars: Vec<String> = Vec::new();
 
     if let Some(ref uid) = filter.user_id {
         query.push_str(" AND user_id = ?");
-        params.push(uid.clone());
+        bind_vars.push(uid.clone());
     }
     if let Some(ref start) = filter.start_date {
         query.push_str(" AND timestamp >= ?");
-        params.push(start.to_rfc3339());
+        bind_vars.push(start.to_rfc3339());
     }
     if let Some(ref end) = filter.end_date {
         query.push_str(" AND timestamp <= ?");
-        params.push(end.to_rfc3339());
+        bind_vars.push(end.to_rfc3339());
     }
 
     query.push_str(" ORDER BY timestamp DESC");
 
-    let rows = sqlx::query(&query).fetch_all(pool).await?;
+    let mut q = sqlx::query(&query);
+    for v in bind_vars {
+        q = q.bind(v);
+    }
+    let rows = q.fetch_all(pool).await?;
     Ok(rows.into_iter().map(row_to_vitals_entry).collect())
 }
 
@@ -482,7 +502,7 @@ pub async fn create_alert(pool: &DbPool, alert: &Alert) -> anyhow::Result<()> {
     .bind(alert.is_acknowledged as i32)
     .bind(alert.linked_entry_id.map(|u| u.to_string()))
     .bind(alert.generated_at.to_rfc3339())
-    .bind(alert.resolved_at.map(|d| d.to_rfc3339()))
+    .bind(alert.resolved_at.as_ref().map(|d| d.to_rfc3339()))
     .execute(pool)
     .await?;
     Ok(())
@@ -490,20 +510,24 @@ pub async fn create_alert(pool: &DbPool, alert: &Alert) -> anyhow::Result<()> {
 
 pub async fn get_alerts(pool: &DbPool, filter: &AlertFilter) -> anyhow::Result<Vec<Alert>> {
     let mut query = String::from("SELECT id, user_id, type, severity, message, recommendation, is_acknowledged, linked_entry_id, generated_at, resolved_at FROM alerts WHERE 1=1");
-    let mut params: Vec<String> = Vec::new();
+    let mut bind_vars: Vec<String> = Vec::new();
 
     if let Some(ref uid) = filter.user_id {
         query.push_str(" AND user_id = ?");
-        params.push(uid.clone());
+        bind_vars.push(uid.clone());
     }
     if let Some(ack) = filter.acknowledged {
         query.push_str(" AND is_acknowledged = ?");
-        params.push(ack.to_string());
+        bind_vars.push(ack.to_string());
     }
 
     query.push_str(" ORDER BY generated_at DESC");
 
-    let rows = sqlx::query(&query).fetch_all(pool).await?;
+    let mut q = sqlx::query(&query);
+    for v in bind_vars {
+        q = q.bind(v);
+    }
+    let rows = q.fetch_all(pool).await?;
     Ok(rows.into_iter().map(row_to_alert).collect())
 }
 
@@ -552,83 +576,83 @@ pub async fn get_insights(pool: &DbPool, user_id: &str) -> anyhow::Result<Vec<In
 
 // ── Row converters ────────────────────────────────────────────────────────────
 
-fn row_to_log_entry(row: &SqliteRow) -> LogEntry {
+fn row_to_log_entry(row: SqliteRow) -> LogEntry {
     LogEntry {
-        id: Uuid::parse_str(&row.get("id")).unwrap_or_default(),
-        user_id: row.get("user_id"),
-        item_type: serde_json::from_str(&row.get::<String, _>("item_type")).unwrap_or_default(),
-        item_id: row.get::<Option<String>, _>("item_id").and_then(|s| Uuid::parse_str(&s).ok()),
-        name: row.get("name"),
-        quantity: row.get("quantity"),
-        unit: row.get("unit"),
-        route: row.get::<Option<String>, _>("route").and_then(|s| serde_json::from_str(&s).ok()),
-        timestamp: DateTime::<Utc>::from_rfc3339(&row.get::<String, _>("timestamp")).unwrap_or_default(),
-        stack_id: row.get::<Option<String>, _>("stack_id").and_then(|s| Uuid::parse_str(&s).ok()),
-        notes: row.get("notes"),
-        acknowledged_interaction: row.get("acknowledged_interaction") != 0,
-        custom_fields: row.get::<Option<String>, _>("custom_fields").and_then(|s| serde_json::from_str(&s).ok()),
+        id: Uuid::parse_str(&row.try_get::<String, _>("id").unwrap_or_default()).unwrap_or_default(),
+        user_id: row.try_get::<String, _>("user_id").unwrap_or_default(),
+        item_type: serde_json::from_str(&row.try_get::<String, _>("item_type").unwrap_or_default()).unwrap_or_default(),
+        item_id: row.try_get::<Option<String>, _>("item_id").unwrap_or(None).and_then(|s| Uuid::parse_str(&s).ok()),
+        name: row.try_get::<String, _>("name").unwrap_or_default(),
+        quantity: row.try_get::<Option<f64>, _>("quantity").unwrap_or(None),
+        unit: row.try_get::<Option<String>, _>("unit").unwrap_or(None),
+        route: row.try_get::<Option<String>, _>("route").unwrap_or(None).and_then(|s| serde_json::from_str(&s).ok()),
+        timestamp: parse_datetime(&row.try_get::<String, _>("timestamp").unwrap_or_default()).unwrap_or_default(),
+        stack_id: row.try_get::<Option<String>, _>("stack_id").unwrap_or(None).and_then(|s| Uuid::parse_str(&s).ok()),
+        notes: row.try_get::<Option<String>, _>("notes").unwrap_or(None),
+        acknowledged_interaction: row.try_get::<i32, _>("acknowledged_interaction").unwrap_or(0) != 0,
+        custom_fields: row.try_get::<Option<String>, _>("custom_fields").unwrap_or(None).and_then(|s| serde_json::from_str(&s).ok()),
     }
 }
 
-fn row_to_catalog_item(row: &SqliteRow) -> CatalogItem {
+fn row_to_catalog_item(row: SqliteRow) -> CatalogItem {
     CatalogItem {
-        id: Uuid::parse_str(&row.get("id")).unwrap_or_default(),
-        name: row.get("name"),
-        category: serde_json::from_str(&row.get::<String, _>("category")).unwrap_or_default(),
-        dosage_range: row.get::<Option<String>, _>("dosage_range").and_then(|s| serde_json::from_str(&s).ok()),
-        half_life: row.get("half_life"),
-        contraindications: row.get::<Option<String>, _>("contraindications").and_then(|s| serde_json::from_str(&s).ok()).unwrap_or_default(),
-        warnings: row.get::<Option<String>, _>("warnings").and_then(|s| serde_json::from_str(&s).ok()).unwrap_or_default(),
-        is_custom: row.get("is_custom") != 0,
-        source: row.get("source"),
-        version: row.get("version"),
+        id: Uuid::parse_str(&row.try_get::<String, _>("id").unwrap_or_default()).unwrap_or_default(),
+        name: row.try_get::<String, _>("name").unwrap_or_default(),
+        category: serde_json::from_str(&row.try_get::<String, _>("category").unwrap_or_default()).unwrap_or_default(),
+        dosage_range: row.try_get::<Option<String>, _>("dosage_range").unwrap_or(None).and_then(|s| serde_json::from_str(&s).ok()),
+        half_life: row.try_get::<Option<String>, _>("half_life").unwrap_or(None),
+        contraindications: row.try_get::<Option<String>, _>("contraindications").unwrap_or(None).and_then(|s| serde_json::from_str(&s).ok()).unwrap_or_default(),
+        warnings: row.try_get::<Option<String>, _>("warnings").unwrap_or(None).and_then(|s| serde_json::from_str(&s).ok()).unwrap_or_default(),
+        is_custom: row.try_get::<i32, _>("is_custom").unwrap_or(0) != 0,
+        source: row.try_get::<Option<String>, _>("source").unwrap_or(None),
+        version: row.try_get::<i32, _>("version").unwrap_or(1),
     }
 }
 
-fn row_to_vitals_entry(row: &SqliteRow) -> VitalsEntry {
+fn row_to_vitals_entry(row: SqliteRow) -> VitalsEntry {
     VitalsEntry {
-        id: Uuid::parse_str(&row.get("id")).unwrap_or_default(),
-        user_id: row.get("user_id"),
-        timestamp: DateTime::<Utc>::from_rfc3339(&row.get::<String, _>("timestamp")).unwrap_or_default(),
-        bp_systolic: row.get("bp_systolic"),
-        bp_diastolic: row.get("bp_diastolic"),
-        heart_rate: row.get("heart_rate"),
-        weight: row.get("weight"),
-        blood_glucose: row.get("blood_glucose"),
-        temperature: row.get("temperature"),
-        spo2: row.get("spo2"),
-        hrv: row.get("hrv"),
-        sleep_quality: row.get::<Option<String>, _>("sleep_quality").and_then(|s| serde_json::from_str(&s).ok()),
-        custom_metrics: row.get::<Option<String>, _>("custom_metrics").and_then(|s| serde_json::from_str(&s).ok()),
-        notes: row.get("notes"),
+        id: Uuid::parse_str(&row.try_get::<String, _>("id").unwrap_or_default()).unwrap_or_default(),
+        user_id: row.try_get::<String, _>("user_id").unwrap_or_default(),
+        timestamp: parse_datetime(&row.try_get::<String, _>("timestamp").unwrap_or_default()).unwrap_or_default(),
+        bp_systolic: row.try_get::<Option<i32>, _>("bp_systolic").unwrap_or(None),
+        bp_diastolic: row.try_get::<Option<i32>, _>("bp_diastolic").unwrap_or(None),
+        heart_rate: row.try_get::<Option<i32>, _>("heart_rate").unwrap_or(None),
+        weight: row.try_get::<Option<f64>, _>("weight").unwrap_or(None),
+        blood_glucose: row.try_get::<Option<f64>, _>("blood_glucose").unwrap_or(None),
+        temperature: row.try_get::<Option<f64>, _>("temperature").unwrap_or(None),
+        spo2: row.try_get::<Option<i32>, _>("spo2").unwrap_or(None),
+        hrv: row.try_get::<Option<f64>, _>("hrv").unwrap_or(None),
+        sleep_quality: row.try_get::<Option<String>, _>("sleep_quality").unwrap_or(None).and_then(|s| serde_json::from_str(&s).ok()),
+        custom_metrics: row.try_get::<Option<String>, _>("custom_metrics").unwrap_or(None).and_then(|s| serde_json::from_str(&s).ok()),
+        notes: row.try_get::<Option<String>, _>("notes").unwrap_or(None),
     }
 }
 
-fn row_to_alert(row: &SqliteRow) -> Alert {
+fn row_to_alert(row: SqliteRow) -> Alert {
     Alert {
-        id: Uuid::parse_str(&row.get("id")).unwrap_or_default(),
-        user_id: row.get("user_id"),
-        alert_type: serde_json::from_str(&row.get::<String, _>("type")).unwrap_or_default(),
-        severity: serde_json::from_str(&row.get::<String, _>("severity")).unwrap_or_default(),
-        message: row.get("message"),
-        recommendation: row.get("recommendation"),
-        is_acknowledged: row.get("is_acknowledged") != 0,
-        linked_entry_id: row.get::<Option<String>, _>("linked_entry_id").and_then(|s| Uuid::parse_str(&s).ok()),
-        generated_at: DateTime::<Utc>::from_rfc3339(&row.get::<String, _>("generated_at")).unwrap_or_default(),
-        resolved_at: row.get::<Option<String>, _>("resolved_at").and_then(|s| DateTime::<Utc>::from_rfc3339(&s).ok()),
+        id: Uuid::parse_str(&row.try_get::<String, _>("id").unwrap_or_default()).unwrap_or_default(),
+        user_id: row.try_get::<String, _>("user_id").unwrap_or_default(),
+        alert_type: serde_json::from_str(&row.try_get::<String, _>("type").unwrap_or_default()).unwrap_or_default(),
+        severity: serde_json::from_str(&row.try_get::<String, _>("severity").unwrap_or_default()).unwrap_or_default(),
+        message: row.try_get::<String, _>("message").unwrap_or_default(),
+        recommendation: row.try_get::<Option<String>, _>("recommendation").unwrap_or(None),
+        is_acknowledged: row.try_get::<i32, _>("is_acknowledged").unwrap_or(0) != 0,
+        linked_entry_id: row.try_get::<Option<String>, _>("linked_entry_id").unwrap_or(None).and_then(|s| Uuid::parse_str(&s).ok()),
+        generated_at: parse_datetime(&row.try_get::<String, _>("generated_at").unwrap_or_default()).unwrap_or_default(),
+        resolved_at: row.try_get::<Option<String>, _>("resolved_at").unwrap_or(None).and_then(|s| parse_datetime(&s)),
     }
 }
 
-fn row_to_insight(row: &SqliteRow) -> Insight {
+fn row_to_insight(row: SqliteRow) -> Insight {
     Insight {
-        id: Uuid::parse_str(&row.get("id")).unwrap_or_default(),
-        user_id: row.get("user_id"),
-        insight_type: serde_json::from_str(&row.get::<String, _>("type")).unwrap_or_default(),
-        title: row.get("title"),
-        description: row.get("description"),
-        confidence: row.get("confidence"),
-        supporting_data_points: row.get("supporting_data_points"),
-        generated_at: DateTime::<Utc>::from_rfc3339(&row.get::<String, _>("generated_at")).unwrap_or_default(),
-        related_entry_ids: row.get::<Option<String>, _>("related_entry_ids").and_then(|s| serde_json::from_str(&s).ok()).unwrap_or_default(),
+        id: Uuid::parse_str(&row.try_get::<String, _>("id").unwrap_or_default()).unwrap_or_default(),
+        user_id: row.try_get::<String, _>("user_id").unwrap_or_default(),
+        insight_type: serde_json::from_str(&row.try_get::<String, _>("type").unwrap_or_default()).unwrap_or_default(),
+        title: row.try_get::<String, _>("title").unwrap_or_default(),
+        description: row.try_get::<String, _>("description").unwrap_or_default(),
+        confidence: row.try_get::<f64, _>("confidence").unwrap_or(0.0),
+        supporting_data_points: row.try_get::<i32, _>("supporting_data_points").unwrap_or(0),
+        generated_at: parse_datetime(&row.try_get::<String, _>("generated_at").unwrap_or_default()).unwrap_or_default(),
+        related_entry_ids: row.try_get::<Option<String>, _>("related_entry_ids").unwrap_or(None).and_then(|s| serde_json::from_str(&s).ok()).unwrap_or_default(),
     }
 }

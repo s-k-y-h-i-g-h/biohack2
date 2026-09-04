@@ -19,6 +19,7 @@ anyhow.workspace = true
 log = "0.4"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+sqlx = { workspace = true, features = ["runtime-tokio", "sqlite", "chrono", "uuid", "json", "macros", "migrate"] }
 
 [dev-dependencies]
 tempfile = "3.8"
