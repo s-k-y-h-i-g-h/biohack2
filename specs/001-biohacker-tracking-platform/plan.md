@@ -6,30 +6,32 @@
 
 ## Summary
 
-A local-first, offline-capable web application for biohackers to log supplements, medications, drugs, food, and actions. The application tracks vitals, flags dangerous drug interactions, provides clinical alerts (tachycardia, hypertension), surfaces insights and correlations, and supports stack/protocol logging. Cloud sync is optional with OAuth authentication; local-only mode requires no account. Data is encrypted at rest in the cloud, with full export/delete capabilities.
+A local-first, offline-capable native mobile application for iOS and Android for biohackers to log supplements, medications, drugs, food, and actions. The application tracks vitals, flags dangerous drug interactions, provides clinical alerts (tachycardia, hypertension), surfaces insights and correlations, and supports stack/protocol logging. Cloud sync is optional with OAuth authentication; local-only mode requires no account. Data is encrypted at rest in the cloud, with full export/delete capabilities.
 
 The existing `biohack` Rust CLI (with 27-substance database and 3 deterministic safety protocols) serves as the foundation — this application extends it with a richer UI, multi-platform support, and optional cloud features.
 
 ## Technical Context
 
-**Language/Version**: TypeScript 5.x (web frontend); Rust 2024 (local backend engine, shared with biohack CLI)
+**Language/Version**: Swift 5.9+ (iOS); Kotlin 1.9+ (Android); Rust 2024 (shared engine)
 
 **Primary Dependencies**: 
-- Frontend: SolidJS or Svelte (local-first, reactive UI)
-- Backend: Rust (shared engine with biohack CLI)
-- Local storage: IndexedDB (via `idb` or `drizzle-orm` with SQLite/WASM)
+- Frontend iOS: Swift + SwiftUI
+- Frontend Android: Kotlin + Jetpack Compose
+- Backend: Rust 2024 (shared engine with biohack CLI)
+- Database: SQLite (native on both platforms)
 - Cloud sync: Supabase or self-hosted (optional)
+- BLE: CoreBluetooth (iOS), BleManager (Android) for wearable integration
 
 **Storage**: 
-- Local-first: SQLite (via `better-sqlite3` for Electron/Tauri) or IndexedDB for web
+- Local: SQLite (native on both platforms, ACID compliant)
 - Cloud: Encrypted PostgreSQL (optional, on-device primary source of truth)
 - Catalog: Embedded JSON seed (27 substances from biohack) + periodic updates via app releases
 
-**Testing**: Vitest (frontend); Rust test suite (backend/safety engine — reuse from biohack)
+**Testing**: Swift Concurrency tests (iOS); Kotlin coroutines + JUnit (Android); Rust test suite (backend/safety engine — reuse from biohack)
 
-**Target Platform**: Mobile and desktop web browsers (SC-009), progressive web app (PWA) capable of offline use
+**Target Platform**: iOS 16+ and Android 14+ native; optional web companion (PWA) for desktop access
 
-**Project Type**: Web application with local-first architecture (offline-capable, cloud-sync optional)
+**Project Type**: Native mobile application (iOS + Android) with optional web companion
 
 **Performance Goals**:
 - Log item/action: <15 seconds from app open (SC-001)
@@ -39,6 +41,8 @@ The existing `biohack` Rust CLI (with 27-substance database and 3 deterministic 
 - Insights generation: ≥1 correlation with 7+ overlapping data points (SC-005)
 - Stack logging: <30 seconds for 10+ items (SC-006)
 - Export: <10 seconds for 5 years of daily entries (SC-008)
+- Push notification latency: <30 seconds from server to device (new)
+- BLE sync with wearables: <5 seconds per device (new)
 
 **Constraints**:
 - All user stories MUST work fully offline (confirmed in clarification)
@@ -50,9 +54,10 @@ The existing `biohack` Rust CLI (with 27-substance database and 3 deterministic 
 
 **Scale/Scope**:
 - Single user, local-first
-- 27-substance seed database (from biohack CLI)
-- Multiple frontend targets (web, potential desktop via Tauri)
-- Optional cloud sync for cross-device access
+- 27-substance seed database (from biohack)
+- Native iOS (SwiftUI) and Android (Compose) apps
+- Optional web companion for desktop
+- Optional BLE integration for wearables (Oura, Whoop, Apple Watch)
 
 ## Constitution Check
 
@@ -62,9 +67,9 @@ The existing `biohack` Rust CLI (with 27-substance database and 3 deterministic 
 |-----------|------------|-------|
 | I. Open Source Foundation | ✅ | Reuse biohack CLI engine (Rust); select permissively licensed frontend frameworks |
 | II. Comprehensive Test Coverage | ✅ | Plan includes unit tests (Rust safety engine), integration tests (app flows), contract tests (API) |
-| III. Smooth UX | ✅ | Reactivity-first frontend; offline-first reduces latency; PWA for smooth mobile experience |
-| IV. Performance | ✅ | Performance targets defined in SCs; local-first ensures sub-second response times |
-| V. Modular Architecture | ✅ | Clear separation: backend engine (Rust), frontend (TypeScript), sync service (optional) |
+|| III. Smooth UX | ✅ | Native UI with SwiftUI/Compose; offline-first reduces latency; push notifications for alerts |
+|| IV. Performance | ✅ | Performance targets defined in SCs; local-first ensures sub-second response times |
+|| V. Modular Architecture | ✅ | Clear separation: backend engine (Rust), iOS frontend (Swift), Android frontend (Kotlin), sync service (optional) |
 
 **Gates**: All gates pass. No violations requiring justification.
 
@@ -87,24 +92,49 @@ src/
 │   │   ├── log.rs       # LogEntry, Stack, Alert entities
 │   │   └── insights.rs  # Correlation engine
 │   └── tests/
-├── frontend/            # TypeScript: UI layer
-│   ├── src/
-│   │   ├── components/  # LogItem, HistoryView, VitalsDashboard, StackBuilder
-│   │   ├── pages/       # Dashboard, History, Insights, Settings
-│   │   ├── services/    # LocalStorageService, CloudSyncService (optional)
-│   │   └── App.tsx
+├── ios/                 # iOS native app
+│   ├── App/
+│   │   ├── Application/AppDelegate.swift
+│   │   ├── Scene/SceneDelegate.swift
+│   │   └── Resources/
+│   ├── Features/
+│   │   ├── Logging/     # LogItemView, LogForm, CatalogSearch
+│   │   ├── History/     # TimelineView, CalendarView, Filters
+│   │   ├── Vitals/      # VitalsDashboard, AlertBanner
+│   │   ├── Stacks/      # StackBuilder, StackListView
+│   │   └── Insights/    # InsightsFeed, CorrelationCard
+│   ├── Services/
+│   │   ├── StorageService.swift      # SQLite via SQLite.swift
+│   │   ├── CloudSyncService.swift    # OAuth, encrypted uploads
+│   │   └── BLEService.swift          # Wearable integration
+│   └── Tests/
+├── android/             # Android native app
+│   ├── app/src/main/
+│   │   ├── java/com/biohack/
+│   │   │   ├── features/
+│   │   │   │   ├── logging/      # LogFragment, CatalogViewModel
+│   │   │   │   ├── history/      # TimelineFragment, CalendarFragment
+│   │   │   │   ├── vitals/       # VitalsDashboardFragment
+│   │   │   │   ├── stacks/       # StackBuilderFragment
+│   │   │   │   └── insights/     # InsightsViewModel
+│   │   │   ├── services/
+│   │   │   │   ├── StorageService.kt    # Room/SQLite
+│   │   │   │   ├── CloudSyncService.kt  # Retrofit + OAuth
+│   │   │   │   └── BleService.kt        # BleManager
+│   │   │   └── di/         # Hilt modules
+│   │   └── res/
 │   └── tests/
-├── sync/                # Optional: Cloud sync service
+├── sync/                # Optional: Cloud sync service (Rust backend)
 │   ├── src/
 │   │   ├── auth.rs      # OAuth flows
-│   │   ├── encrypt.rs   # Client-side encryption before upload
+│   │   ├── encrypt.rs   # Client-side encryption
 │   │   └── server.rs    # REST API endpoints
 │   └── tests/
-└── shared/              # Shared types (Rust ↔ TypeScript bindings)
+└── shared/              # Shared types (Rust ↔ Swift ↔ Kotlin)
     └── schema.rs
 ```
 
-**Structure Decision**: Hybrid architecture with Rust engine (reused from biohack CLI) for safety-critical logic, TypeScript frontend for UI. Cloud sync is a separate optional module. This aligns with Constitution V (modular architecture for multiple frontends).
+**Structure Decision**: Hybrid architecture with Rust engine (reused from biohack CLI) for safety-critical logic, native iOS (SwiftUI) and Android (Jetpack Compose) frontends. Cloud sync is a separate optional module. This aligns with Constitution V (modular architecture for multiple frontends).
 
 ## Complexity Tracking
 
