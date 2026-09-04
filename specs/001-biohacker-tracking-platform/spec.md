@@ -165,7 +165,7 @@ A biohacker writes a note attached to a specific log entry: "Noticed increased a
 - **FR-013**: The system MUST display prominent warnings for dangerous interactions and require user acknowledgment before saving.
 - **FR-014**: The system MUST allow users to attach free-text notes to any log entry.
 - **FR-015**: The system MUST provide an insights dashboard that surfaces correlations between logged data and vital sign changes over time.
-- **FR-016**: The system MUST store user data in a user-specific data store that is accessible only by the authenticated user. Data syncs across the user's own devices if cloud sync is enabled; otherwise, data remains on-device only.
+- **FR-016**: The system MUST store user data in a user-specific data store that is accessible only by the authenticated user. Data syncs across the user's own devices if cloud sync is enabled; otherwise, data remains on-device only. [Deferred to v2: cloud sync will use OAuth authentication and encrypted storage.]
 - **FR-017**: The system MUST allow users to export their data in a standard format (CSV/JSON) for personal backup or analysis.
 - **FR-018**: The system MUST meet the performance target of loading the history view in under 2 seconds for up to 1,000 entries.
 - **FR-019**: The system MUST encrypt all cloud-stored user data at rest using strong encryption.
@@ -228,7 +228,7 @@ A biohacker writes a note attached to a specific log entry: "Noticed increased a
 - Clinically established reference ranges for vitals will be used as defaults; users can override with personal baselines.
 - Authentication uses OAuth for cloud service. Local-only mode (without cloud sync) requires no account.
 - All user stories must work fully offline using locally stored data; cloud sync is an optional background feature.
-- Cloud-stored data is encrypted at rest. Users can delete their cloud data at any time and can export cloud data to migrate to local-only mode.
+- Cloud-stored data is encrypted at rest. Users can delete their cloud data at any time and can export cloud data to migrate to local-only mode. [v2: cloud sync optional]
 - The application targets individuals engaged in personal biohacking, not clinical or medical use; it is not intended to replace professional medical advice.
 - v1 will support a single user per installation (no multi-user/team features).
 - Alerts and recommendations are informational only; the application does not provide medical diagnoses.
