@@ -223,7 +223,8 @@ impl SafetyEngine {
 
 /// Returns true if the log entry represents a serotonergic substance.
 fn is_serotonergic_item(entry: &LogEntry) -> bool {
-    matches!(entry.item_type, ItemType::Medication | ItemType::Drug)
+    (matches!(entry.item_type, ItemType::Medication | ItemType::Drug)
+        || matches!(entry.item_type, ItemType::Supplement))
         && (entry
             .name
             .to_lowercase()
@@ -234,7 +235,10 @@ fn is_serotonergic_item(entry: &LogEntry) -> bool {
             || entry.name.to_lowercase().contains("5-htp")
             || entry.name.to_lowercase().contains("tramadol")
             || entry.name.to_lowercase().contains("dextromethorphan")
-            || entry.name.to_lowercase().contains("st john"))
+            || entry.name.to_lowercase().contains("st john")
+            || entry.name.to_lowercase().contains("fluoxetine")
+            || entry.name.to_lowercase().contains("sertraline")
+            || entry.name.to_lowercase().contains("paroxetine"))
 }
 
 /// Runs all safety checks for a vitals entry.
@@ -278,7 +282,7 @@ mod tests {
     }
 
     #[test]
-    fn test_no_alerts_for_normal_vitals {
+    fn test_no_alerts_for_normal_vitals() {
         let engine = SafetyEngine::new();
         let vitals = make_vitals(Some(72), Some(120), Some(80));
         let result = engine.check_vitals(&vitals, &[]);
@@ -287,7 +291,7 @@ mod tests {
     }
 
     #[test]
-    fn test_tachycardia_alert_with_stimulant {
+    fn test_tachycardia_alert_with_stimulant() {
         let engine = SafetyEngine::new();
         let vitals = make_vitals(Some(110), None, None);
         let substances = vec![make_substance("Caffeine", true, false)];
@@ -298,7 +302,7 @@ mod tests {
     }
 
     #[test]
-    fn test_no_tachycardia_alert_without_stimulant {
+    fn test_no_tachycardia_alert_without_stimulant() {
         let engine = SafetyEngine::new();
         let vitals = make_vitals(Some(110), None, None);
         let substances = vec![make_substance("Melatonin", false, false)];
@@ -307,16 +311,16 @@ mod tests {
     }
 
     #[test]
-    fn test_hypertensive_urgency_alert {
+    fn test_hypertensive_urgency_alert() {
         let engine = SafetyEngine::new();
         let vitals = make_vitals(None, Some(185), Some(125));
         let result = engine.check_vitals(&vitals, &[]);
         assert_eq!(result.alerts.len(), 1);
-        assert!(result.alerts[0].message.contains("hypertensive"));
+        assert!(result.alerts[0].message.to_lowercase().contains("hypertensive"));
     }
 
     #[test]
-    fn test_no_hypertension_alert_for_normal_bp {
+    fn test_no_hypertension_alert_for_normal_bp() {
         let engine = SafetyEngine::new();
         let vitals = make_vitals(None, Some(120), Some(80));
         let result = engine.check_vitals(&vitals, &[]);
@@ -324,7 +328,7 @@ mod tests {
     }
 
     #[test]
-    fn test_serotonin_syndrome_detection {
+    fn test_serotonin_syndrome_detection() {
         let engine = SafetyEngine::new();
         let new_entry = LogEntry {
             id: uuid::Uuid::new_v4(),
@@ -379,7 +383,7 @@ mod tests {
     }
 
     #[test]
-    fn test_no_serotonin_alert_for_non_serotonergic {
+    fn test_no_serotonin_alert_for_non_serotonergic() {
         let engine = SafetyEngine::new();
         let new_entry = LogEntry {
             id: uuid::Uuid::new_v4(),
