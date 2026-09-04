@@ -155,9 +155,9 @@ A biohacker writes a note attached to a specific log entry: "Noticed increased a
 - **FR-003**: The system MUST allow users to create custom catalog entries for items or actions not yet in the system.
 - **FR-004**: The system MUST store all log entries with complete metadata (item reference, dosage, timestamp, user notes if any) in a user-specific data store.
 - **FR-005**: The system MUST provide a history view that displays all logged entries with filtering by date range, category, and specific items.
-- **FR-006**: The system MUST provide a catalog of items and actions with detailed information including dosage ranges, duration of action, and relevant warnings. The catalog is updated only as part of application releases; users receive updates when they upgrade the app.
+- **FR-006**: The system MUST provide a catalog of items and actions with detailed information including dosage ranges, duration of action, and relevant warnings. The catalog seeds from a database of 27 curated substances (dose ranges, half-lives, contraindications) carried forward from the `biohack` CLI and is expanded with additional items over time. Catalog updates ship with application releases.
 - **FR-007**: The system MUST allow users to log their vitals (blood pressure, heart rate, weight, blood glucose, sleep quality, etc.) with timestamp.
-- **FR-008**: The system MUST alert users when logged vitals fall outside clinically established reference ranges (e.g., hypertension, tachycardia) or the user's personal baseline if configured.
+- **FR-008**: The system MUST alert users when logged vitals fall outside clinically established reference ranges (e.g., hypertension, tachycardia) or the user's personal baseline if configured. The system MUST carry forward the deterministic safety protocols from the `biohack` CLI: stimulant tachycardia (HR > 100 bpm + stimulant within 4h), hypertensive urgency (SBP ≥ 180 or DBP ≥ 120), and serotonin syndrome risk (multiple serotonergic agents).
 - **FR-009**: The system MUST provide contextual advice for abnormal vitals by cross-referencing the user's logged supplements, medications, and actions.
 - **FR-010**: The system MUST allow users to create named stacks and protocols composed of multiple catalog items and actions.
 - **FR-011**: The system MUST allow users to log an entire stack with a single action, creating individual entries for each component.
@@ -223,6 +223,8 @@ A biohacker writes a note attached to a specific log entry: "Noticed increased a
 - Users are familiar with basic biohacking concepts and terminology (supplements, protocols, stacks).
 - The catalog of supplements, medications, and drugs is updated as part of application releases; users receive updated catalogs when they upgrade the app.
 - Drug interaction data will be sourced from publicly available databases (e.g., DrugBank, FDA data) or a licensed API.
+- A seed database of 27 curated substances (dose ranges, half-lives, contraindications) is carried forward from the `biohack` CLI.
+- The `biohack` CLI is a local-first Rust tool with 3 deterministic safety protocols (stimulant tachycardia, hypertensive urgency, serotonin syndrome risk). The new app should consider whether these protocols are extended, migrated, or implemented in parallel.
 - Clinically established reference ranges for vitals will be used as defaults; users can override with personal baselines.
 - Authentication uses OAuth for cloud service. Local-only mode (without cloud sync) requires no account.
 - All user stories must work fully offline using locally stored data; cloud sync is an optional background feature.
