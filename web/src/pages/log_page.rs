@@ -9,14 +9,17 @@ pub fn LogPage() -> impl IntoView {
     view! {
         <div>
             <h2>"Log Consumption"</h2>
+            <p>"Search and log your supplement intake."</p>
             <ul>
                 {catalog.iter().map(|item| {
-                    let name = item.name.clone();
-                    let dosage = item.dosage_range.as_ref()
-                        .map(|d| format!("{} {}", d.min, d.unit))
-                        .unwrap_or_default();
                     view! {
-                        <li>{format!("{} - {}", name, dosage)}</li>
+                        <li>
+                            <strong>{&item.name}</strong>
+                            " - "
+                            {item.dosage_range.as_ref()
+                                .map(|d| format!("{} {}", d.min, d.unit))
+                                .unwrap_or_default()}
+                        </li>
                     }
                 }).collect_view()}
             </ul>

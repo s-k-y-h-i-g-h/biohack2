@@ -11,15 +11,13 @@ name = "biohack2_web"
 path = "src/lib.rs"
 
 [dependencies]
-engine = { path = "../engine" }
 serde = { workspace = true, features = ["derive"] }
 serde_json = "1.0"
 chrono = { workspace = true, features = ["serde"] }
-uuid = { workspace = true, features = ["v4", "serde"] }
+uuid = { workspace = true, features = ["v4", "serde", "js"] }
 
 leptos = { version = "0.7", features = ["csr"] }
 leptos_router = "0.7"
-leptos_dom = "0.7"
 
 wasm-bindgen = "0.2"
 wasm-bindgen-futures = "0.4"
@@ -28,6 +26,16 @@ web-sys = { version = "0.3", features = ["console", "Window", "Document"] }
 
 gloo-storage = "0.3"
 gloo-utils = "0.2"
+getrandom = { version = "0.3", features = ["wasm_js"] }
+
+[[bin]]
+name = "biohack2_web"
+path = "src/main.rs"
+required-features = ["ssr"]
+
+[features]
+default = []
+ssr = ["leptos/ssr"]
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3"
