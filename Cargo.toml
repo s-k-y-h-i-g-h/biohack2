@@ -16,6 +16,7 @@ uuid = { version = "1.8", features = ["v4", "serde"] }
 thiserror = "1.0"
 anyhow = "1.0"
 sqlx = { version = "0.7", default-features = false, features = ["runtime-tokio", "sqlite", "chrono", "uuid", "json"] }
+getrandom = { version = "0.3", features = ["wasm_js"] }
 
 [workspace.lints.clippy]
 all = { level = "warn", priority = -1 }
