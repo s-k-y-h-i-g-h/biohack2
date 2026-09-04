@@ -4,9 +4,11 @@
 
 **Input**: Feature specification from `/specs/001-biohacker-tracking-platform/spec.md`
 
+**Note**: v1 is fully local-first with no cloud dependency. Cloud sync, mobile apps, and BLE are deferred to v2.
+
 ## Summary
 
-A local-first, offline-capable native mobile application for iOS and Android for biohackers to log supplements, medications, drugs, food, and actions. The application tracks vitals, flags dangerous drug interactions, provides clinical alerts (tachycardia, hypertension), surfaces insights and correlations, and supports stack/protocol logging. Cloud sync is optional with OAuth authentication; local-only mode requires no account. Data is encrypted at rest in the cloud, with full export/delete capabilities.
+A local-first, offline-capable web application for biohackers to log supplements, medications, drugs, food, and actions. The application tracks vitals, flags dangerous drug interactions, provides clinical alerts (tachycardia, hypertension), surfaces insights and correlations, and supports stack/protocol logging. Runs fully offline with no account required; cloud sync deferred to v2.
 
 The existing `biohack` Rust CLI (with 27-substance database and 3 deterministic safety protocols) serves as the foundation — this application extends it with a richer UI, multi-platform support, and optional cloud features.
 
