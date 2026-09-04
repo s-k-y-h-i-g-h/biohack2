@@ -41,7 +41,7 @@ A biohacker opens the application and logs that they took Vitamin D3 5000 IU, di
 
 ### User Story 2 - View and Inspect Logs (Priority: P2)
 
-A biohacker opens the application and browses their history. They can filter by date range, category (supplement, medication, drug, food, action), and specific items. They can see a timeline view and a calendar view of their logged entries.
+A biohacker opens the application and browses their history. They can filter by date range, category (supplement, medication, drug, food, action), and specific items. They can see a timeline view and a calendar view of their logged entries. All of this works fully offline using locally stored data; cloud sync is optional background.
 
 **Why this priority**: The ability to review past entries is essential for pattern recognition and protocol refinement. Without it, users cannot extract value from their logged data.
 
@@ -57,7 +57,7 @@ A biohacker opens the application and browses their history. They can filter by 
 
 ### User Story 3 - Vitals Logging with Abnormal Alerting (Priority: P3)
 
-A biohacker logs their blood pressure (130/85), heart rate (72 bpm), and weight (175 lbs). The system detects that blood pressure is above the user's personal baseline and triggers an alert with contextual advice derived from the user's log (e.g., "Your magnesium intake has been low this week — consider increasing it").
+A biohacker logs their blood pressure (130/85), heart rate (72 bpm), and weight (175 lbs). The system detects that blood pressure is in the hypertension range (using established clinical thresholds, not the user's personal baseline) and triggers an alert flagging the clinical condition, with contextual advice derived from the user's log (e.g., "Your magnesium intake has been low this week — consider increasing it"). Alerts are also triggered for other clinical conditions such as tachycardia.
 
 **Why this priority**: Vitals tracking and intelligent alerting converts raw data into actionable guidance, which is a key differentiator for this application. It turns passive logging into active health management.
 
@@ -66,7 +66,7 @@ A biohacker logs their blood pressure (130/85), heart rate (72 bpm), and weight 
 **Acceptance Scenarios**:
 
 1. **Given** the user has logged vitals within normal ranges, **When** they view their vitals dashboard, **Then** all values are displayed as normal with no alerts.
-2. **Given** the user logs a blood pressure reading above their personal threshold, **When** the entry is saved, **Then** an alert is generated with contextual advice referencing the user's supplement and activity log.
+2. **Given** the user logs a blood pressure reading in the clinical hypertension range, **When** the entry is saved, **Then** an alert is generated flagging the clinical condition with contextual advice referencing the user's supplement and activity log.
 3. **Given** the user dismisses an alert, **When** they log new vitals, **Then** the alert is updated or resolved based on the new values.
 
 ---
@@ -155,9 +155,9 @@ A biohacker writes a note attached to a specific log entry: "Noticed increased a
 - **FR-003**: The system MUST allow users to create custom catalog entries for items or actions not yet in the system.
 - **FR-004**: The system MUST store all log entries with complete metadata (item reference, dosage, timestamp, user notes if any) in a user-specific data store.
 - **FR-005**: The system MUST provide a history view that displays all logged entries with filtering by date range, category, and specific items.
-- **FR-006**: The system MUST provide a catalog of items and actions with detailed information including dosage ranges, duration of action, and relevant warnings.
+- **FR-006**: The system MUST provide a catalog of items and actions with detailed information including dosage ranges, duration of action, and relevant warnings. The catalog is updated only as part of application releases; users receive updates when they upgrade the app.
 - **FR-007**: The system MUST allow users to log their vitals (blood pressure, heart rate, weight, blood glucose, sleep quality, etc.) with timestamp.
-- **FR-008**: The system MUST alert users when logged vitals fall outside their personal baseline or clinically established reference ranges.
+- **FR-008**: The system MUST alert users when logged vitals fall outside clinically established reference ranges (e.g., hypertension, tachycardia) or the user's personal baseline if configured.
 - **FR-009**: The system MUST provide contextual advice for abnormal vitals by cross-referencing the user's logged supplements, medications, and actions.
 - **FR-010**: The system MUST allow users to create named stacks and protocols composed of multiple catalog items and actions.
 - **FR-011**: The system MUST allow users to log an entire stack with a single action, creating individual entries for each component.
@@ -168,6 +168,9 @@ A biohacker writes a note attached to a specific log entry: "Noticed increased a
 - **FR-016**: The system MUST store user data in a user-specific data store that is accessible only by the authenticated user. Data syncs across the user's own devices if cloud sync is enabled; otherwise, data remains on-device only.
 - **FR-017**: The system MUST allow users to export their data in a standard format (CSV/JSON) for personal backup or analysis.
 - **FR-018**: The system MUST meet the performance target of loading the history view in under 2 seconds for up to 1,000 entries.
+- **FR-019**: The system MUST encrypt all cloud-stored user data at rest using strong encryption.
+- **FR-020**: The system MUST allow users to delete their cloud data at any time, with confirmation.
+- **FR-021**: The system MUST allow users to export their complete cloud data to a standard format (CSV/JSON) to facilitate migration to local-only mode.
 
 ### Key Entities *(include if feature involves data)*
 
@@ -198,6 +201,16 @@ A biohacker writes a note attached to a specific log entry: "Noticed increased a
 - **SC-009**: The application is usable on both mobile and desktop web browsers.
 - **SC-010**: 80% of users who log a stack complete the logging flow without abandoning it.
 
+## Clarifications
+
+### Session 2026-09-04
+
+- Q: How should the catalog of supplements/medications/drugs be kept up to date? (FR-006) → A: Manual trigger only as part of application releases; catalog updates ship with app versions.
+- Q: What authentication model? (FR-016) → A: OAuth for cloud service; local-only mode requires no account.
+- Q: Offline behavior target? (NFR) → A: All user stories must work fully offline; cloud sync is optional background.
+- Q: Vital alert scope? (FR-008, FR-009) → A: Alerts for clinical conditions (tachycardia, hypertension) using established thresholds, not just personal baseline divergence.
+- Q: Cloud data lifecycle? (FR-016) → A: User can delete cloud data at any time. Cloud-stored data must be encrypted at rest. User can export cloud data to migrate to local-only mode.
+
 ## Assumptions
 
 <!--
@@ -208,10 +221,12 @@ A biohacker writes a note attached to a specific log entry: "Noticed increased a
 
 - Users have a smartphone or desktop browser and stable internet connectivity for cloud features.
 - Users are familiar with basic biohacking concepts and terminology (supplements, protocols, stacks).
-- The catalog of supplements, medications, and drugs will initially be populated from a reputable open-source database (e.g., SelfHacked, Examine.com, or similar), with a pathway for community contributions.
+- The catalog of supplements, medications, and drugs is updated as part of application releases; users receive updated catalogs when they upgrade the app.
 - Drug interaction data will be sourced from publicly available databases (e.g., DrugBank, FDA data) or a licensed API.
 - Clinically established reference ranges for vitals will be used as defaults; users can override with personal baselines.
-- Cross-device synchronization is desirable but not required for v1 — on-device storage with manual export is acceptable as an initial approach.
+- Authentication uses OAuth for cloud service. Local-only mode (without cloud sync) requires no account.
+- All user stories must work fully offline using locally stored data; cloud sync is an optional background feature.
+- Cloud-stored data is encrypted at rest. Users can delete their cloud data at any time and can export cloud data to migrate to local-only mode.
 - The application targets individuals engaged in personal biohacking, not clinical or medical use; it is not intended to replace professional medical advice.
 - v1 will support a single user per installation (no multi-user/team features).
 - Alerts and recommendations are informational only; the application does not provide medical diagnoses.
