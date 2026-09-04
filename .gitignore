@@ -1,0 +1,33 @@
+# Rust
+target/
+**/target/
+debug/
+release/
+*.rlib
+*.d
+*.o
+*.prof*
+*.rs.bk
+
+# WASM
+*.wasm
+*.js
+*.map
+docs/
+
+# Node.js (for any tooling)
+node_modules/
+dist/
+build/
+*.log
+.env*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.tmp
