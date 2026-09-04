@@ -6,6 +6,17 @@ use crate::models::*;
 
 pub type DbPool = SqlitePool;
 
+/// Helper to convert ItemType to string for database storage
+fn item_type_to_str(item_type: &ItemType) -> String {
+    match item_type {
+        ItemType::Supplement => "supplement".to_string(),
+        ItemType::Medication => "medication".to_string(),
+        ItemType::Drug => "drug".to_string(),
+        ItemType::Food => "food".to_string(),
+        ItemType::Action => "action".to_string(),
+    }
+}
+
 /// Helper to parse DateTime<Utc> from RFC3339 string
 fn parse_datetime(s: &str) -> Option<DateTime<Utc>> {
     Some(DateTime::parse_from_rfc3339(s).ok()?.with_timezone(&Utc))
@@ -167,7 +178,7 @@ pub async fn create_log_entry(pool: &DbPool, entry: &LogEntry) -> anyhow::Result
     )
     .bind(entry.id.to_string())
     .bind(&entry.user_id)
-    .bind(serde_json::to_string(&entry.item_type)?)
+    .bind(item_type_to_str(&entry.item_type))
     .bind(entry.item_id.map(|u| u.to_string()))
     .bind(&entry.name)
     .bind(entry.quantity)
@@ -251,13 +262,14 @@ pub async fn delete_log_entry(pool: &DbPool, id: &Uuid) -> anyhow::Result<()> {
 
 pub async fn seed_catalog(pool: &DbPool, items: &[CatalogItem]) -> anyhow::Result<()> {
     for item in items {
-        sqlx::query(
+        let cat_str = item_type_to_str(&item.category);
+        let result = sqlx::query(
             "INSERT OR IGNORE INTO catalog_items (id, name, category, dosage_range, half_life, contraindications, warnings, is_custom, source, version)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)"
         )
         .bind(item.id.to_string())
         .bind(&item.name)
-        .bind(serde_json::to_string(&item.category)?)
+        .bind(&cat_str)
         .bind(serde_json::to_string(&item.dosage_range)?)
         .bind(item.half_life.as_ref().map(|s| s.as_str()))
         .bind(serde_json::to_string(&item.contraindications)?)
@@ -266,7 +278,16 @@ pub async fn seed_catalog(pool: &DbPool, items: &[CatalogItem]) -> anyhow::Resul
         .bind(item.source.as_ref().map(|s| s.as_str()))
         .bind(item.version)
         .execute(pool)
-        .await?;
+        .await;
+        
+        match &result {
+            Ok(res) => {
+                println!("Inserted {}: rows_affected={}", item.name, res.rows_affected());
+            }
+            Err(e) => {
+                println!("Error inserting {}: {:?}", item.name, e);
+            }
+        }
     }
     Ok(())
 }
