@@ -1,4 +1,4 @@
-# Tasks: Biohacker Tracking Platform (v1)
+# Tasks: Biohacker Tracking Platform (Rust + Leptos)
 
 **Input**: Design documents from `/specs/001-biohacker-tracking-platform/`
 **Branch**: `001-biohacker-tracking-platform`
@@ -6,45 +6,47 @@
 
 ## Scope
 
-**v1 (in scope)**: Web application (TypeScript + SolidJS), local-first storage, 7 user stories
-**v2 (deferred)**: Cloud sync, iOS/Android native apps, BLE wearable integration
+**v1 (in scope)**: Rust engine + Leptos web app, SQLite WASM local storage, 7 user stories
+**v2 (deferred)**: Cloud sync, iOS/Android native apps (Dioxus), BLE wearable integration
 
-## Phase 1: Setup (Shared Infrastructure)
+## Phase 1: Setup (Workspace & Project Structure)
 
-**Purpose**: Project initialization and basic structure
+**Purpose**: Initialize Rust workspace with Leptos frontend
 
-- [ ] T001 Create monorepo root structure: package.json, tsconfig.json, vite.config.ts at repo root in `package.json`
-- [ ] T002 [P] Initialize Rust workspace in `engine/Cargo.toml` with members: `engine`, `shared`
-- [ ] T003 [P] Initialize web frontend in `web/package.json` with SolidJS, TypeScript, Vite dependencies
-- [ ] T004 [P] Create shared types crate in `shared/src/lib.rs` — define LogEntry, CatalogItem, Stack, VitalsEntry, Alert, Insight structs using `serde`
-- [ ] T005 Create `.gitignore` for Rust + Node.js artifacts in `.gitignore`
-- [ ] T006 [P] Configure ESLint + Prettier for web frontend in `web/.eslintrc.cjs` and `web/.prettierrc`
-- [ ] T007 [P] Configure Rust clippy + rustfmt in `engine/rustfmt.toml` and `.cargo/config.toml`
+- [ ] T001 Create root `Cargo.toml` workspace manifest with members: `engine`, `web`
+- [ ] T002 [P] Create `engine/Cargo.toml` — dependencies: serde, sqlx (sqlite runtime), chrono, uuid, leptos (optional for shared types)
+- [ ] T003 [P] Create `web/Cargo.toml` — dependencies: leptos, leptos_router, leptos_dom, sqlx (sqlite wasm), serde, serde_json, wasm-bindgen
+- [ ] T004 [P] Create `.gitignore` with Rust + WASM artifacts: `target/`, `*.wasm`, `*.js`, `*.map`, `node_modules/`, `.env*`
+- [ ] T005 Create root `README.md` with build instructions: `cargo leptos watch`
 
----
-
-## Phase 2: Foundational (Blocking Prerequisites)
-
-**Purpose**: Core infrastructure that MUST be complete before any user story can be implemented
-
-**Checkpoint**: No user story work can begin until this phase is complete.
-
-- [ ] T008 Create database schema migration in `web/src/db/migrations/001_initial.sql` — tables: log_entries, catalog_items, stacks, stack_items, vitals_entries, alerts, insights
-- [ ] T009 [P] Implement IndexedDB storage layer in `web/src/services/StorageService.ts` — wrap IndexedDB API with CRUD operations for all entities
-- [ ] T010 [P] Implement SQLite WASM binding layer in `web/src/services/SqlJsService.ts` — optional fallback using `sql.js` for desktop/electron
-- [ ] T011 Create database abstraction interface in `web/src/services/DatabaseService.ts` — unified API over IndexedDB/SQLite
-- [ ] T012 [P] Build catalog seed data in `web/src/data/catalog-seed-v1.json` — embed 27 substances from biohack CLI with dose ranges, half-lives, contraindications
-- [ ] T013 [P] Create safety protocol engine stub in `engine/src/safety.rs` — module declarations for stimulant tachycardia, hypertensive urgency, serotonin syndrome
-- [ ] T014 Create routing structure in `web/src/App.tsx` — routes: /, /log, /history, /vitals, /stacks, /insights, /settings
-- [ ] T015 Create layout shell component in `web/src/components/Layout.tsx` — navigation, responsive design, offline indicator
-- [ ] T016 [P] Configure error boundaries in `web/src/components/ErrorBoundary.tsx` — global error handling with user-friendly messages
-- [ ] T017 [P] Create logging utility in `web/src/utils/logger.ts` — structured logging with timestamps and context
-
-**Checkpoint**: Foundation ready — user story implementation can now begin.
+**Checkpoint**: Workspace compiles (`cargo check --workspace`)
 
 ---
 
-## Phase 3: User Story 1 - Log Consumption and Actions (Priority: P1) — MVP
+## Phase 2: Foundational (Engine + Storage)
+
+**Purpose**: Core Rust engine with SQLite storage — MUST complete before any UI work
+
+**⚠️ CRITICAL**: No user story work can begin until this phase is complete
+
+- [ ] T006 Create `engine/src/lib.rs` — public exports for all modules
+- [ ] T007 [P] Create `engine/src/models.rs` — define all Rust structs: LogEntry, CatalogItem, Stack, StackItem, VitalsEntry, Alert, Insight with serde derive
+- [ ] T008 [P] Create `engine/src/safety.rs` — 3 protocols: stimulant tachycardia, hypertensive urgency, serotonin syndrome (ported from biohack CLI)
+- [ ] T009 [P] Create `engine/src/catalog.rs` — 27-substance seed database from biohack CLI
+- [ ] T010 Create `engine/src/db.rs` — SQLite schema, migrations, CRUD operations using sqlx
+- [ ] T011 [P] Create `engine/tests/safety_tests.rs` — unit tests for 3 safety protocols
+- [ ] T012 [P] Create `engine/tests/integration_tests.rs` — end-to-end scenario tests
+- [ ] T013 Create `web/src/main.rs` — Leptos app entry point with router setup
+- [ ] T014 Create `web/src/router.rs` — Leptos Router with routes: /, /log, /history, /vitals, /stacks, /insights, /settings
+- [ ] T015 Create `web/src/app.rs` — App component with Layout shell and route matching
+- [ ] T016 [P] Create `web/src/components/layout.rs` — navigation shell, responsive design, offline indicator
+- [ ] T017 [P] Create `web/src/styles/global.css` — CSS variables for light/dark theme, responsive breakpoints
+
+**Checkpoint**: Engine tests pass (`cargo test -p engine --release`), web app builds (`cargo leptos build`)
+
+---
+
+## Phase 3: User Story 1 - Log Consumption and Actions (Priority: P1) 🎯 MVP
 
 **Goal**: Users can log supplements, medications, drugs, food, and actions with dosage, quantity, and timestamp. Custom items supported.
 
@@ -57,15 +59,14 @@
 
 ### Implementation
 
-- [ ] T018 [US1] Create CatalogItem model in `web/src/models/CatalogItem.ts` — type definitions, validation schemas
-- [ ] T019 [US1] Create LogEntry model in `web/src/models/LogEntry.ts` — type definitions, validation schemas
-- [ ] T020 [US1] Implement catalog service in `web/src/services/CatalogService.ts` — search, filter by category, load seed data
-- [ ] T021 [P] [US1] Create LogForm component in `web/src/components/LogForm.tsx` — search catalog, select item, input dosage/quantity/unit, submit
-- [ ] T022 [US1] Implement log service in `web/src/services/LogService.ts` — create, read, update log entries via DatabaseService
-- [ ] T023 [US1] Create LogSuccess component in `web/src/components/LogSuccess.tsx` — confirmation toast after successful log
-- [ ] T024 [US1] Wire up LogPage in `web/src/pages/LogPage.tsx` — mount LogForm, handle submission, navigate to history
-- [ ] T025 [P] [US1] Add loading states and error handling to LogForm
-- [ ] T026 [P] [US1] Implement offline indicator in Layout showing "Offline" when network unavailable
+- [ ] T018 [US1] Create `web/src/pages/log_page.rs` — LogPage component with catalog search and form
+- [ ] T019 [P] [US1] Create `web/src/components/log_form.rs` — search catalog, select item, input dosage/quantity/unit, submit
+- [ ] T020 [P] [US1] Create `web/src/state/store.rs` — Leptos signals for log form state (search query, selected item, dosage inputs)
+- [ ] T021 [US1] Implement log submission in `web/src/state/db.rs` — call engine's create_log_entry() via WASM
+- [ ] T022 [US1] Create `web/src/components/log_success.rs` — confirmation toast after successful log
+- [ ] T023 [P] [US1] Add loading states and error handling to LogForm
+- [ ] T024 [P] [US1] Implement offline indicator in Layout showing "Offline" when network unavailable
+- [ ] T025 [US1] Seed catalog on first launch: `engine/src/catalog.rs::seed_catalog()` called from `web/src/main.rs`
 
 **Checkpoint**: User Story 1 fully functional — user can log items independently.
 
@@ -73,7 +74,7 @@
 
 ## Phase 4: User Story 2 - View and Inspect Logs (Priority: P2)
 
-**Goal**: Users can browse their history with filtering by date range, category, and specific items. Timeline and calendar views available. Fully offline.
+**Goal**: Users can browse their history with filtering by date range, category, and specific items. Timeline view available. Fully offline.
 
 **Independent Test**: Log multiple items across days → open history → apply filters → verify entries display correctly.
 
@@ -84,14 +85,13 @@
 
 ### Implementation
 
-- [ ] T027 [US2] Create HistoryView component in `web/src/components/HistoryView.tsx` — list of log entries with date grouping
-- [ ] T028 [US2] Implement history service in `web/src/services/HistoryService.ts` — query entries with filters (date range, category, item)
-- [ ] T029 [P] [US2] Create TimelineView component in `web/src/components/TimelineView.tsx` — chronological display with visual timeline
-- [ ] T030 [P] [US2] Create CalendarView component in `web/src/components/CalendarView.tsx` — monthly calendar with log count badges
-- [ ] T031 [US2] Create FilterBar component in `web/src/components/FilterBar.tsx` — date range picker, category chips, search input
-- [ ] T032 [US2] Implement history page in `web/src/pages/HistoryPage.tsx` — mount TimelineView/CalendarView, Wire FilterBar
-- [ ] T033 [P] [US2] Add pagination/virtual scrolling for large datasets (>100 entries)
-- [ ] T034 [P] [US2] Create summary statistics component in `web/src/components/SummaryStats.tsx` — intake frequency, total dosages over time range
+- [ ] T026 [US2] Create `web/src/pages/history_page.rs` — HistoryPage component with timeline and filters
+- [ ] T027 [US2] Create `web/src/components/history_view.rs` — list of log entries with date grouping
+- [ ] T028 [P] [US2] Create `web/src/components/timeline_view.rs` — chronological display with visual timeline
+- [ ] T029 [P] [US2] Create `web/src/components/filter_bar.rs` — date range picker, category chips, search input
+- [ ] T030 [US2] Implement history queries in `web/src/state/db.rs` — get_entries() with filters
+- [ ] T031 [P] [US2] Add pagination/virtual scrolling for large datasets (>100 entries)
+- [ ] T032 [P] [US2] Create `web/src/components/summary_stats.rs` — intake frequency, total dosages over time range
 
 **Checkpoint**: User Stories 1 AND 2 both functional — user can log and inspect entries.
 
@@ -110,16 +110,14 @@
 
 ### Implementation
 
-- [ ] T035 [US3] Create VitalsEntry model in `web/src/models/VitalsEntry.ts` — type definitions, validation (BP 60-250, HR 20-300, etc.)
-- [ ] T036 [US3] Create vitals service in `web/src/services/VitalsService.ts` — CRUD for vitals entries
-- [ ] T037 [P] [US3] Implement clinical thresholds config in `web/src/config/clinical-thresholds.ts` — HR >100 tachycardia, SBP≥180/DBP≥120 hypertension, etc.
-- [ ] T038 [US3] Create VitalsForm component in `web/src/components/VitalsForm.tsx` — inputs for BP, HR, weight, temp, SpO2, sleep quality
-- [ ] T039 [US3] Create VitalsDashboard component in `web/src/components/VitalsDashboard.tsx` — display recent vitals with trend indicators
-- [ ] T040 [US3] Implement vitals alert service in `web/src/services/VitalsAlertService.ts` — check vitals against thresholds, generate Alert entries
-- [ ] T041 [P] [US3] Create AlertBanner component in `web/src/components/AlertBanner.tsx` — prominent warning display for abnormal vitals
-- [ ] T042 [US3] Create VitalsPage in `web/src/pages/VitalsPage.tsx` — mount VitalsForm and VitalsDashboard
-- [ ] T043 [P] [US3] Add contextual advice logic in `web/src/services/ContextualAdviceService.ts` — cross-reference recent supplements/medications
-- [ ] T044 [P] [US3] Implement alert acknowledgment and dismissal in AlertBanner
+- [ ] T033 [US3] Create `web/src/pages/vitals_page.rs` — VitalsPage component
+- [ ] T034 [US3] Create `web/src/components/vitals_form.rs` — inputs for BP, HR, weight, temp, SpO2, sleep quality
+- [ ] T035 [P] [US3] Create `web/src/components/vitals_dashboard.rs` — display recent vitals with trend indicators
+- [ ] T036 [P] [US3] Create `web/src/components/alert_banner.rs` — prominent warning display for abnormal vitals
+- [ ] T037 [US3] Implement vitals logging in `web/src/state/db.rs` — call engine's create_vitals_entry()
+- [ ] T038 [US3] Integrate safety engine in `web/src/state/db.rs` — run check_vitals() on save, generate Alert entries
+- [ ] T039 [P] [US3] Add contextual advice logic — cross-reference recent supplements/medications
+- [ ] T040 [P] [US3] Implement alert acknowledgment and dismissal in AlertBanner
 
 **Checkpoint**: User Stories 1-3 functional — logging, history, and vitals alerts all work.
 
@@ -138,14 +136,13 @@
 
 ### Implementation
 
-- [ ] T045 [US4] Create Stack model in `web/src/models/Stack.ts` — type definitions
-- [ ] T046 [US4] Create StackItem model in `web/src/models/StackItem.ts` — type definitions
-- [ ] T047 [US4] Implement stack service in `web/src/services/StackService.ts` — CRUD for stacks, batch log entries
-- [ ] T048 [P] [US4] Create StackBuilder component in `web/src/components/StackBuilder.tsx` — add/remove items, set quantities, save stack
-- [ ] T049 [P] [US4] Create StackListView component in `web/src/components/StackListView.tsx` — display user's stacks with log button
-- [ ] T050 [US4] Implement stack page in `web/src/pages/StacksPage.tsx` — mount StackBuilder and StackListView
-- [ ] T051 [P] [US4] Add YAML import/export for stacks in `web/src/services/YamlService.ts` — parse/save stack definitions
-- [ ] T052 [P] [US4] Create stack editing modal in `web/src/components/StackEditModal.tsx` — modify existing stacks
+- [ ] T041 [US4] Create `web/src/pages/stacks_page.rs` — StacksPage component
+- [ ] T042 [US4] Create `web/src/components/stack_builder.rs` — add/remove items, set quantities, save stack
+- [ ] T043 [P] [US4] Create `web/src/components/stack_list_view.rs` — display user's stacks with log button
+- [ ] T044 [P] [US4] Create `web/src/components/stack_edit_modal.rs` — modify existing stacks
+- [ ] T045 [US4] Implement stack CRUD in `web/src/state/db.rs` — create_stack(), get_stacks(), update_stack(), delete_stack()
+- [ ] T046 [US4] Implement stack logging in `web/src/state/db.rs` — log_stack() creates individual LogEntry for each item
+- [ ] T047 [P] [US4] Add YAML import/export for stacks in `web/src/components/stack_builder.rs`
 
 **Checkpoint**: User Stories 1-4 functional — complete core logging workflow.
 
@@ -164,14 +161,11 @@
 
 ### Implementation
 
-- [ ] T053 [US5] Implement safety engine in `engine/src/safety.rs` — 3 protocols: stimulant tachycardia, hypertensive urgency, serotonin syndrome
-- [ ] T054 [US5] Build safety engine WASM bindings in `engine/src/lib.rs` — expose check_interactions() and check_vitals() to JavaScript
-- [ ] T055 [P] [US5] Create SafetyEngineService in `web/src/services/SafetyEngineService.ts` — call WASM safety engine, handle results
-- [ ] T056 [US5] Create InteractionWarning component in `web/src/components/InteractionWarning.tsx` — prominent warning UI with risk description
-- [ ] T057 [US5] Integrate safety checks into LogForm in `web/src/components/LogForm.tsx` — run check before save, display warning if found
-- [ ] T058 [P] [US5] Add interaction acknowledgment tracking in LogEntry model (`acknowledgedInteraction` field)
-- [ ] T059 [P] [US5] Run Rust safety engine tests in `engine/tests/safety_tests.rs` — verify 3 protocols with test cases
-- [ ] T060 [P] [US5] Add benchmark dataset for 90% interaction flagging accuracy in `engine/tests/benchmark.rs`
+- [ ] T048 [US5] Create `web/src/components/interaction_warning.rs` — prominent warning UI with risk description
+- [ ] T049 [US5] Integrate safety checks into LogForm in `web/src/components/log_form.rs` — run check_interactions() before save
+- [ ] T050 [P] [US5] Add interaction acknowledgment tracking in LogEntry model (already exists as `acknowledged_interaction`)
+- [ ] T051 [P] [US5] Run Rust safety engine tests: `cargo test --release -p engine -- safety_tests`
+- [ ] T052 [P] [US5] Add benchmark dataset for 90% interaction flagging accuracy in `engine/tests/`
 
 **Checkpoint**: Safety-critical interactions are detected and warnings displayed.
 
@@ -190,13 +184,12 @@
 
 ### Implementation
 
-- [ ] T071 [US6] Create Insight model in `web/src/models/Insight.ts` — type definitions, validation (minimum 7 data points)
-- [ ] T072 [US6] Implement insights service in `web/src/services/InsightsService.ts` — correlation engine, trend analysis
-- [ ] T073 [P] [US6] Create InsightsFeed component in `web/src/components/InsightsFeed.tsx` — list of generated insights
-- [ ] T074 [P] [US6] Create CorrelationCard component in `web/src/components/CorrelationCard.tsx` — individual insight display with confidence meter
-- [ ] T075 [US6] Create InsightsPage in `web/src/pages/InsightsPage.tsx` — mount InsightsFeed, handle click-to-detail
-- [ ] T076 [P] [US6] Implement correlation algorithm in `web/src/services/CorrelationEngine.ts` — statistical analysis of log/vitals overlap
-- [ ] T077 [P] [US6] Add "insufficient data" empty state in InsightsFeed when <7 overlapping points
+- [ ] T053 [US6] Create `web/src/pages/insights_page.rs` — InsightsPage component
+- [ ] T054 [US6] Create `web/src/components/insights_feed.rs` — list of generated insights
+- [ ] T055 [P] [US6] Create `web/src/components/correlation_card.rs` — individual insight display with confidence meter
+- [ ] T056 [US6] Implement insights service in `engine/src/insights.rs` — correlation engine, trend analysis
+- [ ] T057 [P] [US6] Add "insufficient data" empty state in InsightsFeed when <7 overlapping points
+- [ ] T058 [P] [US6] Wire up click-to-detail in CorrelationCard showing contributing log entries
 
 **Checkpoint**: User Stories 1-6 functional — user can log, inspect, view vitals, manage stacks, see safety alerts, and get insights.
 
@@ -215,13 +208,11 @@
 
 ### Implementation
 
-- [ ] T078 [US7] Update LogEntry model in `web/src/models/LogEntry.ts` — add `notes` field (already exists, verify)
-- [ ] T079 [US7] Implement note service in `web/src/services/NoteService.ts` — CRUD for notes on log entries
-- [ ] T080 [P] [US7] Create NoteInput component in `web/src/components/NoteInput.tsx` — inline note editor on log entries
-- [ ] T081 [P] [US7] Create NoteDisplay component in `web/src/components/NoteDisplay.tsx` — rendered note with timestamp
-- [ ] T082 [US7] Integrate notes into HistoryView in `web/src/components/HistoryView.tsx` — show notes on each entry
-- [ ] T083 [P] [US7] Add full-text search for notes in `web/src/services/SearchService.ts` — index and query notes
-- [ ] T084 [P] [US7] Create NoteSearchComponent in `web/src/components/NoteSearch.tsx` — search UI with results
+- [ ] T059 [US7] Create `web/src/components/note_input.rs` — inline note editor on log entries
+- [ ] T060 [US7] Create `web/src/components/note_display.rs` — rendered note with timestamp
+- [ ] T061 [US7] Integrate notes into HistoryView in `web/src/components/history_view.rs` — show notes on each entry
+- [ ] T062 [P] [US7] Implement note search in `web/src/state/db.rs` — query entries by note text
+- [ ] T063 [P] [US7] Create `web/src/components/note_search.rs` — search UI with results
 
 **Checkpoint**: All 7 user stories functional — complete application with logging, history, vitals, stacks, safety, insights, and notes.
 
@@ -231,16 +222,16 @@
 
 **Purpose**: Improvements affecting multiple user stories
 
-- [ ] T095 [P] Create Settings page in `web/src/pages/SettingsPage.tsx` — theme toggle, units (metric/imperial), data export
-- [ ] T096 [P] Implement data export in `web/src/services/ExportService.ts` — CSV/JSON export for all log entries (SC-008)
-- [ ] T097 [P] Add PWA manifest in `web/public/manifest.json` — app name, icons, offline support
-- [ ] T098 [P] Create Service Worker in `web/src/service-worker.ts` — cache assets, enable offline use
-- [ ] T099 [P] Add responsive design breakpoints in `web/src/styles/global.css` — mobile, tablet, desktop layouts
-- [ ] T100 [P] Implement dark mode support in `web/src/components/ThemeToggle.tsx` — CSS variables for light/dark themes
-- [ ] T101 [P] Add accessibility attributes (ARIA labels, keyboard navigation) across all components
-- [ ] T102 [P] Run quickstart validation scenarios from `specs/001-biohacker-tracking-platform/quickstart.md` (VS-001 through VS-008)
-- [ ] T103 [P] Update README.md with setup instructions and architecture overview
-- [ ] T104 [P] Run full test suite and verify all tests pass: `npm test` and `cargo test --release`
+- [ ] T064 [P] Create `web/src/pages/settings_page.rs` — theme toggle, units (metric/imperial), data export
+- [ ] T065 [P] Implement data export in `web/src/state/db.rs` — CSV/JSON export for all log entries (SC-008)
+- [ ] T066 [P] Add PWA manifest in `web/public/manifest.json` — app name, icons, offline support
+- [ ] T067 [P] Create Service Worker in `web/public/sw.js` — cache assets, enable offline use
+- [ ] T068 [P] Implement dark mode support in `web/src/components/theme_toggle.rs` — CSS variables for light/dark themes
+- [ ] T069 [P] Add accessibility attributes (ARIA labels, keyboard navigation) across all components
+- [ ] T070 [P] Run quickstart validation scenarios from `specs/001-biohacker-tracking-platform/quickstart.md` (VS-001 through VS-010)
+- [ ] T071 [P] Update README.md with setup instructions and architecture overview
+- [ ] T072 [P] Run full test suite: `cargo test --release --workspace`
+- [ ] T073 [P] Run `cargo leptos build --release` and verify output size < 100KB WASM
 
 ---
 
@@ -249,10 +240,10 @@
 ### Phase Dependencies
 - **Phase 1 (Setup)**: No dependencies — start immediately
 - **Phase 2 (Foundational)**: Depends on Phase 1 — BLOCKS all user stories
-- **Phase 3-7 (User Stories)**: All depend on Phase 2 completion
+- **Phase 3-9 (User Stories)**: All depend on Phase 2 completion
   - User stories can proceed in parallel (if team capacity allows)
-  - Or sequentially in priority order (P1 → P2 → P3 → P4 → P5)
-- **Phase 8 (Polish)**: Depends on all desired user stories being complete
+  - Or sequentially in priority order (P1 → P2 → P3 → P4 → P5 → P6 → P7)
+- **Phase 10 (Polish)**: Depends on all desired user stories being complete
 
 ### User Story Dependencies
 - **US1 (P1)**: Can start after Phase 2 — no dependencies on other stories
@@ -260,6 +251,8 @@
 - **US3 (P3)**: Can start after Phase 2 — uses LogEntry from US1, generates Alert
 - **US4 (P4)**: Can start after Phase 2 — uses LogEntry from US1, creates Stack entries
 - **US5 (P5)**: Can start after Phase 2 — integrates with US1 safety checks
+- **US6 (P6)**: Can start after Phase 2 — uses LogEntry and VitalsEntry from US1/US3
+- **US7 (P7)**: Can start after Phase 2 — extends LogEntry with notes
 
 ### Parallel Opportunities
 - All Phase 1 tasks marked [P] can run in parallel
@@ -273,11 +266,10 @@
 
 ```bash
 # Launch all parallel tasks for US1 together:
-Task: "Create CatalogItem model in web/src/models/CatalogItem.ts"
-Task: "Create LogEntry model in web/src/models/LogEntry.ts"
-Task: "Create LogForm component in web/src/components/LogForm.tsx"
+Task: "Create LogForm component in web/src/components/log_form.rs"
+Task: "Create LogSuccess component in web/src/components/log_success.rs"
 Task: "Add loading states and error handling to LogForm"
-Task: "Implement offline indicator in Layout showing Offline when network unavailable"
+Task: "Implement offline indicator in Layout"
 ```
 
 ---
@@ -286,9 +278,9 @@ Task: "Implement offline indicator in Layout showing Offline when network unavai
 
 ### MVP First (User Story 1 Only)
 
-1. Complete Phase 1: Setup (T001-T007)
-2. Complete Phase 2: Foundational (T008-T017)
-3. Complete Phase 3: User Story 1 (T018-T026)
+1. Complete Phase 1: Setup (T001-T005)
+2. Complete Phase 2: Foundational (T006-T017)
+3. Complete Phase 3: User Story 1 (T018-T025)
 4. **STOP and VALIDATE**: Test US1 independently — log an item, verify it appears in history
 5. Deploy/demo if ready
 
@@ -300,7 +292,9 @@ Task: "Implement offline indicator in Layout showing Offline when network unavai
 4. Add US3 → Test independently → Deploy/Demo
 5. Add US4 → Test independently → Deploy/Demo
 6. Add US5 → Test independently → Deploy/Demo
-7. Each story adds value without breaking previous stories
+7. Add US6 → Test independently → Deploy/Demo
+8. Add US7 → Test independently → Deploy/Demo
+9. Each story adds value without breaking previous stories
 
 ### Parallel Team Strategy
 
@@ -328,14 +322,14 @@ With multiple developers:
 
 ## Total Task Count
 
-- **Phase 1 (Setup)**: 7 tasks
-- **Phase 2 (Foundational)**: 10 tasks
-- **Phase 3 (US1)**: 9 tasks
-- **Phase 4 (US2)**: 8 tasks
-- **Phase 5 (US3)**: 10 tasks
-- **Phase 6 (US4)**: 8 tasks
-- **Phase 7 (US5)**: 8 tasks
-- **Phase 8 (US6)**: 7 tasks
-- **Phase 9 (US7)**: 7 tasks
+- **Phase 1 (Setup)**: 5 tasks
+- **Phase 2 (Foundational)**: 12 tasks
+- **Phase 3 (US1)**: 8 tasks
+- **Phase 4 (US2)**: 7 tasks
+- **Phase 5 (US3)**: 8 tasks
+- **Phase 6 (US4)**: 7 tasks
+- **Phase 7 (US5)**: 5 tasks
+- **Phase 8 (US6)**: 6 tasks
+- **Phase 9 (US7)**: 5 tasks
 - **Phase 10 (Polish)**: 10 tasks
-- **Total**: 84 tasks
+- **Total**: 70 tasks

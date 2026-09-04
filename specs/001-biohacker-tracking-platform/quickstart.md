@@ -7,10 +7,10 @@ This guide provides runnable validation scenarios to prove the feature works end
 
 ## Prerequisites
 
-- Rust toolchain (for safety engine tests)
-- Node.js 18+ (for frontend)
-- PostgreSQL (for cloud sync tests, optional)
-- 27-substance seed database available
+- Rust toolchain (2024 edition) with `cargo-leptos` and `sqlx-cli`
+- SQLite3 for running migrations
+- Browser with OPFS support (Chrome 109+, Edge 109+, Firefox 118+)
+- 27-substance seed database available (from `biohack` CLI)
 
 ## Validation Scenarios
 
@@ -19,9 +19,11 @@ This guide provides runnable validation scenarios to prove the feature works end
 **Goal**: Verify users can log an item in under 15 seconds.
 
 **Setup**:
-1. Build frontend: `npm run build`
-2. Open app in browser
-3. Ensure at least one catalog item exists (seed database)
+1. Build engine: `cargo test --release -p engine`
+2. Build web: `cargo leptos build --release`
+3. Start dev server: `cargo leptos watch`
+4. Open app in browser at http://localhost:3000
+5. Ensure catalog is seeded (27 substances)
 
 **Steps**:
 1. Note current time
@@ -33,8 +35,7 @@ This guide provides runnable validation scenarios to prove the feature works end
 **Expected**:
 - Entry appears in history within 15 seconds
 - Entry shows correct name, dose, timestamp
-
-**Verify**: `git log --oneline -1` shows commit with entry data
+- SQLite file contains the entry (verify: `sqlite3 biohack.db "SELECT * FROM log_entries;"`)
 
 ---
 
@@ -43,7 +44,7 @@ This guide provides runnable validation scenarios to prove the feature works end
 **Goal**: Verify filtered history loads in under 2 seconds.
 
 **Setup**:
-1. Create test database with 1,000 log entries spanning 30 days
+1. Populate test database with 1,000 log entries spanning 30 days
 2. Build and start app
 
 **Steps**:
@@ -63,7 +64,7 @@ This guide provides runnable validation scenarios to prove the feature works end
 **Goal**: Verify interaction warnings display within 3 seconds and achieve 90%+ accuracy.
 
 **Setup**:
-1. Run Rust safety engine tests: `cargo test --release`
+1. Run Rust safety engine tests: `cargo test --release -p engine -- safety_tests`
 2. Ensure 27-substance seed is loaded
 
 **Steps**:
@@ -165,9 +166,8 @@ This guide provides runnable validation scenarios to prove the feature works end
 
 **Expected**:
 - All operations succeed
-- Data persists in local storage
+- Data persists in SQLite file (OPFS)
 - UI indicates "Offline" status
-- Reconnecting triggers sync (if cloud enabled)
 
 ---
 
@@ -188,39 +188,16 @@ This guide provides runnable validation scenarios to prove the feature works end
 **Expected**:
 - Export file downloads within 10 seconds
 - File contains all entries with complete metadata
-- File is valid JSON/CSV and can be re-imported
+- File is valid JSON and can be re-imported
 
 ---
 
-### VS-009: Cloud Sync & Encryption (FR-019, FR-020, FR-021)
-
-**Goal**: Verify cloud data is encrypted and deletable.
-
-**Setup**:
-1. Configure cloud sync with test OAuth provider
-2. Enable cloud mode
-
-**Steps**:
-1. Log an item
-2. Open cloud storage (debug mode or inspect headers)
-3. Verify stored payload is encrypted
-4. Delete cloud data via API
-5. Verify local data remains intact
-
-**Expected**:
-- Cloud-stored data is unreadable without decryption key
-- Deletion removes cloud copy only
-- Local data persists after cloud deletion
-- Export includes all cloud data in readable format
-
----
-
-### VS-010: Safety Protocols from biohack CLI (FR-008)
+### VS-009: Safety Protocols from biohack CLI (FR-008)
 
 **Goal**: Verify the 3 deterministic protocols from `biohack` CLI are implemented.
 
 **Setup**:
-1. Run `cargo test` in shared engine directory
+1. Run tests: `cargo test --release -p engine`
 2. Ensure tests pass for all 3 protocols
 
 **Steps**:
@@ -237,23 +214,43 @@ This guide provides runnable validation scenarios to prove the feature works end
 
 ---
 
+### VS-010: Type Safety Validation
+
+**Goal**: Verify that DB schema changes are caught at compile time.
+
+**Setup**:
+1. Modify a column type in `engine/src/db.rs`
+2. Attempt to build: `cargo build --release`
+
+**Steps**:
+1. Make a schema change (e.g., rename a column)
+2. Run `cargo build --release`
+3. Verify compile errors reference the changed type
+
+**Expected**:
+- Build fails with clear error messages pointing to affected code
+- No runtime type mismatches possible
+
+---
+
 ## Running All Validations
 
 ```bash
-# 1. Build and test Rust engine
-cd engine
-cargo test --release
+# 1. Run Rust engine tests
+cargo test --release -p engine
 
-# 2. Build frontend
-cd ../frontend
-npm run build
-npm test
+# 2. Build web frontend
+cargo leptos build --release
 
-# 3. Run E2E validation scenarios
-node scripts/run-validations.js --all
+# 3. Start dev server
+cargo leptos watch
 
-# 4. Generate coverage report
-npm run coverage
+# 4. Run validation scenarios in browser
+# (open http://localhost:3000 and follow VS-001 through VS-010)
+
+# 5. Verify SQLite data
+sqlite3 biohack.db ".tables"
+sqlite3 biohack.db "SELECT COUNT(*) FROM log_entries;"
 ```
 
 ## Pass Criteria

@@ -1,107 +1,112 @@
-# Research Report: Biohacker Tracking Platform
+# Research Report: Biohacker Tracking Platform (Leptos Pivot)
 
 **Date**: 2026-09-04
 **Feature**: 001-biohacker-tracking-platform
 
 ## Unknowns Resolved
 
-### 1. Local-first database for web (IndexedDB vs SQLite)
+### 1. Frontend Framework: Leptos vs SolidJS
 
-**Decision**: IndexedDB for pure web, with SQLite via Tauri/Electron as upgrade path for desktop.
-
-**Rationale**:
-- IndexedDB is built into browsers, requires no install, works fully offline
-- Web-based local-first pattern proven by CRDT libraries (Automerge, Yjs)
-- If desktop app needed later, SQLite (via `better-sqlite3` or Tauri) provides ACID guarantees
-- Migration path: keep schema abstraction layer so swapping backends is low-cost
-
-**Alternatives considered**:
-- **SQLite via WASM** (`sql.js`): Works in browser but no native persistence between sessions without Service Worker + Cache API workaround — rejected
-- **SQLite via Tauri**: Adds native dependency; viable if desktop-first strategy, but adds complexity for web-only MVP — deferred
-- **PouchDB/CouchDB-compatible**: Overkill for single-user local-first; introduces eventual consistency complexity — rejected
-
-### 2. Catalog update mechanism (app releases vs periodic refresh)
-
-**Decision**: Manual seed database updates shipped with app releases. No background refresh.
+**Decision**: Leptos (Rust + WASM).
 
 **Rationale**:
-- Simpler architecture: no background worker, no update server needed
-- Aligns with "updates ship with app versions" clarification
-- Prevents rate-limiting issues with external data sources
-- Seed database (27 substances from biohack) is versioned alongside app
+- Reuses `biohack` Rust engine directly — same types, no bridge code, no drift
+- End-to-end type safety: DB schema change errors UI at compile time
+- ~60KB total WASM bundle vs ~200KB TypeScript bundle
+- Fine-grained reactivity (signals) — same performance characteristics as SolidJS
+- Dioxus (Leptos cousin) compiles to iOS/Android natively — mobile path is trivial
+- `cargo-leptos watch` gives CSS HMR; WASM rebuilds only on file save
 
 **Alternatives considered**:
-- **Weekly background refresh**: Requires background service worker + error handling — added complexity without proportional benefit for v1
-- **On-demand manual refresh button**: User must remember to update; worse UX than app release cadence
+- **TypeScript + SolidJS**: Requires separate type definitions that drift from Rust engine; bridge layer for safety checks adds maintenance burden
+- **TypeScript + React**: Larger bundle, no engine reuse
+- **SvelteKit**: No Rust integration; separate type maintenance
 
-### 3. Auth model for cloud sync (OAuth vs custom)
+### 2. Local Storage: SQLite WASM via OPFS
 
-**Decision**: OAuth 2.0 / OIDC for cloud sync; local-only mode requires no auth.
+**Decision**: SQLite via `sqlite-wasm` with Origin Private File System (OPFS).
 
 **Rationale**:
-- OAuth is standard, battle-tested, supports PKCE for SPAs
-- Local-only mode is primary use case; cloud is opt-in
-- Enables potential future social features without re-architecting auth
+- Proven pattern in 2026 for local-first web apps
+- ACID transactions, full SQL support, indexes — no ORM to learn
+- OPFS provides persistent, large-capacity storage in the browser without user permission prompts
+- Single file simplifies backup/export (vs IndexedDB's multi-store model)
+- Leptos can query SQLite directly; no serialization bridge needed
+- PowerSync free tier available for v2 cloud sync (SQLite ↔ PostgreSQL automatic sync)
 
 **Alternatives considered**:
-- **Magic link email auth**: More friction for single-user local-first app; email delivery adds failure mode
-- **API key only**: No session management; less secure for cloud data
-- **Custom username/password**: Reinvents wheel; OAuth is better practice
+- **IndexedDB**: Native browser API, but no SQL; custom ORM needed; harder to query complex relationships
+- **WASM SQLite without OPFS**: IndexedDB-backed SQLite (`sql.js`) — works but OPFS is more robust for persistence
+- **Dexie.js (IndexedDB wrapper)**: Simpler API but still no native SQL
 
-### 4. Safety protocol implementation (extend biohack vs reimplement)
+### 3. Build Toolchain: cargo-leptos
 
-**Decision**: Reuse `biohack` Rust engine directly; embed as shared library or CLI call.
+**Decision**: `cargo-leptos` for WASM compilation, dev server, and HMR.
+
+**Rationale**:
+- Standard toolchain for Leptos apps
+- Fast WASM compilation (leveraging Rust's incremental builds)
+- CSS HMR without full rebuild
+- SSR support for SEO/prod builds
+- Integrates with `cargo test --release` for Rust engine tests
+
+### 4. Safety Protocol Reuse from biohack CLI
+
+**Decision**: Direct reuse of `biohack` engine via workspace dependency.
 
 **Rationale**:
 - `biohack` already has 3 tested safety protocols (stimulant tachycardia, hypertensive urgency, serotonin syndrome)
-- Reuse avoids duplication and ensures consistency
-- Rust engine can be called from frontend via Wasm or from a local sync service
+- Adding `biohack` as a workspace member in `Cargo.toml` gives zero-cost reuse
+- Same `CatalogItem` types flow from engine to DB to UI
+- Tests in `biohack/tests/` run against the same engine code
 
 **Alternatives considered**:
-- **Reimplement in TypeScript**: Duplicates logic; risk of divergence from tested Rust code
-- **Call `biohack` CLI**: Adds dependency on binary installation; breaks "no install" PWA goal
+- **Reimplement in web crate**: Duplicates logic; risk of divergence from tested Rust code
+- **Call `biohack` CLI**: Requires binary installation; breaks "no install" PWA goal
 
-### 5. Cloud encryption strategy
+### 5. Cloud Sync Strategy (v2)
 
-**Decision**: Client-side encryption before upload; server never sees plaintext.
+**Decision**: PowerSync free tier for in-browser SQLite ↔ PostgreSQL sync.
 
 **Rationale**:
-- Meets FR-019 (encrypt at rest) and FR-020/021 (delete/export)
-- User retains full control; even provider cannot read data
-- Standard pattern for privacy-first apps (Signal, ProtonMail)
+- Automatic conflict resolution
+- Works with existing SQLite schema
+- Free tier sufficient for single-user local-first apps
+- Client-side encryption before upload (meets FR-019/020/021)
 
 **Alternatives considered**:
-- **Server-side encryption with user key**: More complex key management; server still touches encrypted blobs
-- **End-to-end with shared keys**: Unnecessary for single-user; adds key distribution problem
+- **Custom sync service**: More control but more maintenance
+- **Firebase**: Vendor lock-in; overkill for single-user
 
 ## External Data Sources
 
-### Drug interaction database
+### Drug Interaction Database
 
-**Decision**: Source from DrugBank (public API) or build from FDA/EMA published data.
+**Decision**: Embed known interactions in Rust engine (compile-time checked).
 
 **Rationale**:
-- DrugBank has structured interaction data with DOIs for verification
-- FDA publications provide additional coverage for OTC supplements
-- Community-maintained databases (e.g., OpenFDA) are free but may have coverage gaps
+- Small dataset (interactions between 27 substances + common drugs)
+- Compile-time checked means no runtime parsing errors
+- Extensible: new interactions added as code changes, not data files
+- Disclaimer: "interaction data may be incomplete; consult a healthcare professional"
 
 **Known gaps**:
 - Natural product interactions less documented than pharmaceuticals
 - Some "folk knowledge" interactions not in academic literature
-- Always include disclaimer about data incompleteness
+- Examine.com API (800+ supplements) available for future expansion
 
-### Clinical reference ranges
+### Clinical Reference Ranges
 
-**Decision**: Use established clinical thresholds (not user baselines) as primary alert source.
+**Decision**: Hardcoded thresholds in `engine/src/safety.rs` (same as `biohack` CLI).
 
 **Rationale**:
-- Per clarification: alerts trigger on clinical conditions (tachycardia, hypertension), not just baseline deviation
-- Reference ranges from WHO, AHA, and other medical bodies are well-established
-- User-configured baselines are secondary (for tracking personal trends)
+- Well-established clinical thresholds (AHA, WHO)
+- Same values as existing tested biohack CLI
+- User-configurable baselines deferred to v2
 
 **Key thresholds**:
 - Tachycardia: HR > 100 bpm (adult, resting)
 - Hypertensive urgency: SBP ≥ 180 or DBP ≥ 120
-- Hypotension: SBP < 90 or DBP < 60 (for completeness)
+- Hypotension: SBP < 90 or DBP < 60
 - SpO2 < 95% (respiratory concern)
 - Temperature > 38°C or < 35°C (fever/hypothermia)
