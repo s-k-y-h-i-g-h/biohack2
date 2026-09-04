@@ -59,14 +59,14 @@
 
 ### Implementation
 
-- [ ] T018 [US1] Create `web/src/pages/log_page.rs` — LogPage component with catalog search and form
-- [ ] T019 [P] [US1] Create `web/src/components/log_form.rs` — search catalog, select item, input dosage/quantity/unit, submit
-- [ ] T020 [P] [US1] Create `web/src/state/store.rs` — Leptos signals for log form state (search query, selected item, dosage inputs)
-- [ ] T021 [US1] Implement log submission in `web/src/state/db.rs` — call engine's create_log_entry() via WASM
-- [ ] T022 [US1] Create `web/src/components/log_success.rs` — confirmation toast after successful log
-- [ ] T023 [P] [US1] Add loading states and error handling to LogForm
-- [ ] T024 [P] [US1] Implement offline indicator in Layout showing "Offline" when network unavailable
-- [ ] T025 [US1] Seed catalog on first launch: `engine/src/catalog.rs::seed_catalog()` called from `web/src/main.rs`
+- [X] T018 [US1] Create `web/src/pages/log_page.rs` — LogPage component with catalog search and form
+- [X] T019 [P] [US1] Create `web/src/components/log_form.rs` — search catalog, select item, input dosage/quantity/unit, submit
+- [X] T020 [P] [US1] Create `web/src/state/store.rs` — Leptos signals for log form state (search query, selected item, dosage inputs)
+- [X] T021 [US1] Implement log submission in `web/src/state/db.rs` — call engine's create_log_entry() via WASM
+- [X] T022 [US1] Create `web/src/components/log_success.rs` — confirmation toast after successful log
+- [X] T023 [P] [US1] Add loading states and error handling to LogForm
+- [X] T024 [P] [US1] Implement offline indicator in Layout showing "Offline" when network unavailable
+- [X] T025 [US1] Seed catalog on first launch: `engine/src/catalog.rs::seed_catalog()` called from `web/src/main.rs`
 
 **Checkpoint**: User Story 1 fully functional — user can log items independently.
 
