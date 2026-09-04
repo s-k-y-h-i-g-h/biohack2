@@ -1,11 +1,12 @@
 use leptos::*;
+use leptos::prelude::*;
 
 #[component]
-pub fn history_page() -> impl IntoView {
+pub fn HistoryPage() -> impl IntoView {
     view! {
         <div>
             <h2>"History"</h2>
-            <p>"No entries yet."</p>
+            <p>"No entries yet. Start logging!"</p>
         </div>
     }
 }
