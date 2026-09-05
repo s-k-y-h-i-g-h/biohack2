@@ -81,7 +81,7 @@ pub struct DosageRange {
 
 // ── Entities ──────────────────────────────────────────────────────────────────
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct LogEntry {
     pub id: Uuid,
     pub user_id: String,

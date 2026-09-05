@@ -15,24 +15,8 @@ pub fn log_page() -> impl IntoView {
     }
 }
 
-pub fn history_page() -> impl IntoView {
-    let entries = crate::state::db::get_log_entries().unwrap_or_default();
-    
-    view! {
-        <div class="page">
-            <h2>"History"</h2>
-            <crate::components::FilterBar />
-            <div class="history-container">
-                <div class="history-list">
-                    <crate::components::HistoryView entries=entries.clone() />
-                </div>
-                <div class="history-sidebar">
-                    <crate::components::SummaryStats entries=entries />
-                </div>
-            </div>
-        </div>
-    }
-}
+mod history_page;
+pub use history_page::HistoryPage as history_page;
 
 pub fn vitals_page() -> impl IntoView {
     let alerts = crate::state::db::get_alerts(&engine::models::AlertFilter { user_id: Some("local-device".to_string()), acknowledged: Some(false) }).unwrap_or_default();
