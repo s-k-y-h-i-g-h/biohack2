@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Biohack Tracker</title>
     <style>
+      * { box-sizing: border-box; margin: 0; padding: 0; }
       body {
         font-family: system-ui, -apple-system, sans-serif;
         max-width: 800px;
@@ -13,26 +14,80 @@
         background: #0a1628;
         color: #e8edf5;
       }
+      .app-container { max-width: 800px; margin: 0 auto; padding: 20px; }
+      h1 { color: #4f8ef7; margin-bottom: 20px; }
+      nav { margin-bottom: 20px; padding: 10px; background: #1a2744; border-radius: 8px; }
       nav a {
         color: #4f8ef7;
         text-decoration: none;
         margin-right: 15px;
+        padding: 5px 10px;
+        border-radius: 4px;
       }
-      nav a:hover {
-        text-decoration: underline;
-      }
-      ul {
-        list-style: none;
-        padding: 0;
-      }
+      nav a:hover { background: #2a3f5f; }
+      h2 { color: #4f8ef7; margin-bottom: 15px; }
+      ul { list-style: none; padding: 0; }
       li {
-        padding: 8px 0;
-        border-bottom: 1px solid #1e2d4a;
+        padding: 10px;
+        margin-bottom: 8px;
+        background: #1a2744;
+        border-radius: 4px;
+        border-left: 3px solid #4f8ef7;
       }
+      .card {
+        background: #1a2744;
+        padding: 20px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+      }
+      .message {
+        padding: 10px;
+        margin: 10px 0;
+        background: #2a4a3f;
+        border-radius: 4px;
+        color: #7ddf9e;
+      }
+      .error {
+        padding: 10px;
+        margin: 10px 0;
+        background: #4a2a2a;
+        border-radius: 4px;
+        color: #ff7f7f;
+      }
+      input, select, button {
+        padding: 10px;
+        margin: 5px 0;
+        border: 1px solid #2a3f5f;
+        border-radius: 4px;
+        background: #0a1628;
+        color: #e8edf5;
+        width: 100%;
+      }
+      button {
+        cursor: pointer;
+        background: #4f8ef7;
+        color: white;
+        border: none;
+      }
+      button:hover { background: #3a7bd5; }
+      button:disabled { background: #555; cursor: not-allowed; }
     </style>
   </head>
   <body>
-    <div id="root"></div>
-    <script src="/web.js" type="module"></script>
+    <script type="module">
+      import init from './biohack2_web.js';
+      
+      async function main() {
+        try {
+          await init();
+          console.log('WASM initialized successfully');
+        } catch (err) {
+          console.error('Failed to initialize:', err);
+          document.body.innerHTML = '<div style="color: red; padding: 20px;">Failed to initialize app: ' + err.message + '</div>';
+        }
+      }
+      
+      main();
+    </script>
   </body>
 </html>

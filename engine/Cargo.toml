@@ -19,7 +19,13 @@ anyhow.workspace = true
 log = "0.4"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-sqlx = { workspace = true, features = ["runtime-tokio", "sqlite", "chrono", "uuid", "json", "macros", "migrate"] }
+
+# SQLite (only for native builds, not WASM)
+sqlx = { workspace = true, features = ["runtime-tokio", "sqlite", "chrono", "uuid", "json", "macros", "migrate"], optional = true }
+
+[features]
+default = ["db"]
+db = ["sqlx"]
 
 [dev-dependencies]
 tempfile = "3.8"
