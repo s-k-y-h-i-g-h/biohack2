@@ -1,48 +1,47 @@
 use leptos::*;
 use leptos::prelude::*;
 use engine::models::LogEntry;
-use crate::components::{HistoryView, SummaryStats};
+use crate::components::HistoryView;
 use crate::state::db::get_log_entries;
-
-fn filter_entries(entries: Vec<LogEntry>, search: &str, category: &Option<String>) -> Vec<LogEntry> {
-    entries.into_iter().filter(|entry| {
-        // Category filter
-        if let Some(cat) = category {
-            let entry_cat = match entry.item_type {
-                engine::models::ItemType::Supplement => "supplement",
-                engine::models::ItemType::Medication => "medication",
-                engine::models::ItemType::Drug => "drug",
-                engine::models::ItemType::Food => "food",
-                engine::models::ItemType::Action => "action",
-            };
-            if entry_cat != cat.as_str() {
-                return false;
-            }
-        }
-        
-        // Search filter
-        if !search.is_empty() {
-            let q = search.to_lowercase();
-            if !entry.name.to_lowercase().contains(&q) {
-                return false;
-            }
-        }
-        
-        true
-    }).collect()
-}
 
 #[component]
 pub fn HistoryPage() -> impl IntoView {
     let search = RwSignal::new(String::new());
     let category = RwSignal::new(None::<String>);
     
-    // Use Memo for reactive filtering
-    let filtered_entries = create_memo(move |_| {
-        let search_val = search.get();
-        let category_val = category.get();
-        let entries = get_log_entries().unwrap_or_default();
-        filter_entries(entries, &search_val, &category_val)
+    // Create a derived signal using Memo with explicit tracking
+    let filtered_entries = create_memo({
+        let search = search.clone();
+        let category = category.clone();
+        move |_| {
+            let s = search.get();
+            let c = category.get();
+            let entries = get_log_entries().unwrap_or_default();
+            
+            entries.into_iter().filter(|entry| {
+                if let Some(cat) = &c {
+                    let entry_cat = match entry.item_type {
+                        engine::models::ItemType::Supplement => "supplement",
+                        engine::models::ItemType::Medication => "medication",
+                        engine::models::ItemType::Drug => "drug",
+                        engine::models::ItemType::Food => "food",
+                        engine::models::ItemType::Action => "action",
+                    };
+                    if entry_cat != cat.as_str() {
+                        return false;
+                    }
+                }
+                
+                if !s.is_empty() {
+                    let q = s.to_lowercase();
+                    if !entry.name.to_lowercase().contains(&q) {
+                        return false;
+                    }
+                }
+                
+                true
+            }).collect::<Vec<_>>()
+        }
     });
 
     view! {
@@ -52,7 +51,7 @@ pub fn HistoryPage() -> impl IntoView {
                 <input
                     type="text"
                     placeholder="Search..."
-                    prop:value=move || search.get()
+                    prop:value=search
                     on:input=move |e| {
                         search.set(event_target_value(&e));
                     }
@@ -149,9 +148,6 @@ pub fn HistoryPage() -> impl IntoView {
             <div class="history-container">
                 <div class="history-list">
                     <HistoryView entries=filtered_entries.get() />
-                </div>
-                <div class="history-sidebar">
-                    <SummaryStats entries=filtered_entries.get() />
                 </div>
             </div>
         </div>
