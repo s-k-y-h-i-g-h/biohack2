@@ -1,11 +1,6 @@
-pub struct AppState {
-    pub user_id: String,
-}
+pub mod db;
+pub mod stack_state;
+pub mod store;
 
-impl AppState {
-    pub fn new() -> Self {
-        Self {
-            user_id: "local-device".to_string(),
-        }
-    }
-}
+pub use db::*;
+pub use stack_state::*;
