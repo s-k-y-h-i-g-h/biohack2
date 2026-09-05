@@ -6,42 +6,41 @@ use crate::state::db::get_log_entries;
 
 #[component]
 pub fn HistoryPage() -> impl IntoView {
-    let search = RwSignal::new(String::new());
-    let category = RwSignal::new(None::<String>);
+    let search = create_rw_signal(String::new());
+    let category = create_rw_signal(None::<String>);
+    let filtered_entries = create_rw_signal(vec![]);
     
-    // Create a derived signal using Memo with explicit tracking
-    let filtered_entries = create_memo({
-        let search = search.clone();
-        let category = category.clone();
-        move |_| {
-            let s = search.get();
-            let c = category.get();
-            let entries = get_log_entries().unwrap_or_default();
+    // Use effect to update when filters change
+    create_effect(move |_| {
+        let s = search.get();
+        let c = category.get();
+        let entries = get_log_entries().unwrap_or_default();
+        
+        let result: Vec<LogEntry> = entries.into_iter().filter(|entry| {
+            if let Some(cat) = &c {
+                let entry_cat = match entry.item_type {
+                    engine::models::ItemType::Supplement => "supplement",
+                    engine::models::ItemType::Medication => "medication",
+                    engine::models::ItemType::Drug => "drug",
+                    engine::models::ItemType::Food => "food",
+                    engine::models::ItemType::Action => "action",
+                };
+                if entry_cat != cat.as_str() {
+                    return false;
+                }
+            }
             
-            entries.into_iter().filter(|entry| {
-                if let Some(cat) = &c {
-                    let entry_cat = match entry.item_type {
-                        engine::models::ItemType::Supplement => "supplement",
-                        engine::models::ItemType::Medication => "medication",
-                        engine::models::ItemType::Drug => "drug",
-                        engine::models::ItemType::Food => "food",
-                        engine::models::ItemType::Action => "action",
-                    };
-                    if entry_cat != cat.as_str() {
-                        return false;
-                    }
+            if !s.is_empty() {
+                let q = s.to_lowercase();
+                if !entry.name.to_lowercase().contains(&q) {
+                    return false;
                 }
-                
-                if !s.is_empty() {
-                    let q = s.to_lowercase();
-                    if !entry.name.to_lowercase().contains(&q) {
-                        return false;
-                    }
-                }
-                
-                true
-            }).collect::<Vec<_>>()
-        }
+            }
+            
+            true
+        }).collect();
+        
+        filtered_entries.set(result);
     });
 
     view! {
