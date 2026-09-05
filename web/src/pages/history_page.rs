@@ -9,8 +9,8 @@ pub fn HistoryPage() -> impl IntoView {
     let search = RwSignal::new(String::new());
     let category = RwSignal::new(None::<String>);
     
-    // Create a memo that will re-compute when search or category changes
-    let filtered_entries = create_memo(move |_| {
+    // Create a closure that filters entries (same pattern as log_form.rs)
+    let filtered_entries = move || {
         let s = search.get();
         let c = category.get();
         let entries = get_log_entries().unwrap_or_default();
@@ -38,7 +38,7 @@ pub fn HistoryPage() -> impl IntoView {
             
             true
         }).collect::<Vec<_>>()
-    });
+    };
 
     view! {
         <div class="page">
@@ -142,7 +142,13 @@ pub fn HistoryPage() -> impl IntoView {
             </div>
             <div class="history-container">
                 <div class="history-list">
-                    <HistoryView entries=filtered_entries.get() />
+                    // Use the same pattern as log_form.rs
+                    {move || {
+                        let entries = filtered_entries();
+                        view! {
+                            <HistoryView entries=entries />
+                        }
+                    }}
                 </div>
             </div>
         </div>
