@@ -20,6 +20,7 @@ fn app() -> impl IntoView {
     }
 }
 
-fn main() {
+#[wasm_bindgen::prelude::wasm_bindgen(start)]
+pub fn main() {
     mount_to_body(app);
 }
