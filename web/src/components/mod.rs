@@ -16,6 +16,7 @@ pub use offline_indicator::OfflineIndicator;
 pub use history_view::HistoryView;
 pub use timeline_view::TimelineView;
 pub use filter_bar::FilterBar;
+pub use filter_bar::HistoryFilter;
 pub use summary_stats::SummaryStats;
 pub use vitals_form::VitalsForm;
 pub use vitals_dashboard::VitalsDashboard;

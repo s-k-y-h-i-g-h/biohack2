@@ -1,18 +1,23 @@
 use leptos::*;
 use leptos::prelude::*;
 
-#[component]
-pub fn FilterBar() -> impl IntoView {
-    let search_query = RwSignal::new(String::new());
-    let selected_category = RwSignal::new(None::<String>);
+#[derive(Clone, Default)]
+pub struct HistoryFilter {
+    pub search: String,
+    pub category: Option<String>,
+}
 
+#[component]
+pub fn FilterBar(
+    filter: RwSignal<HistoryFilter>,
+) -> impl IntoView {
     let categories = vec![
         "All".to_string(),
-        "Supplement".to_string(),
-        "Medication".to_string(),
-        "Drug".to_string(),
-        "Food".to_string(),
-        "Action".to_string(),
+        "supplement".to_string(),
+        "medication".to_string(),
+        "drug".to_string(),
+        "food".to_string(),
+        "action".to_string(),
     ];
 
     view! {
@@ -20,8 +25,9 @@ pub fn FilterBar() -> impl IntoView {
             <input
                 type="text"
                 placeholder="Search..."
+                prop:value=move || filter.get().search
                 on:input=move |e| {
-                    search_query.set(event_target_value(&e));
+                    filter.update(|f| f.search = event_target_value(&e));
                 }
                 class="search-input"
                 aria-label="Search entries"
@@ -30,21 +36,38 @@ pub fn FilterBar() -> impl IntoView {
                 {categories.iter().map(|cat| {
                     let cat_for_class = cat.clone();
                     let cat_for_click = cat.clone();
-                    let cat_display = cat.clone();
+                    let cat_display = match cat.as_str() {
+                        "All" => "All",
+                        "supplement" => "Supplement",
+                        "medication" => "Medication",
+                        "drug" => "Drug",
+                        "food" => "Food",
+                        "action" => "Action",
+                        _ => cat,
+                    }.to_string();
 
                     view! {
                         <button
                             type="button"
                             class=move || {
-                                if selected_category.get() == Some(cat_for_class.clone()) {
-                                    "chip active"
+                                let current = filter.get().category.clone();
+                                let is_all = cat_for_class == "All";
+                                let is_active = if is_all {
+                                    current.is_none()
                                 } else {
-                                    "chip"
-                                }
+                                    current.as_ref() == Some(&cat_for_class)
+                                };
+                                if is_active { "chip active" } else { "chip" }
                             }
                             on:click=move |_| {
-                                selected_category.update(|v| {
-                                    *v = if v.as_ref() == Some(&cat_for_click) { None } else { Some(cat_for_click.clone()) };
+                                filter.update(|f| {
+                                    if cat_for_click == "All" {
+                                        f.category = None;
+                                    } else if f.category.as_ref() == Some(&cat_for_click) {
+                                        f.category = None;
+                                    } else {
+                                        f.category = Some(cat_for_click.clone());
+                                    }
                                 });
                             }
                             aria-label=format!("Filter by {}", cat_display.clone())

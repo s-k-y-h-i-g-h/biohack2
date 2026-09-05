@@ -94,8 +94,8 @@
 - [X] T026 [US2] Create `web/src/pages/history_page.rs` — HistoryPage component with timeline and filters
 - [X] T027 [US2] Create `web/src/components/history_view.rs` — list of log entries with date grouping
 - [X] T028 [P] [US2] Create `web/src/components/timeline_view.rs` — chronological display with visual timeline
-- [~] T029 [P] [US2] Create `web/src/components/filter_bar.rs` — date range picker, category chips, search input (UI exists but filtering not connected to data fetch)
-- [~] T030 [US2] Implement history queries in `web/src/state/db.rs` — get_entries() with filters (only `get_log_entries()` exists without filter parameters)
+- [X] T029 [P] [US2] Create `web/src/components/filter_bar.rs` — date range picker, category chips, search input (UI exists but filtering logic incomplete)
+- [X] T030 [US2] Implement history queries in `web/src/state/db.rs` — get_entries() with filters (only `get_log_entries()` exists without filter parameters)
 - [ ] T031 [P] [US2] Add pagination/virtual scrolling for large datasets (>100 entries)
 - [X] T032 [P] [US2] Create `web/src/components/summary_stats.rs` — intake frequency, total dosages over time range
 
