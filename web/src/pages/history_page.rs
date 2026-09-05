@@ -6,9 +6,40 @@ use crate::state::db::get_log_entries;
 
 #[component]
 pub fn HistoryPage() -> impl IntoView {
-    let search = create_rw_signal(String::new());
-    let category = create_rw_signal(None::<String>);
+    let search = RwSignal::new(String::new());
+    let category = RwSignal::new(None::<String>);
     
+    // Create a memo that will re-compute when search or category changes
+    let filtered_entries = create_memo(move |_| {
+        let s = search.get();
+        let c = category.get();
+        let entries = get_log_entries().unwrap_or_default();
+        
+        entries.into_iter().filter(|entry| {
+            if let Some(cat) = &c {
+                let entry_cat = match entry.item_type {
+                    engine::models::ItemType::Supplement => "supplement",
+                    engine::models::ItemType::Medication => "medication",
+                    engine::models::ItemType::Drug => "drug",
+                    engine::models::ItemType::Food => "food",
+                    engine::models::ItemType::Action => "action",
+                };
+                if entry_cat != cat.as_str() {
+                    return false;
+                }
+            }
+            
+            if !s.is_empty() {
+                let q = s.to_lowercase();
+                if !entry.name.to_lowercase().contains(&q) {
+                    return false;
+                }
+            }
+            
+            true
+        }).collect::<Vec<_>>()
+    });
+
     view! {
         <div class="page">
             <h2>"History"</h2>
@@ -16,7 +47,6 @@ pub fn HistoryPage() -> impl IntoView {
                 <input
                     type="text"
                     placeholder="Search..."
-                    prop:value=search
                     on:input=move |e| {
                         search.set(event_target_value(&e));
                     }
@@ -112,40 +142,7 @@ pub fn HistoryPage() -> impl IntoView {
             </div>
             <div class="history-container">
                 <div class="history-list">
-                    // Simple closure that reads signals - should auto-track
-                    {move || {
-                        let s = search.get();
-                        let c = category.get();
-                        let entries = get_log_entries().unwrap_or_default();
-                        
-                        let filtered: Vec<LogEntry> = entries.into_iter().filter(|entry| {
-                            if let Some(cat) = &c {
-                                let entry_cat = match entry.item_type {
-                                    engine::models::ItemType::Supplement => "supplement",
-                                    engine::models::ItemType::Medication => "medication",
-                                    engine::models::ItemType::Drug => "drug",
-                                    engine::models::ItemType::Food => "food",
-                                    engine::models::ItemType::Action => "action",
-                                };
-                                if entry_cat != cat.as_str() {
-                                    return false;
-                                }
-                            }
-                            
-                            if !s.is_empty() {
-                                let q = s.to_lowercase();
-                                if !entry.name.to_lowercase().contains(&q) {
-                                    return false;
-                                }
-                            }
-                            
-                            true
-                        }).collect();
-                        
-                        view! {
-                            <HistoryView entries=filtered />
-                        }
-                    }}
+                    <HistoryView entries=filtered_entries.get() />
                 </div>
             </div>
         </div>
