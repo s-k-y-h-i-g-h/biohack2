@@ -8,8 +8,8 @@ pub fn VitalsDashboard(recent_vitals: Vec<VitalsEntry>) -> impl IntoView {
 
     view! {
         <div class="vitals-dashboard">
+            <h3>"Recent Vitals"</h3>
             <Show when=move || has_vitals>
-                <h3>"Recent Vitals"</h3>
                 <div class="vitals-grid">
                     {recent_vitals.first().map(|v| {
                         let bp = format!("{}/{}", v.bp_systolic.unwrap_or(0), v.bp_diastolic.unwrap_or(0));

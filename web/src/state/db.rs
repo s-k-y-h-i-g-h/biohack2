@@ -175,6 +175,46 @@ pub fn delete_stack(id: &str) -> Result<(), String> {
     Ok(())
 }
 
+/// Log a stack by creating individual LogEntries for each item with the same timestamp.
+pub fn log_stack(stack: &Stack) -> Result<Vec<Uuid>, String> {
+    let timestamp = chrono::Utc::now();
+    let mut created_ids = Vec::new();
+    
+    for item in &stack.items {
+        // Look up the catalog item to get the name
+        let catalog_items = engine::catalog::seed_catalog();
+        let catalog_item = catalog_items.iter()
+            .find(|c| c.id == item.item_id);
+        
+        let name = catalog_item
+            .map(|c| c.name.clone())
+            .unwrap_or_else(|| "Unknown".to_string());
+        
+        let entry = LogEntry {
+            id: Uuid::new_v4(),
+            user_id: stack.user_id.clone(),
+            item_type: catalog_item
+                .map(|c| c.category.clone())
+                .unwrap_or(ItemType::Supplement),
+            item_id: Some(item.item_id),
+            name,
+            quantity: item.quantity,
+            unit: item.unit.clone(),
+            route: None,
+            timestamp,
+            stack_id: Some(stack.id),
+            notes: item.note.clone(),
+            acknowledged_interaction: false,
+            custom_fields: None,
+        };
+        
+        create_log_entry(&entry)?;
+        created_ids.push(entry.id);
+    }
+    
+    Ok(created_ids)
+}
+
 // Helper to convert string category to ItemType
 pub fn parse_item_type(s: &str) -> Result<ItemType, String> {
     match s.to_lowercase().as_str() {

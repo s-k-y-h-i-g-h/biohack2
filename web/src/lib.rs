@@ -89,8 +89,8 @@ fn app() -> impl IntoView {
                 <Show when=move || current_path() == "/stacks">
                     {pages::stacks_page()}
                 </Show>
-                <Show when=move || current_path() != "/history" && current_path() != "/vitals" && current_path() != "/stacks">
-                    {pages::log_page()}
+                <Show when=move || current_path() == "/" || current_path().is_empty()>
+                    {pages::LogPage()}
                 </Show>
             </main>
         </Layout>
