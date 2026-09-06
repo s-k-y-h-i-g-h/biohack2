@@ -6,20 +6,20 @@ use engine::models::LogEntry;
 pub fn HistoryView(
     entries: Vec<LogEntry>,
 ) -> impl IntoView {
-    // Group entries by date
-    let mut grouped: std::collections::HashMap<String, Vec<LogEntry>> = std::collections::HashMap::new();
-    for entry in &entries {
-        let date = entry.timestamp.format("%Y-%m-%d").to_string();
-        grouped.entry(date).or_default().push(entry.clone());
-    }
-
-    let mut dates: Vec<String> = grouped.keys().cloned().collect();
-    dates.sort();
-    dates.reverse();
-
     view! {
         <div class="history-view">
             {move || {
+                // Group entries by date
+                let mut grouped: std::collections::HashMap<String, Vec<LogEntry>> = std::collections::HashMap::new();
+                for entry in &entries {
+                    let date = entry.timestamp.format("%Y-%m-%d").to_string();
+                    grouped.entry(date).or_default().push(entry.clone());
+                }
+
+                let mut dates: Vec<String> = grouped.keys().cloned().collect();
+                dates.sort();
+                dates.reverse();
+
                 dates.iter().map(|date| {
                     let date_entries = grouped.get(date).cloned().unwrap_or_default();
                     let date_str = date.clone();
