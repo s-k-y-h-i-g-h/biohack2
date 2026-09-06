@@ -7,13 +7,21 @@ use crate::components::{VitalsForm, VitalsDashboard, AlertBanner};
 
 #[component]
 pub fn VitalsPage() -> impl IntoView {
-    let alerts = get_alerts(&AlertFilter { user_id: Some("local-device".to_string()), acknowledged: Some(false) }).unwrap_or_default();
+    let unacknowledged_alerts = RwSignal::new(Vec::<Alert>::new());
 
-    let current_alert = RwSignal::new(None::<String>);
+    // Load current unacknowledged alerts
+    let load_alerts = move || {
+        get_alerts(&AlertFilter {
+            user_id: Some("local-device".to_string()),
+            acknowledged: Some(false)
+        }).unwrap_or_default()
+    };
+    unacknowledged_alerts.set(load_alerts());
 
-    if let Some(first_alert) = alerts.first() {
-        current_alert.set(Some(first_alert.message.clone()));
-    }
+    // Refresh alerts after dismissal
+    let refresh_alerts = move || {
+        unacknowledged_alerts.set(load_alerts());
+    };
 
     let recent_vitals = Signal::derive(move || {
         get_vitals_entries(&Default::default()).unwrap_or_default()
@@ -33,7 +41,7 @@ pub fn VitalsPage() -> impl IntoView {
             name: log.name.clone(),
             category: log.item_type.clone(),
             taken_at: log.timestamp,
-            is_stimulant: false, // Would need catalog lookup for this
+            is_stimulant: false,
             is_serotonergic: false,
         }).collect();
 
@@ -46,20 +54,26 @@ pub fn VitalsPage() -> impl IntoView {
             }
         }
 
-        // Update the alert signal if there are new unacknowledged alerts
-        if !safety_result.alerts.is_empty() {
-            current_alert.set(Some(safety_result.alerts[0].message.clone()));
-        }
+        // Refresh alerts list
+        refresh_alerts();
     };
+
+    // Create a signal that maps Vec<Alert> to Option<String> for the alert banner
+    let alert_message = Signal::derive(move || {
+        unacknowledged_alerts.get_untracked().first().map(|a| a.message.clone())
+    });
 
     view! {
         <div class="page">
             <h2>"Vitals"</h2>
             <AlertBanner
-                alert=current_alert.read_only()
+                alert=alert_message
                 on_dismiss=Some(Callback::new(move |_| {
-                    // Clear the current alert
-                    current_alert.set(None);
+                    // Clear the alert and acknowledge in DB
+                    if let Some(alert) = unacknowledged_alerts.get_untracked().first() {
+                        let _ = acknowledge_alert(&alert.id);
+                    }
+                    refresh_alerts();
                 }))
             />
             <div class="vitals-container">
@@ -67,7 +81,7 @@ pub fn VitalsPage() -> impl IntoView {
                     <VitalsForm on_save=Callback::new(handle_save) />
                 </div>
                 <div class="vitals-dashboard-section">
-                    <VitalsDashboard recent_vitals=recent_vitals.get() />
+                    <VitalsDashboard recent_vitals=recent_vitals.get_untracked() />
                 </div>
             </div>
         </div>

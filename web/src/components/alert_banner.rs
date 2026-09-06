@@ -3,7 +3,7 @@ use leptos::prelude::*;
 
 #[component]
 pub fn AlertBanner(
-    alert: ReadSignal<Option<String>>,
+    alert: Signal<Option<String>>,
     on_dismiss: Option<Callback<()>>,
 ) -> impl IntoView {
     view! {
@@ -19,7 +19,7 @@ pub fn AlertBanner(
                         }
                     }
                     aria-label="Dismiss alert"
-                >"×"</button>
+                >"X"</button>
             </div>
         </Show>
     }

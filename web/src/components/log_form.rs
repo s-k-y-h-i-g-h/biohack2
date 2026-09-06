@@ -1,12 +1,12 @@
 use leptos::*;
 use leptos::prelude::*;
-use engine::models::CatalogItem;
-use engine::models::LogEntry;
+use engine::models::{LogEntry, CatalogItem};
 use crate::state::db::create_log_entry;
 
 #[component]
 pub fn LogForm(
     catalog: Vec<CatalogItem>,
+    on_save: Callback<LogEntry>,
 ) -> impl IntoView {
     let search_query = RwSignal::new(String::new());
     let selected_item = RwSignal::new(None::<CatalogItem>);
@@ -43,8 +43,8 @@ pub fn LogForm(
         loading.set(true);
         error.set(None);
 
-        if let Some(item) = selected_item.get() {
-            let entry = LogEntry {
+        let entry = if let Some(item) = selected_item.get() {
+            LogEntry {
                 id: uuid::Uuid::new_v4(),
                 user_id: "local-device".to_string(),
                 item_type: item.category.clone(),
@@ -58,22 +58,7 @@ pub fn LogForm(
                 notes: None,
                 acknowledged_interaction: false,
                 custom_fields: None,
-            };
-
-            if let Err(e) = create_log_entry(&entry) {
-                error.set(Some(format!("Failed to save: {}", e)));
-                loading.set(false);
-                return;
             }
-        
-            success.set(true);
-            selected_item.set(None);
-            quantity.set(String::new());
-            unit.set(String::new());
-            search_query.set(String::new());
-            set_timeout(move || {
-                success.set(false);
-            }, std::time::Duration::from_millis(2000));
         } else if show_custom.get() && !custom_name.get().is_empty() {
             let cat = custom_category.get();
             let item_type = match cat.as_str() {
@@ -83,7 +68,7 @@ pub fn LogForm(
                 "action" => engine::models::ItemType::Action,
                 _ => engine::models::ItemType::Supplement,
             };
-            let entry = LogEntry {
+            LogEntry {
                 id: uuid::Uuid::new_v4(),
                 user_id: "local-device".to_string(),
                 item_type,
@@ -97,21 +82,25 @@ pub fn LogForm(
                 notes: None,
                 acknowledged_interaction: false,
                 custom_fields: None,
-            };
-
-            if let Err(e) = create_log_entry(&entry) {
-                error.set(Some(format!("Failed to save: {}", e)));
-            } else {
-                success.set(true);
-                custom_name.set(String::new());
-                show_custom.set(false);
-                set_timeout(move || {
-                    success.set(false);
-                }, std::time::Duration::from_millis(2000));
             }
         } else {
             error.set(Some("Please select or create an item".to_string()));
-        }
+            loading.set(false);
+            return;
+        };
+
+        // Call the callback (parent handles interaction checking)
+        on_save.run(entry);
+
+        success.set(true);
+        selected_item.set(None);
+        quantity.set(String::new());
+        unit.set(String::new());
+        search_query.set(String::new());
+        set_timeout(move || {
+            success.set(false);
+        }, std::time::Duration::from_millis(2000));
+
         loading.set(false);
     };
 
@@ -132,16 +121,17 @@ pub fn LogForm(
                     filtered_catalog().into_iter().map(|item| {
                         let name = item.name.clone();
                         let dosage_text = item.dosage_range.as_ref()
-                            .map(|d| format!("{}–{} {}", d.min, d.max, d.unit))
+                            .map(|d| format!("{}-{} {}", d.min, d.max, d.unit))
                             .unwrap_or_else(|| "N/A".to_string());
                         let item_for_select = item.clone();
-                        let name_for_closure = name.clone();
+                        let name_for_class = name.clone();
+                        let name_for_label = name.clone();
 
                         view! {
                             <button
                                 type="button"
                                 class=move || {
-                                    let selected = name_for_closure.clone();
+                                    let selected = name_for_class.clone();
                                     if selected_item.get().as_ref().map(|s| s.name == selected).unwrap_or(false) {
                                         "catalog-item selected"
                                     } else {
@@ -149,9 +139,9 @@ pub fn LogForm(
                                     }
                                 }
                                 on:click=move |_| { handle_select(item_for_select.clone()) }
-                                aria-label=format!("Select {}", name.clone())
+                                aria-label=format!("Select {}", name_for_label)
                             >
-                                <span class="catalog-name">{name.clone()}</span>
+                                <span class="catalog-name">{name}</span>
                                 <span class="catalog-dosage">{dosage_text}</span>
                             </button>
                         }
@@ -202,9 +192,9 @@ pub fn LogForm(
                 </div>
             </Show>
 
-            <Show when=move || selected_item.get().is_some()>
+            <Show when=move || selected_item.get().is_some() || show_custom.get()>
                 <div class="form-section">
-                    <h3>"Log: " {move || selected_item.get().map(|i| i.name.clone()).unwrap_or_default()}</h3>
+                    <h3>"Log: " {move || selected_item.get().map(|i| i.name.clone()).unwrap_or_else(|| custom_name.get().clone())}</h3>
                     <div class="form-row">
                         <label for="quantity">"Quantity:"</label>
                         <input
