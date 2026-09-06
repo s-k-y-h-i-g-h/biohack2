@@ -1,44 +1,11 @@
 use leptos::*;
 use leptos::prelude::*;
-use engine::models::LogEntry;
-use crate::components::HistoryView;
 use crate::state::db::get_log_entries;
 
 #[component]
 pub fn HistoryPage() -> impl IntoView {
     let search = RwSignal::new(String::new());
     let category = RwSignal::new(None::<String>);
-    
-    // Create a closure that filters entries (same pattern as log_form.rs)
-    let filtered_entries = move || {
-        let s = search.get();
-        let c = category.get();
-        let entries = get_log_entries().unwrap_or_default();
-        
-        entries.into_iter().filter(|entry| {
-            if let Some(cat) = &c {
-                let entry_cat = match entry.item_type {
-                    engine::models::ItemType::Supplement => "supplement",
-                    engine::models::ItemType::Medication => "medication",
-                    engine::models::ItemType::Drug => "drug",
-                    engine::models::ItemType::Food => "food",
-                    engine::models::ItemType::Action => "action",
-                };
-                if entry_cat != cat.as_str() {
-                    return false;
-                }
-            }
-            
-            if !s.is_empty() {
-                let q = s.to_lowercase();
-                if !entry.name.to_lowercase().contains(&q) {
-                    return false;
-                }
-            }
-            
-            true
-        }).collect::<Vec<_>>()
-    };
 
     view! {
         <div class="page">
@@ -142,12 +109,72 @@ pub fn HistoryPage() -> impl IntoView {
             </div>
             <div class="history-container">
                 <div class="history-list">
-                    // Use the same pattern as log_form.rs
                     {move || {
-                        let entries = filtered_entries();
-                        view! {
-                            <HistoryView entries=entries />
+                        let s = search.get();
+                        let c = category.get();
+                        let all_entries = get_log_entries().unwrap_or_default();
+                        let filtered: Vec<_> = all_entries.into_iter()
+                            .filter(|entry| {
+                                if let Some(cat) = &c {
+                                    let entry_cat = match entry.item_type {
+                                        engine::models::ItemType::Supplement => "supplement",
+                                        engine::models::ItemType::Medication => "medication",
+                                        engine::models::ItemType::Drug => "drug",
+                                        engine::models::ItemType::Food => "food",
+                                        engine::models::ItemType::Action => "action",
+                                    };
+                                    if entry_cat != cat.as_str() {
+                                        return false;
+                                    }
+                                }
+                                if !s.is_empty() {
+                                    let q = s.to_lowercase();
+                                    if !entry.name.to_lowercase().contains(&q) {
+                                        return false;
+                                    }
+                                }
+                                true
+                            })
+                            .collect();
+
+                        // Group entries by date
+                        let mut grouped: std::collections::HashMap<String, Vec<engine::models::LogEntry>> = std::collections::HashMap::new();
+                        for entry in &filtered {
+                            let date = entry.timestamp.format("%Y-%m-%d").to_string();
+                            grouped.entry(date).or_default().push(entry.clone());
                         }
+
+                        let mut dates: Vec<String> = grouped.keys().cloned().collect();
+                        dates.sort();
+                        dates.reverse();
+
+                        dates.iter().map(|date| {
+                            let date_entries = grouped.get(date).cloned().unwrap_or_default();
+                            let date_str = date.clone();
+                            view! {
+                                <div class="date-group">
+                                    <h3 class="date-header">{date_str}</h3>
+                                    {date_entries.into_iter().map(|entry| {
+                                        let qty_str = if let Some(qty) = entry.quantity {
+                                            format!("{} {}", qty, entry.unit.clone().unwrap_or_default())
+                                        } else {
+                                            String::new()
+                                        };
+                                        let time = entry.timestamp.format("%H:%M").to_string();
+                                        let name = entry.name.clone();
+                                        view! {
+                                            <div class="entry-card">
+                                                <div class="entry-time">{time}</div>
+                                                <div class="entry-info">
+                                                    <span class="entry-name">{name}</span>
+                                                    <span class="entry-quantity">{qty_str}</span>
+                                                </div>
+                                            </div>
+                                        }
+                                    }).collect_view()}
+                                </div>
+                            }
+                        }).collect_view()
                     }}
                 </div>
             </div>
