@@ -4,3 +4,4 @@ pub mod store;
 
 pub use db::*;
 pub use stack_state::*;
+pub use store::*;

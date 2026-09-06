@@ -4,10 +4,14 @@ use wasm_bindgen::prelude::*;
 
 mod pages;
 mod components;
-mod state;
+pub mod state;
+pub mod types;
+#[cfg(test)]
+mod tests;
 
 use components::Layout;
 
+#[cfg(not(test))]
 #[wasm_bindgen(start)]
 pub fn main() {
     // Inject global styles by reading from document head

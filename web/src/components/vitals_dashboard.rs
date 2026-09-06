@@ -5,7 +5,7 @@ use engine::models::VitalsEntry;
 #[component]
 pub fn VitalsDashboard(recent_vitals: Vec<VitalsEntry>) -> impl IntoView {
     let has_vitals = !recent_vitals.is_empty();
-    
+
     view! {
         <div class="vitals-dashboard">
             <Show when=move || has_vitals>
@@ -16,7 +16,7 @@ pub fn VitalsDashboard(recent_vitals: Vec<VitalsEntry>) -> impl IntoView {
                         let hr = v.heart_rate.unwrap_or(0);
                         let spo2 = format!("{}%", v.spo2.unwrap_or(0));
                         let temp = format!("{}°C", v.temperature.unwrap_or(0.0));
-                        
+
                         view! {
                             <>
                                 <div class="vital-item"><span class="vital-label">"BP"</span><span>{bp}</span></div>

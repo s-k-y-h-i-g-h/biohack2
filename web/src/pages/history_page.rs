@@ -1,11 +1,53 @@
 use leptos::*;
 use leptos::prelude::*;
-use crate::state::db::get_log_entries;
+use crate::state::db::{get_log_entries, get_vitals_entries};
+use crate::components::SummaryStats;
+use crate::types::HistoryEntry;
 
 #[component]
 pub fn HistoryPage() -> impl IntoView {
     let search = RwSignal::new(String::new());
     let category = RwSignal::new(None::<String>);
+
+    // Computed filtered entries (used by both SummaryStats and the list)
+    let filtered_entries = move || {
+        let s = search.get();
+        let c = category.get();
+        let log_entries = get_log_entries().unwrap_or_default();
+        let vitals_entries = get_vitals_entries(&Default::default()).unwrap_or_default();
+
+        let mut all_entries: Vec<HistoryEntry> = log_entries
+            .into_iter()
+            .map(HistoryEntry::Log)
+            .chain(vitals_entries.into_iter().map(HistoryEntry::Vitals))
+            .collect();
+
+        // Sort by timestamp descending
+        all_entries.sort_by(|a, b| b.timestamp().cmp(&a.timestamp()));
+
+        // Apply filters
+        let filtered: Vec<HistoryEntry> = all_entries
+            .into_iter()
+            .filter(|entry| {
+                if let Some(cat) = &c {
+                    if let Some(entry_cat) = entry.category() {
+                        if entry_cat != *cat {
+                            return false;
+                        }
+                    }
+                }
+                if !s.is_empty() {
+                    let q = s.to_lowercase();
+                    if !entry.name().to_lowercase().contains(&q) {
+                        return false;
+                    }
+                }
+                true
+            })
+            .collect();
+
+        filtered
+    };
 
     view! {
         <div class="page">
@@ -105,42 +147,32 @@ pub fn HistoryPage() -> impl IntoView {
                         }
                         aria-label="Filter by Action"
                     >"Action"</button>
+                    <button
+                        type="button"
+                        class=move || {
+                            if category.get() == Some("vitals".to_string()) {
+                                "chip active"
+                            } else {
+                                "chip"
+                            }
+                        }
+                        on:click=move |_| {
+                            category.set(Some("vitals".to_string()));
+                        }
+                        aria-label="Filter by Vitals"
+                    >"Vitals"</button>
                 </div>
             </div>
+            <SummaryStats entries=filtered_entries() />
             <div class="history-container">
                 <div class="history-list">
                     {move || {
-                        let s = search.get();
-                        let c = category.get();
-                        let all_entries = get_log_entries().unwrap_or_default();
-                        let filtered: Vec<_> = all_entries.into_iter()
-                            .filter(|entry| {
-                                if let Some(cat) = &c {
-                                    let entry_cat = match entry.item_type {
-                                        engine::models::ItemType::Supplement => "supplement",
-                                        engine::models::ItemType::Medication => "medication",
-                                        engine::models::ItemType::Drug => "drug",
-                                        engine::models::ItemType::Food => "food",
-                                        engine::models::ItemType::Action => "action",
-                                    };
-                                    if entry_cat != cat.as_str() {
-                                        return false;
-                                    }
-                                }
-                                if !s.is_empty() {
-                                    let q = s.to_lowercase();
-                                    if !entry.name.to_lowercase().contains(&q) {
-                                        return false;
-                                    }
-                                }
-                                true
-                            })
-                            .collect();
-
-                        // Group entries by date
-                        let mut grouped: std::collections::HashMap<String, Vec<engine::models::LogEntry>> = std::collections::HashMap::new();
+                        let filtered = filtered_entries();
+                        
+                        // Group by date
+                        let mut grouped: std::collections::HashMap<String, Vec<HistoryEntry>> = std::collections::HashMap::new();
                         for entry in &filtered {
-                            let date = entry.timestamp.format("%Y-%m-%d").to_string();
+                            let date = entry.timestamp().format("%Y-%m-%d").to_string();
                             grouped.entry(date).or_default().push(entry.clone());
                         }
 
@@ -155,19 +187,13 @@ pub fn HistoryPage() -> impl IntoView {
                                 <div class="date-group">
                                     <h3 class="date-header">{date_str}</h3>
                                     {date_entries.into_iter().map(|entry| {
-                                        let qty_str = if let Some(qty) = entry.quantity {
-                                            format!("{} {}", qty, entry.unit.clone().unwrap_or_default())
-                                        } else {
-                                            String::new()
-                                        };
-                                        let time = entry.timestamp.format("%H:%M").to_string();
-                                        let name = entry.name.clone();
+                                        let time = entry.timestamp().format("%H:%M").to_string();
+                                        let name = entry.name();
                                         view! {
                                             <div class="entry-card">
                                                 <div class="entry-time">{time}</div>
                                                 <div class="entry-info">
                                                     <span class="entry-name">{name}</span>
-                                                    <span class="entry-quantity">{qty_str}</span>
                                                 </div>
                                             </div>
                                         }
