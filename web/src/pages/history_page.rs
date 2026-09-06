@@ -162,13 +162,21 @@ pub fn HistoryPage() -> impl IntoView {
                         aria-label="Filter by Vitals"
                     >"Vitals"</button>
                 </div>
+                <button
+                    type="button"
+                    class="export-btn"
+                    aria-label="Export data"
+                    on:click=move |_| {
+                        let _ = crate::state::db::export_data();
+                    }
+                >"Export CSV"</button>
             </div>
             <SummaryStats entries=filtered_entries() />
             <div class="history-container">
                 <div class="history-list">
                     {move || {
                         let filtered = filtered_entries();
-                        
+
                         // Group by date
                         let mut grouped: std::collections::HashMap<String, Vec<HistoryEntry>> = std::collections::HashMap::new();
                         for entry in &filtered {
@@ -189,11 +197,22 @@ pub fn HistoryPage() -> impl IntoView {
                                     {date_entries.into_iter().map(|entry| {
                                         let time = entry.timestamp().format("%H:%M").to_string();
                                         let name = entry.name();
+                                        let note_text = match &entry {
+                                            HistoryEntry::Log(log_entry) => log_entry.notes.clone(),
+                                            HistoryEntry::Vitals(_) => None,
+                                        };
+                                        let is_vitals = matches!(entry, HistoryEntry::Vitals(_));
+
                                         view! {
-                                            <div class="entry-card">
+                                            <div class=format!("entry-card{}", if is_vitals { " entry-card--vitals" } else { "" })>
                                                 <div class="entry-time">{time}</div>
                                                 <div class="entry-info">
                                                     <span class="entry-name">{name}</span>
+                                                    {move || note_text.clone().map(|n| {
+                                                        view! {
+                                                            <span class="entry-note">{n}</span>
+                                                        }
+                                                    })}
                                                 </div>
                                             </div>
                                         }

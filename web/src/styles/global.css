@@ -17,7 +17,6 @@
   --radius: 8px;
   --font: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
-
 /* Reset */
 * {
   box-sizing: border-box;
@@ -611,4 +610,166 @@ nav {
     flex-direction: column;
     gap: 8px;
   }
+}
+
+/* Stack Builder */
+.stack-builder .form-row {
+  margin-bottom: 8px;
+}
+
+.stack-builder input {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+.catalog-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 200px;
+  overflow-y: auto;
+  margin: 8px 0;
+}
+
+.catalog-item {
+  padding: 8px 12px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-primary);
+  text-align: left;
+  cursor: pointer;
+}
+
+.catalog-item:hover {
+  border-color: var(--accent);
+}
+
+.selected-items {
+  margin: 12px 0;
+}
+
+.selected-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px;
+  background: var(--bg-primary);
+  border-radius: var(--radius);
+  margin-bottom: 4px;
+}
+
+.remove-item {
+  background: var(--error);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 2px 8px;
+  cursor: pointer;
+}
+
+.stack-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px;
+  background: var(--bg-primary);
+  border-radius: var(--radius);
+  margin-bottom: 8px;
+}
+
+.stack-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.stack-name {
+  font-weight: 500;
+}
+
+.stack-item-count {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.stack-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.log-stack-btn, .delete-stack-btn {
+  padding: 6px 12px;
+  border: none;
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.log-stack-btn {
+  background: var(--accent);
+  color: white;
+}
+
+.delete-stack-btn {
+  background: var(--error-bg);
+  color: var(--error);
+  border: 1px solid var(--error);
+}
+
+/* Interaction Warning */
+.interaction-warning-container {
+  margin-top: 16px;
+  padding: 16px;
+  background: var(--warning-bg);
+  border: 1px solid var(--warning);
+  border-radius: var(--radius);
+}
+
+.interaction-warning-container p {
+  margin-bottom: 12px;
+  color: var(--warning);
+}
+
+.acknowledge-btn {
+  padding: 8px 16px;
+  background: var(--warning);
+  color: #1a1a2e;
+  border: none;
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-weight: 500;
+}
+
+/* Notes */
+.entry-note {
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-style: italic;
+  margin-top: 2px;
+}
+
+.entry-card--vitals {
+  border-left-color: var(--warning);
+}
+
+/* Export Button */
+.export-btn {
+  padding: 6px 12px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 12px;
+  align-self: flex-start;
+}
+
+.export-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
 }
