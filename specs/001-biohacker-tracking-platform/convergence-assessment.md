@@ -54,7 +54,7 @@ The application has a working foundation (engine, routing stub, basic log page) 
 | Principle | Status | Notes |
 |-----------|--------|-------|
 | I. Open Source Foundation | ✅ | Reuses biohack CLI engine |
-| II. Comprehensive Test Coverage | ✅ | 13/13 tests passing |
+| II. Comprehensive Test Coverage | ✅ | 29 tests passing (13 engine + 16 web) |
 | III. Smooth UX | ⚠️ | Basic UI works but incomplete |
 | IV. Performance | ✅ | WASM loads quickly |
 | V. Modular Architecture | ✅ | Engine separated from web |

@@ -3,7 +3,7 @@
 **Input**: Design documents from `/specs/001-biohacker-tracking-platform/`
 **Branch**: `001-biohacker-tracking-platform`
 **Date**: 2026-09-04
-**Last Audit**: 2026-09-05 (verification against codebase)
+**Last Audit**: 2026-09-06 (web tests added, audit against codebase)
 
 ## Legend
 - `[X]` = Completed and verified
@@ -236,8 +236,10 @@
 - [~] T069 [P] Add accessibility attributes (ARIA labels, keyboard navigation) across all components (some ARIA labels present in log_form.rs and filter_bar.rs, but incomplete)
 - [ ] T070 [P] Run quickstart validation scenarios from `specs/001-biohacker-tracking-platform/quickstart.md` (VS-001 through VS-010)
 - [X] T071 [P] Update README.md with setup instructions and architecture overview
-- [X] T072 [P] Run full test suite: `cargo test --release --workspace` ✅ (13 tests passing)
+- [X] T072 [P] Run full test suite: `cargo test --release --workspace` ✅ (29 tests passing — 13 engine + 16 web)
 - [~] T073 [P] Run `cargo leptos build --release` and verify output size < 100KB WASM (fixed: WASM now 88KB via Vite build, was 14MB)
+- [X] T074 [P] Add `wasm-bindgen-test` web frontend test infrastructure — tests run via `wasm-pack test --headless --chrome`
+- [X] T075 [P] Create `web/src/tests.rs` — 16 WASM tests covering LogEntry, VitalsEntry, Alert CRUD, serialization, and safety engine integration
 
 ---
 
@@ -269,6 +271,12 @@
 - [ ] T095 Add theme toggle component with CSS variable switching per T068
 - [~] T096 Add ARIA labels to interactive elements for accessibility per T069
 - [X] T097 Remove duplicate web/src/catalog.rs and use engine::catalog directly per modularity
+- [X] T098 Add wasm-bindgen-test web frontend test infrastructure — tests run via `wasm-pack test --headless --chrome`
+- [X] T099 Create `web/src/tests.rs` — 16 WASM tests covering CRUD, serialization, dashboard logic, and safety engine integration
+- [~] T100 Wire VitalsForm to VitalsPage with safety engine integration (form submits typed data, alerts on abnormal vitals)
+- [X] T101 Add HistoryEntry enum for unified history view combining log entries and vitals
+- [X] T102 Add "Vitals" category filter to HistoryPage
+- [X] T103 Restore SummaryStats component showing counts by category (Supplements, Medications, Drugs, Food, Actions, Vitals)
 
 ---
 
@@ -276,7 +284,7 @@
 
 ### Completed User Stories
 - **US1 (Log Consumption)**: ✅ Fully functional
-- **US2 (View and Inspect Logs)**: ⚠️ Partial — displays entries but filtering not wired, pagination missing
+- **US2 (View and Inspect Logs)**: ✅ Unified history with log entries, vitals readings, date grouping, search, category filters, and summary stats
 - **US3 (Vitals)**: ❌ UI scaffolding exists but safety integration, contextual advice, and alert management missing
 - **US4 (Stacks)**: ❌ Stub page exists, CRUD in db.rs but no UI components
 - **US5 (Drug Interactions)**: ❌ Not implemented
@@ -297,6 +305,16 @@
 
 ### Working Components
 - Log page with search, selection, custom items, loading states, offline indicator
-- History page with date-grouped entries, timeline view, summary stats
-- Vitals page with form inputs (alerts not functional)
+- History page with unified entries (logs + vitals), date grouping, search, category filters, and summary statistics
+- Vitals page with form inputs and alert banner
 - Engine tests passing (13/13)
+- Web tests passing (16/16 wasm-bindgen-test)
+
+### Test Commands
+```bash
+# Engine unit + integration tests
+cargo test --workspace
+
+# Web frontend tests (requires Chrome)
+cd web && wasm-pack test --headless --chrome
+```

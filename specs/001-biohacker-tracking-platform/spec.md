@@ -59,8 +59,6 @@ A biohacker opens the application and browses their history. They can filter by 
 
 A biohacker logs their blood pressure (130/85), heart rate (72 bpm), and weight (175 lbs). The system detects that blood pressure is in the hypertension range (using established clinical thresholds, not the user's personal baseline) and triggers an alert flagging the clinical condition, with contextual advice derived from the user's log (e.g., "Your magnesium intake has been low this week — consider increasing it"). Alerts are also triggered for other clinical conditions such as tachycardia.
 
-**Why this priority**: Vitals tracking and intelligent alerting converts raw data into actionable guidance, which is a key differentiator for this application. It turns passive logging into active health management.
-
 **Independent Test**: Can be fully tested by logging vitals, configuring alert thresholds, and verifying that out-of-range values trigger alerts with log-derived recommendations. Delivers value as an early warning system.
 
 **Acceptance Scenarios**:
@@ -68,8 +66,9 @@ A biohacker logs their blood pressure (130/85), heart rate (72 bpm), and weight 
 1. **Given** the user has logged vitals within normal ranges, **When** they view their vitals dashboard, **Then** all values are displayed as normal with no alerts.
 2. **Given** the user logs a blood pressure reading in the clinical hypertension range, **When** the entry is saved, **Then** an alert is generated flagging the clinical condition with contextual advice referencing the user's supplement and activity log.
 3. **Given** the user dismisses an alert, **When** they log new vitals, **Then** the alert is updated or resolved based on the new values.
+4. **Given** the user wants to review their vitals history, **When** they visit the history page, **Then** vitals entries appear alongside other log entries with appropriate categorization.
 
----
+**Note**: The Vitals page focuses on real-time dashboard and alerting. Historical vitals review happens through the History page where vitals entries are mixed with other log entries for chronological review, alongside summary statistics showing entry counts by category.
 
 ### User Story 4 - Stack and Protocol Management (Priority: P4)
 
