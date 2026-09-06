@@ -29,7 +29,6 @@ pub fn get_log_entries() -> Result<Vec<LogEntry>, String> {
             Ok(entries)
         }
         Err(_) => Ok(Vec::new()),
-        Err(e) => Err(format!("Failed to read log entries: {:?}", e)),
     }
 }
 
@@ -99,7 +98,7 @@ pub fn create_vitals_entry(entry: &VitalsEntry) -> Result<(), String> {
 pub fn get_vitals_entries(filter: &VitalsEntryFilter) -> Result<Vec<VitalsEntry>, String> {
     let entries: Vec<VitalsEntry> = LocalStorage::get(STORAGE_KEY_VITALS).unwrap_or_default();
     let mut filtered = entries;
-    
+
     if let Some(ref uid) = filter.user_id {
         filtered.retain(|e| e.user_id == *uid);
     }
@@ -109,7 +108,7 @@ pub fn get_vitals_entries(filter: &VitalsEntryFilter) -> Result<Vec<VitalsEntry>
     if let Some(ref end) = filter.end_date {
         filtered.retain(|e| e.timestamp <= *end);
     }
-    
+
     filtered.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
     Ok(filtered)
 }
@@ -127,14 +126,14 @@ pub fn create_alert(alert: &Alert) -> Result<(), String> {
 pub fn get_alerts(filter: &AlertFilter) -> Result<Vec<Alert>, String> {
     let alerts: Vec<Alert> = LocalStorage::get(STORAGE_KEY_ALERTS).unwrap_or_default();
     let mut filtered = alerts;
-    
+
     if let Some(ref uid) = filter.user_id {
         filtered.retain(|a| a.user_id == *uid);
     }
     if let Some(ack) = filter.acknowledged {
         filtered.retain(|a| a.is_acknowledged == ack);
     }
-    
+
     filtered.sort_by(|a, b| b.generated_at.cmp(&a.generated_at));
     Ok(filtered)
 }
@@ -179,17 +178,17 @@ pub fn delete_stack(id: &str) -> Result<(), String> {
 pub fn log_stack(stack: &Stack) -> Result<Vec<Uuid>, String> {
     let timestamp = chrono::Utc::now();
     let mut created_ids = Vec::new();
-    
+
     for item in &stack.items {
         // Look up the catalog item to get the name
         let catalog_items = engine::catalog::seed_catalog();
         let catalog_item = catalog_items.iter()
             .find(|c| c.id == item.item_id);
-        
+
         let name = catalog_item
             .map(|c| c.name.clone())
             .unwrap_or_else(|| "Unknown".to_string());
-        
+
         let entry = LogEntry {
             id: Uuid::new_v4(),
             user_id: stack.user_id.clone(),
@@ -207,12 +206,71 @@ pub fn log_stack(stack: &Stack) -> Result<Vec<Uuid>, String> {
             acknowledged_interaction: false,
             custom_fields: None,
         };
-        
+
         create_log_entry(&entry)?;
         created_ids.push(entry.id);
     }
-    
+
     Ok(created_ids)
+}
+
+// ── Data Export ────────────────────────────────────────────────────────────────
+
+pub fn export_data() -> Result<String, String> {
+    let log_entries = get_log_entries().unwrap_or_default();
+    let vitals = get_vitals_entries(&Default::default()).unwrap_or_default();
+
+    let mut csv = String::from("type,id,name,item_type,quantity,unit,timestamp,notes\n");
+
+    // Log entries
+    for entry in &log_entries {
+        let qty = entry.quantity.map(|q| q.to_string()).unwrap_or_default();
+        let unit = entry.unit.as_ref().map(|u| u.as_str()).unwrap_or("");
+        let notes = entry.notes.as_deref().unwrap_or("").replace(',', ";");
+        let item_type_str = match &entry.item_type {
+            ItemType::Supplement => "supplement",
+            ItemType::Medication => "medication",
+            ItemType::Drug => "drug",
+            ItemType::Food => "food",
+            ItemType::Action => "action",
+        };
+        csv.push_str(&format!(
+            "log,{},{},{},{},{} {},{}\n",
+            entry.id,
+            entry.name,
+            item_type_str,
+            qty,
+            unit,
+            entry.timestamp.format("%Y-%m-%dT%H:%M:%SZ"),
+            notes,
+        ));
+    }
+
+    // Vitals entries
+    for entry in &vitals {
+        let sbp = entry.bp_systolic.map(|v| v.to_string()).unwrap_or_default();
+        let hr = entry.heart_rate.map(|v| v.to_string()).unwrap_or_default();
+        let notes = entry.notes.as_deref().unwrap_or("").replace(',', ";");
+        csv.push_str(&format!(
+            "vitals,{},{},Vitals,{},{} {},{}\n",
+            entry.id,
+            "Vitals Reading",
+            sbp,
+            hr,
+            entry.timestamp.format("%Y-%m-%dT%H:%M:%SZ"),
+            notes,
+        ));
+    }
+
+    // Write to localStorage and show in console (fallback for WASM)
+    if let Some(win) = web_sys::window() {
+        let storage = gloo_storage::LocalStorage::raw();
+        let _ = storage.set_item("biohack_export_csv", &csv);
+        // Alert user that data is exported
+        let _ = win.alert_with_message("Data exported! Check browser console for CSV content.");
+    }
+
+    Ok(csv)
 }
 
 // Helper to convert string category to ItemType
