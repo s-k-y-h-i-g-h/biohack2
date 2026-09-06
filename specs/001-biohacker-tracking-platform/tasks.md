@@ -167,8 +167,8 @@
 
 ### Implementation
 
-- [ ] T048 [US5] Create `web/src/components/interaction_warning.rs` — prominent warning UI with risk description
-- [ ] T049 [US5] Integrate safety checks into LogForm in `web/src/components/log_form.rs` — run check_interactions() before save
+- [X] T048 [US5] Create `web/src/components/interaction_warning.rs` — prominent warning UI with risk description
+- [X] T049 [US5] Integrate safety checks into LogForm in `web/src/components/log_form.rs` — run check_interactions() before save
 - [X] T050 [P] [US5] Add interaction acknowledgment tracking in LogEntry model (already exists as `acknowledged_interaction`)
 - [ ] T051 [P] [US5] Run Rust safety engine tests: `cargo test --release -p engine -- safety_tests` (tests exist inline, separate test file not created)
 - [ ] T052 [P] [US5] Add benchmark dataset for 90% interaction flagging accuracy in `engine/tests/`
@@ -214,9 +214,9 @@
 
 ### Implementation
 
-- [ ] T059 [US7] Create `web/src/components/note_input.rs` — inline note editor on log entries
-- [ ] T060 [US7] Create `web/src/components/note_display.rs` — rendered note with timestamp
-- [~] T061 [US7] Integrate notes into HistoryView in `web/src/components/history_view.rs` — show notes on each entry (note field exists in model but not displayed in HistoryView)
+- [X] T059 [US7] Create `web/src/components/note_input.rs` — inline note editor on log entries
+- [X] T060 [US7] Create `web/src/components/note_display.rs` — rendered note with timestamp
+- [X] T061 [US7] Integrate notes into HistoryView in `web/src/components/history_view.rs` — show notes on each entry (note field exists in model but not displayed in HistoryView)
 - [ ] T062 [P] [US7] Implement note search in `web/src/state/db.rs` — query entries by note text
 - [ ] T063 [P] [US7] Create `web/src/components/note_search.rs` — search UI with results
 
@@ -256,17 +256,17 @@
 - [X] T080 Wire VitalsForm component to VitalsPage per US3/AC-1
 - [ ] T081 Integrate SafetyEngine::check_vitals() into vitals save flow per FR-008
 - [~] T082 Wire VitalsDashboard to VitalsPage showing recent readings per US3/AC-1 (component wired but shows empty data)
-- [ ] T083 Integrate AlertBanner into Layout for persistent alert display per US3/AC-3 (not integrated into Layout)
-- [~] T084 Create StackBuilder component for adding/removing items per US4/AC-1 (page exists as stub, builder component missing)
-- [~] T085 Wire StackBuilder to StacksPage with create/delete UI per US4/AC-1
-- [~] T086 Implement log_stack() to create individual LogEntries per US4/AC-2 (function exists in db.rs but not called from UI)
+- [X] T083 Integrate AlertBanner into Layout for persistent alert display per US3/AC-3 (not integrated into Layout)
+- [X] T084 Create StackBuilder component for adding/removing items per US4/AC-1 (page exists as stub, builder component missing)
+- [X] T085 Wire StackBuilder to StacksPage with create/delete UI per US4/AC-1
+- [X] T086 Implement log_stack() to create individual LogEntries per US4/AC-2 (function exists in db.rs but not called from UI)
 - [ ] T087 Create InteractionWarning component for displaying drug interaction alerts per US5/AC-1
 - [ ] T088 Integrate check_interactions() into LogForm save flow per US5/AC-2
 - [ ] T089 Create InsightsPage with correlation display per US6/AC-1
 - [ ] T090 Create note_input.rs component for inline note editing per US7/AC-1
 - [ ] T091 Wire notes into HistoryView display per US7/AC-1
-- [ ] T092 Implement data export (CSV/JSON) in db.rs per SC-008
-- [ ] T093 Add export button to HistoryPage UI per SC-008
+- [X] T092 Implement data export (CSV/JSON) in db.rs per SC-008
+- [X] T093 Add export button to HistoryPage UI per SC-008
 - [ ] T094 Create PWA manifest.json and service worker per SC-009
 - [ ] T095 Add theme toggle component with CSS variable switching per T068
 - [~] T096 Add ARIA labels to interactive elements for accessibility per T069
