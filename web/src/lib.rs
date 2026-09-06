@@ -31,16 +31,16 @@ pub fn main() {
 
 fn get_path() -> String {
     if let Some(win) = web_sys::window() {
-        // Try pathname first (HTML5 history mode)
-        if let Ok(pathname) = win.location().pathname() {
-            if !pathname.is_empty() {
-                return pathname;
-            }
-        }
-        // Fall back to hash-based routing
+        // Try hash first (hash-based routing)
         if let Ok(hash) = win.location().hash() {
             if !hash.is_empty() && hash != "#" {
                 return hash[1..].to_string();
+            }
+        }
+        // Fall back to pathname (HTML5 history mode)
+        if let Ok(pathname) = win.location().pathname() {
+            if !pathname.is_empty() {
+                return pathname;
             }
         }
     }
