@@ -86,34 +86,7 @@ A biohacker creates a "Morning Protocol" stack that includes Vitamin D3, Magnesi
 
 ---
 
-### User Story 5 - Drug Interaction Safety Alerts (Priority: P5)
-
-A biohacker attempts to log a new supplement while taking a prescription medication. The system cross-references the combination against known interaction databases and flags a dangerous interaction with a warning and recommended action.
-
-**Why this priority**: Safety is paramount. Flagging dangerous interactions is a critical trust feature that protects users from harm and differentiates the app from a simple journaling tool.
-
-**Independent Test**: Can be fully tested by logging two items known to interact dangerously, and verifying that an interaction warning is displayed before the entry is saved.
-
-**Acceptance Scenarios**:
-
-1. **Given** the user attempts to log two items with a known dangerous interaction, **When** the second item is added, **Then** a prominent warning is displayed describing the interaction risk.
-2. **Given** the user acknowledges a drug interaction warning and proceeds, **When** the entry is saved, **Then** the entry is flagged as acknowledged-interaction in the log.
-3. **Given** the user logs a new item, **When** the system checks for interactions, **Then** the check completes within 2 seconds.
-
----
-
-### User Story 6 - Insights and Analysis (Priority: P6)
-
-A biohacker opens the insights dashboard and sees correlations between their supplement intake and vital signs over time. For example: "Your sleep quality has improved 30% on days when you took Magnesium after 6pm."
-
-**Why this priority**: Delivering insights transforms raw data into actionable knowledge. This is the "wow factor" feature that makes the app indispensable for serious biohackers.
-
-**Independent Test**: Can be fully tested by logging correlated data (supplements and vitals) over a period, then viewing the insights dashboard and verifying that relevant correlations are surfaced with supporting data.
-
-**Acceptance Scenarios**:
-
-1. **Given** the user has logged consistent data over 2+ weeks, **When** they open the insights dashboard, **Then** at least one correlation or trend is displayed with supporting data points.
-2. **Given** the user wants to understand a specific correlation, **When** they click on an insight, **Then** a detailed view shows the relevant log entries that contributed to the insight.
+> **Note**: User Stories 5 (Drug Interactions) and 6 (Insights) have been moved to the Semantica Knowledge Graph integration (spec 002). See `specs/002-semantica-knowledge-graph/spec.md` for details.
 
 ---
 
@@ -135,9 +108,9 @@ A biohacker writes a note attached to a specific log entry: "Noticed increased a
 ### Edge Cases
 
 - What happens when the user logs an item that is not in the catalog? The system allows custom item creation with basic fields (name, category, unit).
-- How does the system handle drug interaction data unavailability? The system displays a disclaimer that interaction data may be incomplete and users should consult a healthcare professional.
+
 - What happens when vital thresholds are not configured? The system uses clinically established reference ranges as defaults, and allows users to set personal baselines.
-- How does the system handle missing data in insights? The insights engine only generates correlations when sufficient data points exist (minimum 7 overlapping entries).
+
 - What happens when a user logs a stack that includes an item they have previously flagged as causing a bad reaction? The system displays a warning based on the user's historical notes.
 
 ## Requirements *(mandatory)*
@@ -160,10 +133,10 @@ A biohacker writes a note attached to a specific log entry: "Noticed increased a
 - **FR-009**: The system MUST provide contextual advice for abnormal vitals by cross-referencing the user's logged supplements, medications, and actions.
 - **FR-010**: The system MUST allow users to create named stacks and protocols composed of multiple catalog items and actions.
 - **FR-011**: The system MUST allow users to log an entire stack with a single action, creating individual entries for each component.
-- **FR-012**: The system MUST automatically check for known dangerous drug and supplement interactions when a new item is logged.
-- **FR-013**: The system MUST display prominent warnings for dangerous interactions and require user acknowledgment before saving.
+
+
 - **FR-014**: The system MUST allow users to attach free-text notes to any log entry.
-- **FR-015**: The system MUST provide an insights dashboard that surfaces correlations between logged data and vital sign changes over time.
+
 - **FR-016**: The system MUST store user data in a user-specific data store that is accessible only by the authenticated user. Data syncs across the user's own devices if cloud sync is enabled; otherwise, data remains on-device only. [Deferred to v2: cloud sync will use OAuth authentication and encrypted storage.]
 - **FR-017**: The system MUST allow users to export their data in a standard format (CSV/JSON) for personal backup or analysis.
 - **FR-018**: The system MUST meet the performance target of loading the history view in under 2 seconds for up to 1,000 entries.
@@ -178,7 +151,7 @@ A biohacker writes a note attached to a specific log entry: "Noticed increased a
 - **Stack**: Represents a named collection of catalog items and actions. Attributes: id, userId, name, description, items (ordered list with quantities).
 - **VitalsEntry**: Represents a set of vital measurements logged at a point in time. Attributes: id, userId, timestamp, bloodPressureSystolic, bloodPressureDiastolic, heartRate, weight, bloodGlucose, sleepQuality, customMetrics.
 - **Alert**: Represents a notification triggered by abnormal vitals or dangerous interactions. Attributes: id, userId, type (vital or interaction), severity, message, recommendation, isAcknowledged, linkedEntryId.
-- **Insight**: Represents a correlation or trend derived from logged data. Attributes: id, userId, type, title, description, supportingDataPoints, generatedAt.
+
 
 ## Success Criteria *(mandatory)*
 
@@ -191,11 +164,11 @@ A biohacker writes a note attached to a specific log entry: "Noticed increased a
 
 - **SC-001**: Users can log a consumption item or action in under 15 seconds from app open to confirmation.
 - **SC-002**: Users can view their complete log history with a date-range filter applied in under 2 seconds.
-- **SC-003**: Dangerous drug interaction warnings are displayed within 3 seconds of submitting a new log entry that triggers an interaction.
+
 - **SC-004**: Abnormal vital alerts are triggered within 5 seconds of saving a vitals entry that is out of range.
-- **SC-005**: The insights dashboard generates at least one correlation when the user has logged 7 or more overlapping data points across two categories.
+
 - **SC-006**: Users can create, save, and log a stack containing 10 or more items in under 30 seconds.
-- **SC-007**: The system correctly flags at least 90% of known dangerous interactions in a benchmarked test dataset.
+
 - **SC-008**: Users can export their complete log history (up to 5 years of daily entries) as a downloadable file within 10 seconds.
 - **SC-009**: The application is usable on both mobile and desktop web browsers.
 - **SC-010**: 80% of users who log a stack complete the logging flow without abandoning it.

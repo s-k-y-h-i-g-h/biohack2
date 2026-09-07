@@ -57,13 +57,47 @@ As a system administrator (or through an automated pipeline), I can ingest struc
 
 ---
 
+### User Story 3 - Drug Interaction Safety via Knowledge Graph (Priority: P1)
+
+A user logs a new substance and the system automatically checks for dangerous interactions with substances already in the user's log (within a relevant time window). The check uses the knowledge graph to query known interactions (e.g., "substance A inhibits enzyme CYP2D6, substance B is metabolized by CYP2D6") and returns a warning if a clinically significant interaction is found. The warning includes an explanation of the mechanism and a recommended action.
+
+**Why this priority**: Safety is foundational. Moving interaction detection to the knowledge graph makes it scalable and auditable, replacing the hardcoded substring matcher.
+
+**Independent Test**: Log a substance known to interact with another (e.g., fluoxetine and 5-HTP) and verify that the system returns an interaction warning with a mechanism explanation.
+
+**Acceptance Scenarios**:
+
+1. **Given** the user has logged fluoxetine in the last 24 hours, **When** they attempt to log 5-HTP, **Then** the system queries the knowledge graph for interactions and returns a warning: "Fluoxetine and 5-HTP both affect serotonin; risk of serotonin syndrome." with a recommendation to consult a healthcare provider.
+2. **Given** the user logs a substance with no known interactions, **When** the check runs, **Then** no warning is displayed and the log entry is saved normally.
+3. **Given** the knowledge graph contains interaction rules with confidence scores, **When** an interaction is detected, **Then** the warning includes the confidence level (e.g., "High confidence") and a reference to the underlying rule.
+4. **Given** the knowledge graph is temporarily unavailable, **When** a user attempts to log a substance, **Then** the system falls back to a static interaction list (or logs a warning that interaction check is unavailable) and allows the save to proceed.
+
+---
+
+### User Story 4 - Insights and Correlations from Graph (Priority: P2)
+
+A user opens the insights dashboard and sees correlations between their supplement intake, actions, and biomarker changes over time. The correlations are derived from the knowledge graph's mechanisms (e.g., "Creatine increases ATP production; higher ATP correlates with improved performance") and from statistical analysis of the user's own data.
+
+**Why this priority**: Insights transform raw data into actionable knowledge, driving user engagement and long-term value. Leveraging the knowledge graph makes insights more explainable and grounded.
+
+**Independent Test**: After logging 7+ overlapping days of data (e.g., creatine intake and heart rate), the dashboard displays a correlation card with a confidence score and a list of contributing log entries.
+
+**Acceptance Scenarios**:
+
+1. **Given** the user has logged consistent data over 2+ weeks, **When** they open the insights dashboard, **Then** at least one correlation or trend is displayed with supporting data points and a confidence score.
+2. **Given** a correlation is displayed, **When** the user clicks on it, **Then** a detailed view shows the mechanism from the knowledge graph (e.g., "Creatine increases cellular hydration, which may reduce resting heart rate") and a list of the log entries that contributed to the correlation.
+3. **Given** the user has fewer than 7 overlapping data points for a given pair, **When** they view the dashboard, **Then** a message "Insufficient data for correlations" is shown for that pair.
+4. **Given** the knowledge graph contains a mechanism that connects two entities, **When** the statistical correlation is weak, **Then** the insight card displays the mechanism-based hypothesis separately from the statistical evidence, with a note "Mechanism suggests possible link, but data is inconclusive."
+
+---
+
 ### Edge Cases
 
 - What happens when a substance or mechanism does not exist in the graph?
   - The API returns a 404 with a clear error; the engine may fall back to a default rule or prompt the user to add it.
 - How does the system handle concurrent writes to the same graph from multiple users?
   - The backend's Semantica instance is single-threaded; we serialize writes via the API, and user_id scoping (if used) prevents cross-user contamination.
-- What happens if the Semantica MCP server becomes unavailable?
+- What happens if the Semantica backend or its sidecar process becomes unavailable?
   - The web backend should return a 503 and log the error; deterministic advice (which does not depend on Semantica) should still work.
 - How are large graphs handled with respect to performance?
   - We'll use indexed queries and limit traversal depth; caching may be added later.
@@ -72,16 +106,16 @@ As a system administrator (or through an automated pipeline), I can ingest struc
 
 ### Functional Requirements
 
-- **FR-001**: The web backend MUST start a Semantica MCP server as a sidecar process.
-- **FR-002**: The web backend MUST provide a RESTful (or gRPC) API that maps to Semantica MCP tools (e.g., `add_entity`, `add_relationship`, `query_graph`, `extract_relations`).
+- **FR-001**: The web backend MUST start a Semantica REST API server (`semantica-server`) as a sidecar process.
+- **FR-002**: The web backend MUST provide a RESTful API layer in Rust that proxies, sanitizes, and aggregates calls to the sidecar `semantica-server` endpoints (e.g. mapping to `kg/neighbors`, `search`, etc.).
 - **FR-003**: The API MUST support querying substances by name, mechanism, or biomarker.
 - **FR-004**: The system MUST store substance domain entities (substance, mechanism, biomarker, relationship) in Semantica, not in SQLite.
 - **FR-005**: The SQLite database MUST store a foreign key reference (the Semantica entity ID) for any log or note that references a substance.
 - **FR-006**: The system MUST have a seed script to populate an initial set of substances, mechanisms, and biomarkers from a curated data source.
-- **FR-007**: The API MUST expose endpoints for CRUD operations on entities (create, read, update, delete) with appropriate authorization.
+- **FR-007**: The API MUST expose endpoints for CRUD operations on entities (create, read, update, delete) with appropriate authorization, proxying the operations securely to `semantica-server`.
 - **FR-008**: The system MUST log all graph operations for audit purposes.
 - **FR-009**: The API MUST support listing all substances with pagination (page, limit) and optional search by name, returning a paginated response with total count.
-- **FR-010**: The web backend's installation process MUST create a dedicated Python virtual environment and install Semantica (with the `llm-openai` extra) into a subdirectory of the backend (e.g., `backend/.venv-semantica/`), separate from any system‑wide or user‑level Semantica installations. The runtime MUST use this environment exclusively.
+- **FR-010**: The web backend's installation process MUST create a dedicated Python virtual environment and install Semantica into a subdirectory of the backend (e.g., `backend/.venv-semantica/`), separate from any system‑wide or user‑level Semantica installations. The runtime MUST use this environment exclusively.
 
 ### Key Entities
 
@@ -106,4 +140,11 @@ As a system administrator (or through an automated pipeline), I can ingest struc
 - Authentication and user management already exist in the system; we will reuse them for user_id tagging if needed.
 - Desktop frontends are not in scope for v1; the web API will serve web and mobile clients.
 - The web backend will maintain its own dedicated Semantica installation and data directory, separate from any other Semantica instances on the system (as required by FR-010). This instance is not shared with other applications.
-- Network latency between the backend and Semantica MCP is negligible (local process).
+- Network latency between the backend and Semantica sidecar is negligible (local process).
+
+## Clarifications
+
+### Session 2026-09-07
+
+- **Q**: Should the Semantica knowledge graph API be built as a RESTful JSON API, a gRPC service, or both?
+  - **A**: RESTful JSON proxying a `semantica-server` sidecar. The Rust backend will run `semantica-server` as a local sidecar on port 8000 and expose a secured REST API layer that proxies, sanitizes, and aggregates these endpoints for client frontends.

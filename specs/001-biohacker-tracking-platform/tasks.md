@@ -12,7 +12,7 @@
 
 ## Scope
 
-**v1 (in scope)**: Rust engine + Leptos web app, SQLite WASM local storage, 7 user stories
+**v1 (in scope)**: Rust engine + Leptos web app, SQLite WASM local storage, 5 user stories (US5 and US6 moved to spec 002)
 **v2 (deferred)**: Cloud sync, iOS/Android native apps (Dioxus), BLE wearable integration
 
 ## Phase 1: Setup (Workspace & Project Structure)
@@ -154,50 +154,11 @@
 
 ---
 
-## Phase 7: User Story 5 - Drug Interaction Safety Alerts (Priority: P5)
+## Phase 7 & 8: Moved to Spec 002
 
-**Goal**: System automatically checks for dangerous drug/supplement interactions when logging. Prominent warnings require acknowledgment.
+User Stories 5 (Drug Interactions) and 6 (Insights) have been moved to the Semantica Knowledge Graph integration (spec 002). See `specs/002-semantica-knowledge-graph/spec.md` and `specs/002-semantica-knowledge-graph/tasks.md` for details.
 
-**Independent Test**: Log Aspirin → attempt to log Ibuprofen → warning displays before save.
-
-**Acceptance Criteria**:
-- AC-1: Dangerous interaction detected and warning displayed ❌
-- AC-2: User must acknowledge warning before saving ❌
-- AC-3: Interaction check completes within 3 seconds ❌
-
-### Implementation
-
-- [X] T048 [US5] Create `web/src/components/interaction_warning.rs` — prominent warning UI with risk description
-- [X] T049 [US5] Integrate safety checks into LogForm in `web/src/components/log_form.rs` — run check_interactions() before save
-- [X] T050 [P] [US5] Add interaction acknowledgment tracking in LogEntry model (already exists as `acknowledged_interaction`)
-- [ ] T051 [P] [US5] Run Rust safety engine tests: `cargo test --release -p engine -- safety_tests` (tests exist inline, separate test file not created)
-- [ ] T052 [P] [US5] Add benchmark dataset for 90% interaction flagging accuracy in `engine/tests/`
-
-**Checkpoint**: Safety-critical interactions are detected and warnings displayed. ❌
-
----
-
-## Phase 8: User Story 6 - Insights and Analysis (Priority: P6)
-
-**Goal**: Users can view correlations between their supplements/actions and vital sign changes over time. Dashboard surfaces actionable insights.
-
-**Independent Test**: Log 14+ days of correlated data → open insights dashboard → verify correlations displayed with supporting data points.
-
-**Acceptance Criteria**:
-- AC-1: Dashboard shows ≥1 correlation after 2+ weeks of data ❌
-- AC-2: Each insight includes confidence score and supporting data point count ❌
-- AC-3: Clicking insight shows contributing log entries ❌
-
-### Implementation
-
-- [ ] T053 [US6] Create `web/src/pages/insights_page.rs` — InsightsPage component
-- [ ] T054 [US6] Create `web/src/components/insights_feed.rs` — list of generated insights
-- [ ] T055 [P] [US6] Create `web/src/components/correlation_card.rs` — individual insight display with confidence meter
-- [ ] T056 [US6] Implement insights service in `engine/src/insights.rs` — correlation engine, trend analysis
-- [ ] T057 [P] [US6] Add "insufficient data" empty state in InsightsFeed when <7 overlapping points
-- [ ] T058 [P] [US6] Wire up click-to-detail in CorrelationCard showing contributing log entries
-
-**Checkpoint**: User Stories 1-6 functional — user can log, inspect, view vitals, manage stacks, see safety alerts, and get insights. ❌
+**Checkpoint**: User Stories 1-4 and 7 remain in this spec.
 
 ---
 
@@ -287,16 +248,16 @@
 - **US2 (View and Inspect Logs)**: ✅ Unified history with log entries, vitals readings, date grouping, search, category filters, and summary stats
 - **US3 (Vitals)**: ❌ UI scaffolding exists but safety integration, contextual advice, and alert management missing
 - **US4 (Stacks)**: ❌ Stub page exists, CRUD in db.rs but no UI components
-- **US5 (Drug Interactions)**: ❌ Not implemented
-- **US6 (Insights)**: ❌ Entire user story missing
+- **US5 (Drug Interactions)**: 🔄 Moved to spec 002 (Semantica integration)
+- **US6 (Insights)**: 🔄 Moved to spec 002 (Semantica integration)
 - **US7 (Notes)**: ❌ Not implemented
 
 ### Critical Gaps
 1. **No CSS styling** — global.css missing, all components use undefined classes
 2. **US3 vitals safety engine not integrated** — check_vitals() exists but never called
 3. **US4 stacks UI missing** — only db.rs functions exist, no builder/list/edit components
-4. **US5 interactions completely missing** — no warning component, no integration
-5. **US6 insights completely missing** — no page, no engine, no components
+4. **US5 interactions** — moved to spec 002 (Semantica integration)
+5. **US6 insights** — moved to spec 002 (Semantica integration)
 6. **US7 notes completely missing** — no UI for creating/viewing/searching notes
 7. **PWA not implemented** — no manifest.json or service worker
 8. **Theme toggle not implemented** — no dark mode support
