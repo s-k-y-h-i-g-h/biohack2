@@ -23,6 +23,7 @@ pub fn SummaryStats(
     let food_count = *category_counts.get("food").unwrap_or(&0);
     let action_count = *category_counts.get("action").unwrap_or(&0);
     let vitals_count = *category_counts.get("vitals").unwrap_or(&0);
+    let note_count = *category_counts.get("note").unwrap_or(&0);
 
     view! {
         <div class="summary-stats">
@@ -54,6 +55,10 @@ pub fn SummaryStats(
             <div class="stat-row">
                 <span>"Vitals:"</span>
                 <span class="stat-value vitals">{vitals_count}</span>
+            </div>
+            <div class="stat-row">
+                <span>"Notes:"</span>
+                <span class="stat-value note">{note_count}</span>
             </div>
         </div>
     }

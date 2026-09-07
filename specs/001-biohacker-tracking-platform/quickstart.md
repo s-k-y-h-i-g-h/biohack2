@@ -233,6 +233,27 @@ This guide provides runnable validation scenarios to prove the feature works end
 
 ---
 
+### VS-011: Standalone Note Logging (FR-014)
+
+**Goal**: Verify users can log standalone notes that appear in history and search.
+
+**Setup**:
+1. Build and start app
+
+**Steps**:
+1. Navigate to Notes
+2. Enter note text "Noticed increased anxiety after Ashwagandha at night"
+3. Save
+4. Navigate to History
+5. Search for "anxiety"
+
+**Expected**:
+- Note appears in history with timestamp, grouped by date alongside other entries
+- Search for "anxiety" returns the note
+- "Note" category filter shows only notes
+
+---
+
 ## Running All Validations
 
 ```bash

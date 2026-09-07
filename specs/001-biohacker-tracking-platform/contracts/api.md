@@ -79,6 +79,44 @@ Check vitals against clinical thresholds.
 
 ---
 
+### POST /notes
+
+Create a standalone note (local WASM execution). Notes are first-class entries: they appear in the history view alongside consumption and vitals entries, and are included in search results and data export.
+
+**Request body**:
+```json
+{
+  "content": "Noticed increased anxiety after taking Ashwagandha at night — will try morning only next time.",
+  "timestamp": "ISO8601",
+  "linked_entry_id": "uuid | null"
+}
+```
+
+**Response** `200 OK`:
+```json
+{
+  "id": "uuid",
+  "user_id": "local-device",
+  "content": "...",
+  "timestamp": "ISO8601",
+  "linked_entry_id": null
+}
+```
+
+---
+
+### GET /notes
+
+List notes, newest first.
+
+**Query params**:
+- `search`: string (optional — filter by content substring, case-insensitive)
+- `since` / `until`: ISO8601 (optional date range)
+
+**Response** `200 OK`: array of Note objects as above.
+
+---
+
 ## Cloud Sync API (OAuth-secured, deferred to v2)
 
 ### Authentication

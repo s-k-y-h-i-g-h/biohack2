@@ -22,6 +22,17 @@ pub fn main() {
                 let style = doc.create_element("style").unwrap();
                 style.set_text_content(Some(css));
                 let _ = head.append_child(&style);
+
+                // Inject manifest link
+                let link = doc.create_element("link").unwrap();
+                let _ = link.set_attribute("rel", "manifest");
+                let _ = link.set_attribute("href", "manifest.json");
+                let _ = head.append_child(&link);
+
+                // Register service worker
+                if let Some(win2) = web_sys::window() {
+                    let _ = win2.navigator().service_worker().register("/sw.js");
+                }
             }
         }
     }
@@ -48,6 +59,10 @@ fn get_path() -> String {
 }
 
 fn app() -> impl IntoView {
+    // Global shared state: data version signal for cross-page reactivity
+    let ctx = crate::state::store::AppContext::new();
+    provide_context(ctx);
+
     let location = RwSignal::new(get_path());
     let current_path = move || location.get();
 
@@ -88,6 +103,12 @@ fn app() -> impl IntoView {
                 </Show>
                 <Show when=move || current_path() == "/stacks">
                     {pages::stacks_page()}
+                </Show>
+                <Show when=move || current_path() == "/settings">
+                    {pages::settings_page()}
+                </Show>
+                <Show when=move || current_path() == "/notes">
+                    {pages::notes_page()}
                 </Show>
                 <Show when=move || current_path() == "/" || current_path().is_empty()>
                     {pages::LogPage()}

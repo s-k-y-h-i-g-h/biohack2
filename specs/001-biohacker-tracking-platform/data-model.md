@@ -145,6 +145,20 @@ Represents a correlation or trend derived from logged data.
 - Correlations require statistically significant p-value (< 0.05)
 - Insights invalidated if underlying data is deleted
 
+### Note
+
+Represents a standalone free-text note (realization, observation) logged at a point in time — a first-class entry like LogEntry and VitalsEntry, NOT an attachment to another entry.
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| id | String (UUID v4) | Yes | Unique identifier |
+| user_id | String | Yes | Owner (local device ID) |
+| content | String | Yes | Free-text note body |
+| timestamp | chrono::DateTime<Utc> | Yes | When the note was logged |
+| linked_entry_id | Option<String> | No | Optional reference to a LogEntry for context |
+
+**Design change (2026-09-07)**: Notes are standalone entries. The `notes` field on LogEntry is DEPRECATED — retained for backward compatibility, but new notes MUST be created as Note entities.
+
 ## Relationships
 
 ```
@@ -155,7 +169,9 @@ User ─────────────────────────
     │                              │
     ├── has many ──> VitalsEntry   │
     │                              │
-    ├── has many ──> Stack        ──┘
+    ├── has many ──> Note         ─┤ (optional linked_entry_id → LogEntry)
+    │                              │
+    ├── has many ──> Stack        ─┘
     │         │
     │         └── contains ──> StackItem ──> CatalogItem
     │
@@ -166,6 +182,7 @@ User ─────────────────────────
 CatalogItem ──< consumed_by >── LogEntry
 CatalogItem ──< flagged_in >── Alert (interaction warnings)
 LogEntry ──< noted_in >─────── Insight (contributing data)
+LogEntry ──< referenced_by >── Note (optional context link)
 ```
 
 ## SQLite Schema
@@ -270,6 +287,18 @@ CREATE TABLE alerts (
 
 CREATE INDEX idx_alerts_user_unack ON alerts(user_id, is_acknowledged);
 CREATE INDEX idx_alerts_user_generated ON alerts(user_id, generated_at);
+
+-- notes (standalone first-class entries, US7)
+CREATE TABLE notes (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    content TEXT NOT NULL,
+    timestamp TEXT NOT NULL,
+    linked_entry_id TEXT,
+    FOREIGN KEY(linked_entry_id) REFERENCES log_entries(id)
+);
+
+CREATE INDEX idx_notes_user_timestamp ON notes(user_id, timestamp);
 
 -- insights
 CREATE TABLE insights (

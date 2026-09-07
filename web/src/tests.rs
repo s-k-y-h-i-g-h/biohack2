@@ -488,3 +488,152 @@ fn test_create_vitals_entry_triggers_safety_check() {
     // let alerts = get_alerts(&AlertFilter { user_id: Some("test".to_string()), acknowledged: Some(false) }).unwrap_or_default();
     // assert_eq!(alerts.len(), 1, "safety check should have created an alert");
 }
+
+// ── Note CRUD (standalone first-class entries) ─────────────────────────────────
+
+#[wasm_bindgen_test]
+fn test_create_and_get_note() {
+    clear_test_storage();
+    use crate::state::db::{create_note, get_notes};
+
+    let note = Note {
+        id: Uuid::new_v4(),
+        user_id: "test-user".to_string(),
+        content: "Noticed increased anxiety after Ashwagandha at night".to_string(),
+        timestamp: Utc::now(),
+        linked_entry_id: None,
+    };
+
+    create_note(&note).expect("should create note");
+    let notes = get_notes().expect("should read notes");
+
+    assert_eq!(notes.len(), 1);
+    assert_eq!(notes[0].content, "Noticed increased anxiety after Ashwagandha at night");
+    assert_eq!(notes[0].user_id, "test-user");
+}
+
+#[wasm_bindgen_test]
+fn test_get_notes_sorted_descending() {
+    clear_test_storage();
+    use crate::state::db::{create_note, get_notes};
+
+    let earlier = Note {
+        id: Uuid::new_v4(),
+        user_id: "test".to_string(),
+        content: "Earlier note".to_string(),
+        timestamp: Utc::now() - chrono::Duration::hours(2),
+        linked_entry_id: None,
+    };
+    let later = Note {
+        id: Uuid::new_v4(),
+        user_id: "test".to_string(),
+        content: "Later note".to_string(),
+        timestamp: Utc::now(),
+        linked_entry_id: None,
+    };
+
+    create_note(&earlier).expect("should create earlier note");
+    create_note(&later).expect("should create later note");
+
+    let notes = get_notes().expect("should read notes");
+    assert_eq!(notes.len(), 2);
+    assert_eq!(notes[0].content, "Later note");
+    assert_eq!(notes[1].content, "Earlier note");
+}
+
+#[wasm_bindgen_test]
+fn test_update_note() {
+    clear_test_storage();
+    use crate::state::db::{create_note, get_notes, update_note};
+
+    let mut note = Note {
+        id: Uuid::new_v4(),
+        user_id: "test-user".to_string(),
+        content: "Original content".to_string(),
+        timestamp: Utc::now(),
+        linked_entry_id: None,
+    };
+    create_note(&note).expect("should create note");
+
+    note.content = "Updated content".to_string();
+    update_note(&note).expect("should update note");
+
+    let notes = get_notes().expect("should read notes");
+    assert_eq!(notes.len(), 1);
+    assert_eq!(notes[0].content, "Updated content");
+}
+
+#[wasm_bindgen_test]
+fn test_delete_note() {
+    clear_test_storage();
+    use crate::state::db::{create_note, get_notes, delete_note};
+
+    let note = Note {
+        id: Uuid::new_v4(),
+        user_id: "test-user".to_string(),
+        content: "To be deleted".to_string(),
+        timestamp: Utc::now(),
+        linked_entry_id: None,
+    };
+    create_note(&note).expect("should create note");
+
+    delete_note(&note.id.to_string()).expect("should delete note");
+    let notes = get_notes().expect("should read notes");
+    assert!(notes.is_empty());
+}
+
+#[wasm_bindgen_test]
+fn test_note_with_linked_entry() {
+    clear_test_storage();
+    use crate::state::db::{create_note, get_notes};
+
+    let entry_id = Uuid::new_v4();
+    let note = Note {
+        id: Uuid::new_v4(),
+        user_id: "test-user".to_string(),
+        content: "Context for the linked entry".to_string(),
+        timestamp: Utc::now(),
+        linked_entry_id: Some(entry_id),
+    };
+
+    create_note(&note).expect("should create note with link");
+    let notes = get_notes().expect("should read notes");
+    assert_eq!(notes[0].linked_entry_id, Some(entry_id));
+}
+
+#[wasm_bindgen_test]
+fn test_note_serialization_roundtrip() {
+    let note = Note {
+        id: Uuid::new_v4(),
+        user_id: "test-user".to_string(),
+        content: "Serialization roundtrip test".to_string(),
+        timestamp: Utc::now(),
+        linked_entry_id: Some(Uuid::new_v4()),
+    };
+
+    let json = serde_json::to_string(&note).expect("should serialize note");
+    let parsed: Note = serde_json::from_str(&json).expect("should deserialize note");
+
+    assert_eq!(parsed.id, note.id);
+    assert_eq!(parsed.content, note.content);
+    assert_eq!(parsed.linked_entry_id, note.linked_entry_id);
+}
+
+#[wasm_bindgen_test]
+fn test_note_export_included_in_csv() {
+    clear_test_storage();
+    use crate::state::db::{create_note, export_data};
+
+    let note = Note {
+        id: Uuid::new_v4(),
+        user_id: "test-user".to_string(),
+        content: "Export test note".to_string(),
+        timestamp: Utc::now(),
+        linked_entry_id: None,
+    };
+    create_note(&note).expect("should create note");
+
+    let csv = export_data().expect("should export data");
+    assert!(csv.contains("note,"));
+    assert!(csv.contains("Export test note"));
+}

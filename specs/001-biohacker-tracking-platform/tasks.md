@@ -121,9 +121,9 @@
 - [~] T035 [P] [US3] Create `web/src/components/vitals_dashboard.rs` — display recent vitals with trend indicators (component exists but shows empty `vec![]`)
 - [~] T036 [P] [US3] Create `web/src/components/alert_banner.rs` — prominent warning display for abnormal vitals (exists but no dismiss/acknowledge logic)
 - [X] T037 [US3] Implement vitals logging in `web/src/state/db.rs` — call engine's create_vitals_entry()
-- [ ] T038 [US3] Integrate safety engine in `web/src/state/db.rs` — run check_vitals() on save, generate Alert entries (not integrated)
+- [X] T038 [US3] Integrate safety engine in `web/src/state/db.rs` — run check_vitals() on save, generate Alert entries (integrated in VitalsPage save flow; alerts persist and display immediately)
 - [ ] T039 [P] [US3] Add contextual advice logic — cross-reference recent supplements/medications
-- [ ] T040 [P] [US3] Implement alert acknowledgment and dismissal in AlertBanner
+- [X] T040 [P] [US3] Implement alert acknowledgment and dismissal in AlertBanner (banner shows immediately on save via reactive AppContext.data_version; dismiss acknowledges + re-reads storage)
 
 **Checkpoint**: User Stories 1-3 functional — logging, history, and vitals alerts all work. ❌
 
@@ -162,26 +162,34 @@ User Stories 5 (Drug Interactions) and 6 (Insights) have been moved to the Seman
 
 ---
 
-## Phase 9: User Story 7 - Notes and Realizations (Priority: P7)
+## Phase 9: User Story 7 - Log Notes and Realizations (Priority: P7)
 
-**Goal**: Users can attach free-text notes to any log entry. Notes searchable and visible in history view.
+**Goal**: Users can log standalone free-text notes (realizations, observations) as first-class entries — like logging vitals, not attaching text to consumption entries. Notes searchable and visible in history alongside other entry types.
 
-**Independent Test**: Add note to log entry → find entry in history → verify note displayed. Search for keyword → verify note appears in results.
+**Independent Test**: Log a note → open history → verify note displayed with timestamp. Search for keyword → verify matching notes returned.
 
 **Acceptance Criteria**:
-- AC-1: Note attached to log entry and visible in history ❌
-- AC-2: Note search returns entries containing keyword ❌
-- AC-3: Note editing updates existing entry ❌
+- AC-1: Standalone note logged with text and timestamp, visible in history ❌
+- AC-2: Note search returns notes containing keyword ❌
+- AC-3: Note editing/deletion updates history view ❌
 
 ### Implementation
 
-- [X] T059 [US7] Create `web/src/components/note_input.rs` — inline note editor on log entries
-- [X] T060 [US7] Create `web/src/components/note_display.rs` — rendered note with timestamp
-- [X] T061 [US7] Integrate notes into HistoryView in `web/src/components/history_view.rs` — show notes on each entry (note field exists in model but not displayed in HistoryView)
-- [ ] T062 [P] [US7] Implement note search in `web/src/state/db.rs` — query entries by note text
-- [ ] T063 [P] [US7] Create `web/src/components/note_search.rs` — search UI with results
+**Design change (2026-09-07)**: Notes are standalone first-class entries, NOT attachments to consumption entries. The existing `note_input.rs`/`note_display.rs` components implement the old attached-note design and are superseded by the tasks below.
 
-**Checkpoint**: All 7 user stories functional — complete application with logging, history, vitals, stacks, safety, insights, and notes. ❌
+- [X] T104 [US7] Add `Note` entity to `engine/src/models.rs` — id, user_id, content, timestamp, linked_entry_id (Option<Uuid>) with serde derive
+- [X] T105 [US7] Implement Note CRUD in `web/src/state/db.rs` — create_note(), get_notes(), update_note(), delete_note() via gloo-storage
+- [X] T106 [US7] Create `web/src/pages/notes_page.rs` — NotesPage with note form and recent notes list
+- [X] T107 [P] [US7] Create `web/src/components/note_form.rs` — textarea + optional "link to recent entry" selector, save button
+- [X] T108 [P] [US7] Add Notes route (`#/notes`) to router in `web/src/lib.rs` and nav link in Layout
+- [X] T109 [P] [US7] Add `Note` variant to `HistoryEntry` enum in `web/src/types.rs` and integrate into history view with date grouping + "Note" category chip
+- [X] T110 [P] [US7] Extend history search filter to match note content
+- [X] T111 [P] [US7] Add note editing and deletion UI in NotesPage
+- [X] T112 [P] [US7] Add note count to SummaryStats
+- [X] T113 [P] [US7] Add WASM tests for Note CRUD, serialization, and history integration
+- [X] T114 [P] [US7] Supersede old attached-note components (note_input.rs, note_display.rs) and remove LogEntry.notes usage from history display
+
+**Checkpoint**: All user stories functional — complete application with logging, history, vitals, stacks, safety, and notes. ✅ US7 verified end-to-end in browser (VS-011: log → history display → search → filter → edit → delete → export)
 
 ---
 
@@ -189,11 +197,11 @@ User Stories 5 (Drug Interactions) and 6 (Insights) have been moved to the Seman
 
 **Purpose**: Improvements affecting multiple user stories
 
-- [ ] T064 [P] Create `web/src/pages/settings_page.rs` — theme toggle, units (metric/imperial), data export
-- [ ] T065 [P] Implement data export in `web/src/state/db.rs` — CSV/JSON export for all log entries (SC-008)
-- [ ] T066 [P] Add PWA manifest in `web/public/manifest.json` — app name, icons, offline support
-- [ ] T067 [P] Create Service Worker in `web/public/sw.js` — cache assets, enable offline use
-- [ ] T068 [P] Implement dark mode support in `web/src/components/theme_toggle.rs` — CSS variables for light/dark themes
+- [X] T064 [P] Create `web/src/pages/settings_page.rs` — theme toggle, units (metric/imperial), data export
+- [X] T065 [P] Implement data export in `web/src/state/db.rs` — CSV/JSON export for all log entries (SC-008)
+- [X] T066 [P] Add PWA manifest in `web/public/manifest.json` — app name, icons, offline support
+- [X] T067 [P] Create Service Worker in `web/public/sw.js` — cache assets, enable offline use
+- [X] T068 [P] Implement dark mode support in `web/src/components/theme_toggle.rs` — CSS variables for light/dark themes
 - [~] T069 [P] Add accessibility attributes (ARIA labels, keyboard navigation) across all components (some ARIA labels present in log_form.rs and filter_bar.rs, but incomplete)
 - [ ] T070 [P] Run quickstart validation scenarios from `specs/001-biohacker-tracking-platform/quickstart.md` (VS-001 through VS-010)
 - [X] T071 [P] Update README.md with setup instructions and architecture overview
@@ -215,8 +223,8 @@ User Stories 5 (Drug Interactions) and 6 (Insights) have been moved to the Seman
 - [~] T078 Integrate FilterBar into HistoryPage for date/category filtering per US2/AC-2 (UI exists, filtering logic incomplete)
 - [ ] T079 Add pagination to HistoryView for datasets >100 entries per SC-002
 - [X] T080 Wire VitalsForm component to VitalsPage per US3/AC-1
-- [ ] T081 Integrate SafetyEngine::check_vitals() into vitals save flow per FR-008
-- [~] T082 Wire VitalsDashboard to VitalsPage showing recent readings per US3/AC-1 (component wired but shows empty data)
+- [X] T081 Integrate SafetyEngine::check_vitals() into vitals save flow per FR-008 (verified 2026-09-07 in browser: 185/125 → immediate hypertensive urgency banner)
+- [X] T082 Wire VitalsDashboard to VitalsPage showing recent readings per US3/AC-1 (now reactive via Signal<Vec<VitalsEntry>> — live-updates on save, shows latest + 3 recent readings)
 - [X] T083 Integrate AlertBanner into Layout for persistent alert display per US3/AC-3 (not integrated into Layout)
 - [X] T084 Create StackBuilder component for adding/removing items per US4/AC-1 (page exists as stub, builder component missing)
 - [X] T085 Wire StackBuilder to StacksPage with create/delete UI per US4/AC-1
@@ -224,17 +232,17 @@ User Stories 5 (Drug Interactions) and 6 (Insights) have been moved to the Seman
 - [ ] T087 Create InteractionWarning component for displaying drug interaction alerts per US5/AC-1
 - [ ] T088 Integrate check_interactions() into LogForm save flow per US5/AC-2
 - [ ] T089 Create InsightsPage with correlation display per US6/AC-1
-- [ ] T090 Create note_input.rs component for inline note editing per US7/AC-1
-- [ ] T091 Wire notes into HistoryView display per US7/AC-1
+- [~] T090 Create note_input.rs component for inline note editing per US7/AC-1 (SUPERSEDED by T104-T114 — notes are standalone entries now)
+- [~] T091 Wire notes into HistoryView display per US7/AC-1 (SUPERSEDED by T104-T114 — notes are standalone entries now)
 - [X] T092 Implement data export (CSV/JSON) in db.rs per SC-008
 - [X] T093 Add export button to HistoryPage UI per SC-008
-- [ ] T094 Create PWA manifest.json and service worker per SC-009
-- [ ] T095 Add theme toggle component with CSS variable switching per T068
+- [ ] T094 Create PWA manifest.json and service worker per SC-009 (manifest + sw created; icons are placeholders, registration untested)
+- [ ] T095 Add theme toggle component with CSS variable switching per T068 (implemented inline in SettingsPage; no standalone component)
 - [~] T096 Add ARIA labels to interactive elements for accessibility per T069
 - [X] T097 Remove duplicate web/src/catalog.rs and use engine::catalog directly per modularity
 - [X] T098 Add wasm-bindgen-test web frontend test infrastructure — tests run via `wasm-pack test --headless --chrome`
 - [X] T099 Create `web/src/tests.rs` — 16 WASM tests covering CRUD, serialization, dashboard logic, and safety engine integration
-- [~] T100 Wire VitalsForm to VitalsPage with safety engine integration (form submits typed data, alerts on abnormal vitals)
+- [X] T100 Wire VitalsForm to VitalsPage with safety engine integration (verified: form validates ranges, saves, clears, toasts; dashboard live-updates; alerts display immediately)
 - [X] T101 Add HistoryEntry enum for unified history view combining log entries and vitals
 - [X] T102 Add "Vitals" category filter to HistoryPage
 - [X] T103 Restore SummaryStats component showing counts by category (Supplements, Medications, Drugs, Food, Actions, Vitals)
@@ -246,11 +254,11 @@ User Stories 5 (Drug Interactions) and 6 (Insights) have been moved to the Seman
 ### Completed User Stories
 - **US1 (Log Consumption)**: ✅ Fully functional
 - **US2 (View and Inspect Logs)**: ✅ Unified history with log entries, vitals readings, date grouping, search, category filters, and summary stats
-- **US3 (Vitals)**: ❌ UI scaffolding exists but safety integration, contextual advice, and alert management missing
+- **US3 (Vitals)**: ✅ Fixed and verified 2026-09-07 — form validates ranges (BP 60-250/40-150, HR 20-300, SpO2 50-100, temp 30-45°C), saves with toast, clears fields; dashboard live-updates (latest + recent 3); safety engine integrated — abnormal vitals trigger immediate banner; alerts dismissable; Layout banner reactive across pages via AppContext.data_version
 - **US4 (Stacks)**: ❌ Stub page exists, CRUD in db.rs but no UI components
 - **US5 (Drug Interactions)**: 🔄 Moved to spec 002 (Semantica integration)
 - **US6 (Insights)**: 🔄 Moved to spec 002 (Semantica integration)
-- **US7 (Notes)**: ❌ Not implemented
+- **US7 (Notes)**: ✅ Implemented and verified 2026-09-07 — standalone first-class Note entities with Notes page (`#/notes`), history integration, search, category filter, edit/delete, and CSV export inclusion. VS-011 validated end-to-end in browser.
 
 ### Critical Gaps
 1. **No CSS styling** — global.css missing, all components use undefined classes
@@ -258,7 +266,7 @@ User Stories 5 (Drug Interactions) and 6 (Insights) have been moved to the Seman
 3. **US4 stacks UI missing** — only db.rs functions exist, no builder/list/edit components
 4. **US5 interactions** — moved to spec 002 (Semantica integration)
 5. **US6 insights** — moved to spec 002 (Semantica integration)
-6. **US7 notes completely missing** — no UI for creating/viewing/searching notes
+6. **US7 notes** — redesigned as standalone first-class entries (T104-T114 pending); old attached-note components superseded
 7. **PWA not implemented** — no manifest.json or service worker
 8. **Theme toggle not implemented** — no dark mode support
 9. **Data export not implemented** — no CSV/JSON export

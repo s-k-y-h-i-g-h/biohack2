@@ -1,6 +1,6 @@
 use leptos::*;
 use leptos::prelude::*;
-use crate::state::db::{get_log_entries, get_vitals_entries};
+use crate::state::db::{get_log_entries, get_vitals_entries, get_notes};
 use crate::components::SummaryStats;
 use crate::types::HistoryEntry;
 
@@ -15,11 +15,13 @@ pub fn HistoryPage() -> impl IntoView {
         let c = category.get();
         let log_entries = get_log_entries().unwrap_or_default();
         let vitals_entries = get_vitals_entries(&Default::default()).unwrap_or_default();
+        let note_entries = get_notes().unwrap_or_default();
 
         let mut all_entries: Vec<HistoryEntry> = log_entries
             .into_iter()
             .map(HistoryEntry::Log)
             .chain(vitals_entries.into_iter().map(HistoryEntry::Vitals))
+            .chain(note_entries.into_iter().map(HistoryEntry::Note))
             .collect();
 
         // Sort by timestamp descending
@@ -38,7 +40,13 @@ pub fn HistoryPage() -> impl IntoView {
                 }
                 if !s.is_empty() {
                     let q = s.to_lowercase();
-                    if !entry.name().to_lowercase().contains(&q) {
+                    let name_matches = entry.name().to_lowercase().contains(&q);
+                    let notes_matches = match entry {
+                        HistoryEntry::Log(log) => log.notes.as_ref().map(|n| n.to_lowercase().contains(&q)).unwrap_or(false),
+                        HistoryEntry::Vitals(v) => v.notes.as_ref().map(|n| n.to_lowercase().contains(&q)).unwrap_or(false),
+                        HistoryEntry::Note(n) => n.content.to_lowercase().contains(&q),
+                    };
+                    if !name_matches && !notes_matches {
                         return false;
                     }
                 }
@@ -161,6 +169,20 @@ pub fn HistoryPage() -> impl IntoView {
                         }
                         aria-label="Filter by Vitals"
                     >"Vitals"</button>
+                    <button
+                        type="button"
+                        class=move || {
+                            if category.get() == Some("note".to_string()) {
+                                "chip active"
+                            } else {
+                                "chip"
+                            }
+                        }
+                        on:click=move |_| {
+                            category.set(Some("note".to_string()));
+                        }
+                        aria-label="Filter by Note"
+                    >"Note"</button>
                 </div>
                 <button
                     type="button"
@@ -197,17 +219,27 @@ pub fn HistoryPage() -> impl IntoView {
                                     {date_entries.into_iter().map(|entry| {
                                         let time = entry.timestamp().format("%H:%M").to_string();
                                         let name = entry.name();
+                                        let details = entry.details();
                                         let note_text = match &entry {
                                             HistoryEntry::Log(log_entry) => log_entry.notes.clone(),
                                             HistoryEntry::Vitals(_) => None,
+                                            HistoryEntry::Note(n) => Some(n.content.clone()),
                                         };
                                         let is_vitals = matches!(entry, HistoryEntry::Vitals(_));
+                                        let is_note = matches!(entry, HistoryEntry::Note(_));
 
                                         view! {
-                                            <div class=format!("entry-card{}", if is_vitals { " entry-card--vitals" } else { "" })>
+                                            <div class=format!("entry-card{}{}",
+                                                if is_vitals { " entry-card--vitals" } else { "" },
+                                                if is_note { " entry-card--note" } else { "" })>
                                                 <div class="entry-time">{time}</div>
                                                 <div class="entry-info">
                                                     <span class="entry-name">{name}</span>
+                                                    {move || details.clone().map(|d| {
+                                                        view! {
+                                                            <span class="entry-quantity">{d}</span>
+                                                        }
+                                                    })}
                                                     {move || note_text.clone().map(|n| {
                                                         view! {
                                                             <span class="entry-note">{n}</span>

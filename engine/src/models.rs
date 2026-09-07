@@ -163,7 +163,7 @@ pub struct Alert {
     pub resolved_at: Option<DateTime<Utc>>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Insight {
     pub id: Uuid,
     pub user_id: String,
@@ -174,6 +174,19 @@ pub struct Insight {
     pub supporting_data_points: i32,
     pub generated_at: DateTime<Utc>,
     pub related_entry_ids: Vec<Uuid>,
+}
+
+/// Standalone free-text note (realization, observation) logged at a point in time.
+/// A first-class entry like LogEntry and VitalsEntry — NOT an attachment to another entry.
+/// The `notes` field on LogEntry is deprecated; new notes MUST be Note entities.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Note {
+    pub id: Uuid,
+    pub user_id: String,
+    pub content: String,
+    pub timestamp: DateTime<Utc>,
+    /// Optional reference to a LogEntry for context
+    pub linked_entry_id: Option<Uuid>,
 }
 
 // ── Query Types ───────────────────────────────────────────────────────────────

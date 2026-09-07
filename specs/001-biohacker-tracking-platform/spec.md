@@ -90,18 +90,19 @@ A biohacker creates a "Morning Protocol" stack that includes Vitamin D3, Magnesi
 
 ---
 
-### User Story 7 - Notes and Realizations (Priority: P7)
+### User Story 7 - Log Notes and Realizations (Priority: P7)
 
-A biohacker writes a note attached to a specific log entry: "Noticed increased anxiety after taking Ashwagandha at night — will try morning only next time." The note is linked to the entry and visible in the history view.
+A biohacker logs a standalone note capturing a realization: "Noticed increased anxiety after taking Ashwagandha at night — will try morning only next time." The note is a first-class entry with its own timestamp — logged the same way they log consumption or vitals, not attached to another entry. It appears in the history view alongside other entry types and can optionally reference a nearby log entry for context.
 
-**Why this priority**: Contextual notes capture the qualitative dimension of biohacking that numbers cannot. They help users remember why they made changes and support long-term protocol refinement.
+**Why this priority**: Notes capture the qualitative dimension of biohacking that numbers cannot. They help users remember why they made changes and support long-term protocol refinement. Logging a note must be as frictionless as logging consumption — a realization not captured within seconds is a realization lost.
 
-**Independent Test**: Can be fully tested by adding a note to a log entry, then finding that entry in history and verifying the note is displayed alongside it.
+**Independent Test**: Can be fully tested by logging a note from the Notes page, then finding it in history and verifying it displays with its timestamp. Searching for a keyword returns notes containing it.
 
 **Acceptance Scenarios**:
 
-1. **Given** the user is viewing a log entry, **When** they add a note, **Then** the note is saved and visible on the entry in the history view.
-2. **Given** the user has many notes, **When** they search for "anxiety", **Then** all entries with notes containing "anxiety" are returned.
+1. **Given** the user wants to record a realization, **When** they log a note with free text, **Then** the note is saved with the current timestamp and appears in the history view as its own entry.
+2. **Given** the user has many notes, **When** they search for "anxiety" in history, **Then** all notes containing "anxiety" are returned.
+3. **Given** the user wants to correct or remove a note, **When** they edit or delete it, **Then** the history view reflects the change.
 
 ---
 
@@ -135,7 +136,7 @@ A biohacker writes a note attached to a specific log entry: "Noticed increased a
 - **FR-011**: The system MUST allow users to log an entire stack with a single action, creating individual entries for each component.
 
 
-- **FR-014**: The system MUST allow users to attach free-text notes to any log entry.
+- **FR-014**: The system MUST allow users to log standalone free-text notes (realizations, observations) as first-class entries with their own timestamp — logged the same way as consumption and vitals, not attached to another entry. Notes MUST appear in the history view alongside other entry types, be searchable by content, and support editing and deletion.
 
 - **FR-016**: The system MUST store user data in a user-specific data store that is accessible only by the authenticated user. Data syncs across the user's own devices if cloud sync is enabled; otherwise, data remains on-device only. [Deferred to v2: cloud sync will use OAuth authentication and encrypted storage.]
 - **FR-017**: The system MUST allow users to export their data in a standard format (CSV/JSON) for personal backup or analysis.
@@ -150,6 +151,7 @@ A biohacker writes a note attached to a specific log entry: "Noticed increased a
 - **CatalogItem**: Represents a supplement, medication, drug, food, or action. Attributes: id, name, category, dosageRange, unit, durationOfAction, warnings, isCustom (boolean).
 - **Stack**: Represents a named collection of catalog items and actions. Attributes: id, userId, name, description, items (ordered list with quantities).
 - **VitalsEntry**: Represents a set of vital measurements logged at a point in time. Attributes: id, userId, timestamp, bloodPressureSystolic, bloodPressureDiastolic, heartRate, weight, bloodGlucose, sleepQuality, customMetrics.
+- **Note**: Represents a standalone free-text note (realization, observation) logged at a point in time. Attributes: id, userId, content, timestamp, linkedEntryId (optional reference to a LogEntry for context).
 - **Alert**: Represents a notification triggered by abnormal vitals or dangerous interactions. Attributes: id, userId, type (vital or interaction), severity, message, recommendation, isAcknowledged, linkedEntryId.
 
 

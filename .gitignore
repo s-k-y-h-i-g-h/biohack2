@@ -12,6 +12,7 @@ release/
 # WASM
 *.wasm
 *.js
+!web/public/sw.js
 *.map
 docs/
 

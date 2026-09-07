@@ -11,6 +11,7 @@ const STORAGE_KEY_CATALOG_ITEMS: &str = "biohack2_catalog_items";
 const STORAGE_KEY_VITALS: &str = "biohack2_vitals";
 const STORAGE_KEY_ALERTS: &str = "biohack2_alerts";
 const STORAGE_KEY_STACKS: &str = "biohack2_stacks";
+const STORAGE_KEY_NOTES: &str = "biohack2_notes";
 
 // ── LogEntry CRUD ─────────────────────────────────────────────────────────────
 
@@ -214,11 +215,50 @@ pub fn log_stack(stack: &Stack) -> Result<Vec<Uuid>, String> {
     Ok(created_ids)
 }
 
+// ── Note CRUD (standalone first-class entries) ─────────────────────────────────
+
+pub fn create_note(note: &Note) -> Result<(), String> {
+    let mut notes = get_notes()?;
+    notes.push(note.clone());
+    LocalStorage::set(STORAGE_KEY_NOTES, &notes)
+        .map_err(|e| format!("Failed to write notes: {:?}", e))?;
+    Ok(())
+}
+
+pub fn get_notes() -> Result<Vec<Note>, String> {
+    match LocalStorage::get::<Vec<Note>>(STORAGE_KEY_NOTES) {
+        Ok(mut notes) => {
+            notes.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
+            Ok(notes)
+        }
+        Err(_) => Ok(Vec::new()),
+    }
+}
+
+pub fn update_note(note: &Note) -> Result<(), String> {
+    let mut notes = get_notes()?;
+    if let Some(idx) = notes.iter().position(|n| n.id == note.id) {
+        notes[idx] = note.clone();
+    }
+    LocalStorage::set(STORAGE_KEY_NOTES, &notes)
+        .map_err(|e| format!("Failed to update note: {:?}", e))?;
+    Ok(())
+}
+
+pub fn delete_note(id: &str) -> Result<(), String> {
+    let mut notes = get_notes()?;
+    notes.retain(|n| n.id.to_string() != id);
+    LocalStorage::set(STORAGE_KEY_NOTES, &notes)
+        .map_err(|e| format!("Failed to delete note: {:?}", e))?;
+    Ok(())
+}
+
 // ── Data Export ────────────────────────────────────────────────────────────────
 
 pub fn export_data() -> Result<String, String> {
     let log_entries = get_log_entries().unwrap_or_default();
     let vitals = get_vitals_entries(&Default::default()).unwrap_or_default();
+    let notes = get_notes().unwrap_or_default();
 
     let mut csv = String::from("type,id,name,item_type,quantity,unit,timestamp,notes\n");
 
@@ -259,6 +299,18 @@ pub fn export_data() -> Result<String, String> {
             hr,
             entry.timestamp.format("%Y-%m-%dT%H:%M:%SZ"),
             notes,
+        ));
+    }
+
+    // Notes (standalone first-class entries)
+    for note in &notes {
+        let content = note.content.replace(',', ";").replace('\n', " ");
+        csv.push_str(&format!(
+            "note,{},{},Note,,,{},{}\n",
+            note.id,
+            "Note",
+            note.timestamp.format("%Y-%m-%dT%H:%M:%SZ"),
+            content,
         ));
     }
 

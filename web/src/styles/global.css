@@ -17,6 +17,18 @@
   --radius: 8px;
   --font: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
+
+/* Dark theme overrides */
+body.dark {
+  --bg-primary: #1a1a2e;
+  --bg-secondary: #2a2a40;
+  --bg-tertiary: #3a3a5a;
+  --text-primary: #f0f0f0;
+  --text-secondary: #a0a0b0;
+  --border: #3a3a5a;
+  --accent: #6a9ef7;
+  --accent-hover: #5a8ee7;
+}
 /* Reset */
 * {
   box-sizing: border-box;
@@ -499,6 +511,29 @@ nav {
   border-radius: var(--radius);
 }
 
+/* Settings */
+.settings-section {
+  margin-bottom: 2rem;
+}
+.toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+.toggle-btn {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+  font-size: 1.2rem;
+}
+.help-text {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  margin-top: 0.5rem;
+}
+
 .vitals-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -772,4 +807,161 @@ nav {
 .export-btn:hover {
   border-color: var(--accent);
   color: var(--accent);
+}
+
+/* Notes page */
+.notes-form-section,
+.notes-list-section {
+  padding: 16px;
+  background: var(--bg-secondary);
+  border-radius: var(--radius);
+  margin-bottom: 16px;
+}
+
+.note-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.note-form textarea,
+.note-edit-row textarea {
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: var(--font);
+  font-size: 14px;
+  resize: vertical;
+  width: 100%;
+}
+
+.note-form textarea::placeholder,
+.note-edit-row textarea::placeholder {
+  color: var(--text-secondary);
+}
+
+.note-form-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.link-toggle-btn {
+  padding: 8px 14px;
+  background: transparent;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.link-toggle-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.note-form .save-button {
+  width: auto;
+  padding: 8px 20px;
+}
+
+.note-link-section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.note-link-section select {
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+.notes-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.note-card {
+  padding: 12px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.note-content-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.note-timestamp {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.note-text {
+  font-size: 14px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.note-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.edit-note-btn,
+.delete-note-btn,
+.save-note-btn,
+.cancel-note-btn {
+  padding: 6px 12px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.edit-note-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.delete-note-btn:hover {
+  border-color: var(--error);
+  color: var(--error);
+}
+
+.save-note-btn {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.note-edit-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.empty-state {
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+/* Note entries in history */
+.entry-card--note {
+  border-left-color: #fbbf24;
+}
+
+.stat-value.note {
+  color: #fbbf24;
 }

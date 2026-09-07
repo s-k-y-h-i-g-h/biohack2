@@ -12,8 +12,7 @@ pub mod layout;
 pub mod stack_builder;
 pub mod stack_list_view;
 pub mod interaction_warning;
-pub mod note_input;
-pub mod note_display;
+pub mod note_form;
 
 pub use log_form::LogForm;
 pub use log_success::LogSuccess;
@@ -30,5 +29,4 @@ pub use layout::Layout;
 pub use stack_builder::StackBuilder;
 pub use stack_list_view::StackListView;
 pub use interaction_warning::InteractionWarning;
-pub use note_input::NoteInput;
-pub use note_display::NoteDisplay;
+pub use note_form::NoteForm;

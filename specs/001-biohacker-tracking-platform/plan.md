@@ -83,7 +83,7 @@ biohack2/
 │       ├── lib.rs                # Re-exports all public API
 │       ├── safety.rs             # 3 protocols: tachycardia, hypertensive urgency, serotonin
 │       ├── catalog.rs            # 27-substance database + update mechanism
-│       ├── models.rs             # LogEntry, CatalogItem, Stack, VitalsEntry, Alert, Insight
+│       ├── models.rs             # LogEntry, CatalogItem, Stack, VitalsEntry, Alert, Insight, Note
 │       └── db.rs                 # SQLite schema + queries
 │   └── tests/
 │       ├── safety_tests.rs       # Safety protocol tests (ported from biohack)
@@ -107,13 +107,14 @@ biohack2/
 │       │   ├── stack_builder.rs  # Stack creation/management UI
 │       │   ├── interaction_warning.rs # Danger interaction warning modal
 │       │   ├── insights_feed.rs  # Correlation/trend insights
-│       │   ├── note_input.rs     # Inline note editor
+│       │   ├── note_form.rs      # Standalone note logging form (US7)
 │       │   └── theme_toggle.rs   # Dark/light mode toggle
 │       ├── pages/
 │       │   ├── log_page.rs
 │       │   ├── history_page.rs
 │       │   ├── vitals_page.rs
 │       │   ├── stacks_page.rs
+│       │   ├── notes_page.rs     # Standalone note logging + recent notes (US7)
 │       │   ├── insights_page.rs
 │       │   └── settings_page.rs
 │       └── styles/
