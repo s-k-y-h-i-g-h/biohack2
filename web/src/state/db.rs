@@ -180,10 +180,15 @@ pub fn log_stack(stack: &Stack) -> Result<Vec<Uuid>, String> {
     let timestamp = chrono::Utc::now();
     let mut created_ids = Vec::new();
 
+    // Look up items in the PERSISTED catalog (localStorage) — the same source the
+    // StackBuilder selected from. `engine::catalog::seed_catalog()` regenerates
+    // UUIDs on every call, so its IDs never match saved stacks.
+    let catalog_items: Vec<CatalogItem> =
+        LocalStorage::get(STORAGE_KEY_CATALOG_ITEMS).unwrap_or_default();
+
     for item in &stack.items {
-        // Look up the catalog item to get the name
-        let catalog_items = engine::catalog::seed_catalog();
-        let catalog_item = catalog_items.iter()
+        let catalog_item = catalog_items
+            .iter()
             .find(|c| c.id == item.item_id);
 
         let name = catalog_item

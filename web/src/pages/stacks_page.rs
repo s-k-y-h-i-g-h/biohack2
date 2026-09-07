@@ -1,54 +1,66 @@
-use leptos::*;
 use leptos::prelude::*;
 use engine::models::*;
 use crate::state::db::{get_stacks, delete_stack, log_stack};
+use crate::state::store::AppContext;
 use crate::components::{StackBuilder, StackListView};
 use uuid::Uuid;
 
 #[component]
 pub fn StacksPage() -> impl IntoView {
-    let stacks = RwSignal::new(Vec::<Stack>::new());
+    // Global data version — bumps propagate to this page AND Layout's alert banner
+    let ctx = expect_context::<AppContext>();
+    let version = ctx.data_version;
+
     let message = RwSignal::new(None::<String>);
 
-    // Load stacks on mount
-    let load_stacks = move || {
+    // Reactive: re-reads stacks from storage whenever version changes
+    let stacks = Signal::derive(move || {
+        version.get(); // track
         get_stacks().unwrap_or_default()
+    });
+
+    let refresh = move || {
+        version.update(|v| *v += 1);
     };
-    stacks.set(load_stacks());
+
+    let flash = move |msg: String| {
+        message.set(Some(msg));
+        set_timeout(
+            move || message.set(None),
+            std::time::Duration::from_millis(2000),
+        );
+    };
 
     let handle_created = move |name: String| {
-        stacks.set(load_stacks());
-        message.set(Some(format!("Stack \"{}\" created!", name)));
-        set_timeout(move || {
-            message.set(None);
-        }, std::time::Duration::from_millis(2000));
+        refresh();
+        flash(format!("Stack \"{}\" created!", name));
     };
 
     let handle_log = move |stack_id: Uuid| {
-        let stack = stacks.get().into_iter()
+        let stack = get_stacks()
+            .unwrap_or_default()
+            .into_iter()
             .find(|s| s.id == stack_id);
 
         if let Some(stack) = stack {
             match log_stack(&stack) {
-                Ok(_ids) => {
-                    message.set(Some(format!("Logged {} items from \"{}\"", stack.items.len(), stack.name)));
-                    set_timeout(move || {
-                        message.set(None);
-                    }, std::time::Duration::from_millis(2000));
-                }
-                Err(e) => {
-                    eprintln!("Failed to log stack: {}", e);
-                    message.set(Some(format!("Failed to log stack: {}", e)));
-                }
+                Ok(ids) => flash(format!(
+                    "Logged {} items from \"{}\"",
+                    ids.len(),
+                    stack.name
+                )),
+                Err(e) => flash(format!("Failed to log stack: {}", e)),
             }
         }
     };
 
     let handle_delete = move |stack_id: Uuid| {
-        if let Err(e) = delete_stack(&stack_id.to_string()) {
-            eprintln!("Failed to delete stack: {}", e);
-        } else {
-            stacks.set(load_stacks());
+        match delete_stack(&stack_id.to_string()) {
+            Ok(()) => {
+                refresh();
+                flash("Stack deleted".to_string());
+            }
+            Err(e) => flash(format!("Failed to delete stack: {}", e)),
         }
     };
 
@@ -57,7 +69,7 @@ pub fn StacksPage() -> impl IntoView {
             <h2>"Stacks"</h2>
 
             <Show when=move || message.get().is_some()>
-                <div class="toast success">
+                <div class="toast success" role="status">
                     {move || message.get()}
                 </div>
             </Show>
@@ -65,7 +77,7 @@ pub fn StacksPage() -> impl IntoView {
             <StackBuilder on_created=Callback::new(handle_created) />
 
             <StackListView
-                stacks=stacks.get_untracked()
+                stacks=stacks
                 on_log=Callback::new(handle_log)
                 on_delete=Callback::new(handle_delete)
             />

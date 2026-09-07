@@ -1,8 +1,6 @@
-use leptos::*;
 use leptos::prelude::*;
 use engine::models::*;
-use engine::catalog::seed_catalog;
-use crate::state::db::create_stack;
+use crate::state::db::{create_stack, search_catalog};
 use uuid::Uuid;
 
 #[derive(Clone)]
@@ -13,6 +11,10 @@ struct StackFormItem {
     unit: String,
 }
 
+/// Stack creation form. Uses the PERSISTED catalog (localStorage) so that
+/// item IDs stored in the stack match what `log_stack` looks up later.
+/// `engine::catalog::seed_catalog()` regenerates UUIDs per call — never use
+/// it directly for selections that get saved.
 #[component]
 pub fn StackBuilder(
     on_created: Callback<String>,
@@ -20,23 +22,21 @@ pub fn StackBuilder(
     let stack_name = RwSignal::new(String::new());
     let search_query = RwSignal::new(String::new());
     let selected_items = RwSignal::new(Vec::<StackFormItem>::new());
+    let error = RwSignal::new(None::<String>);
 
-    let catalog = Signal::derive(|| seed_catalog());
+    // Persisted catalog: search_catalog reads (and on first use seeds) localStorage
     let filtered_catalog = move || {
         let q = search_query.get();
-        let items = catalog.get();
-        if q.is_empty() {
-            items.clone()
-        } else {
-            items.iter()
-                .filter(|item| item.name.to_lowercase().contains(&q.to_lowercase()))
-                .cloned()
-                .collect()
-        }
+        let items = search_catalog(&q).unwrap_or_default();
+        items
     };
 
     let add_item = move |item: CatalogItem| {
         selected_items.update(|items| {
+            // Avoid duplicates
+            if items.iter().any(|i| i.item_id == item.id) {
+                return;
+            }
             items.push(StackFormItem {
                 item_id: item.id,
                 name: item.name.clone(),
@@ -58,14 +58,16 @@ pub fn StackBuilder(
 
     let handle_create = move |_| {
         let name = stack_name.get();
-        if name.is_empty() {
+        if name.trim().is_empty() {
+            error.set(Some("Stack name is required".to_string()));
             return;
         }
-
         let items = selected_items.get();
         if items.is_empty() {
+            error.set(Some("Add at least one item to the stack".to_string()));
             return;
         }
+        error.set(None);
 
         let stack_items: Vec<StackItem> = items.iter().map(|f| StackItem {
             item_id: f.item_id,
@@ -84,12 +86,13 @@ pub fn StackBuilder(
             items: stack_items,
         };
 
-        if let Err(e) = create_stack(&stack) {
-            eprintln!("Failed to create stack: {}", e);
-        } else {
-            on_created.run(name);
-            stack_name.set(String::new());
-            selected_items.set(Vec::new());
+        match create_stack(&stack) {
+            Ok(()) => {
+                on_created.run(name);
+                stack_name.set(String::new());
+                selected_items.set(Vec::new());
+            }
+            Err(e) => error.set(Some(format!("Failed to create stack: {}", e))),
         }
     };
 
@@ -101,6 +104,7 @@ pub fn StackBuilder(
                     type="text"
                     placeholder="Stack name"
                     aria-label="Stack name"
+                    prop:value=move || stack_name.get()
                     on:input=move |e| { stack_name.set(event_target_value(&e)); }
                 />
             </div>
@@ -115,9 +119,12 @@ pub fn StackBuilder(
             </div>
 
             <div class="catalog-list">
-                {move || filtered_catalog().into_iter().map(|item| {
+                {move || filtered_catalog().into_iter().take(15).map(|item| {
                     let item_clone = item.clone();
                     let item_name = item.name.clone();
+                    let dosage = item.dosage_range.as_ref()
+                        .map(|d| format!("{}-{} {}", d.min, d.max, d.unit))
+                        .unwrap_or_default();
                     view! {
                         <button
                             type="button"
@@ -126,6 +133,7 @@ pub fn StackBuilder(
                             aria-label=format!("Add {}", item_name)
                         >
                             <span class="catalog-name">{item.name}</span>
+                            <span class="catalog-dosage">{dosage}</span>
                         </button>
                     }
                 }).collect_view()}
@@ -137,9 +145,10 @@ pub fn StackBuilder(
                     {move || {
                         let items = selected_items.get();
                         items.iter().enumerate().map(|(i, item)| {
+                            let name = item.name.clone();
                             view! {
                                 <div class="selected-item">
-                                    <span>{item.name.clone()}</span>
+                                    <span>{name}</span>
                                     <span>{item.quantity.clone()} {item.unit.clone()}</span>
                                     <button
                                         type="button"
@@ -160,6 +169,12 @@ pub fn StackBuilder(
                 on:click=handle_create
                 aria-label="Create stack"
             >"Create Stack"</button>
+
+            <Show when=move || error.get().is_some()>
+                <div class="toast error" role="alert">
+                    {move || error.get()}
+                </div>
+            </Show>
         </div>
     }
 }

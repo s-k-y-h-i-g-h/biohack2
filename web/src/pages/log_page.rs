@@ -2,12 +2,14 @@ use leptos::*;
 use leptos::prelude::*;
 use engine::models::LogEntry;
 use engine::safety::SafetyEngine;
-use crate::state::db::{create_log_entry, get_log_entries};
+use crate::state::db::{create_log_entry, get_log_entries, search_catalog};
 
 #[component]
 pub fn LogPage() -> impl IntoView {
     let interaction_warning = RwSignal::new(None::<LogEntry>);
-    let catalog = engine::catalog::seed_catalog();
+    // Persisted catalog (localStorage) — stable IDs, seeded on first use.
+    // seed_catalog() regenerates UUIDs per call; never use it for saved references.
+    let catalog = search_catalog("").unwrap_or_default();
 
     let handle_save = move |entry: LogEntry| {
         // Check for interactions before saving

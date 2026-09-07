@@ -111,8 +111,8 @@
 
 **Acceptance Criteria**:
 - AC-1: Normal vitals display without alerts ✅
-- AC-2: Out-of-range vitals trigger clinical alert with contextual advice ❌ (check_vitals() not called on save)
-- AC-3: Alerts can be dismissed and resolve on new normal entry ❌ (no dismiss logic implemented)
+- AC-2: Out-of-range vitals trigger clinical alert with contextual advice ✅ (verified: 185/125 → immediate hypertensive urgency banner with recommendation)
+- AC-3: Alerts can be dismissed and resolve on new normal entry ✅ (dismiss acknowledges; new normal entries generate no new alerts)
 
 ### Implementation
 
@@ -136,21 +136,21 @@
 **Independent Test**: Create "Morning Protocol" with 4 items → log stack → verify 4 entries created with same timestamp.
 
 **Acceptance Criteria**:
-- AC-1: Stack creation with multiple catalog items ❌
-- AC-2: Single-tap stack logging creates individual entries ❌
-- AC-3: Stack modifications persist for future logs ❌
+- AC-1: Stack creation with multiple catalog items ✅ (verified: builder with search, dosage display, add/remove, duplicate prevention, validation)
+- AC-2: Single-tap stack logging creates individual entries ✅ (verified: 3 items → 3 log entries, correct names + same timestamp)
+- AC-3: Stack modifications persist for future logs ✅ (stacks persist in localStorage; delete works with live UI update)
 
 ### Implementation
 
-- [~] T041 [US4] Create `web/src/pages/stacks_page.rs` — StacksPage component (stub exists, no real functionality)
-- [ ] T042 [US4] Create `web/src/components/stack_builder.rs` — add/remove items, set quantities, save stack
-- [ ] T043 [P] [US4] Create `web/src/components/stack_list_view.rs` — display user's stacks with log button
+- [X] T041 [US4] Create `web/src/pages/stacks_page.rs` — StacksPage component (reactive via AppContext.data_version; toasts; create/log/delete all update live)
+- [X] T042 [US4] Create `web/src/components/stack_builder.rs` — add/remove items, set quantities, save stack (uses persisted catalog for stable IDs; duplicate prevention; validation)
+- [X] T043 [P] [US4] Create `web/src/components/stack_list_view.rs` — display user's stacks with log button (reactive Signal<Vec<Stack>>; empty state)
 - [ ] T044 [P] [US4] Create `web/src/components/stack_edit_modal.rs` — modify existing stacks
 - [X] T045 [US4] Implement stack CRUD in `web/src/state/db.rs` — create_stack(), get_stacks(), update_stack(), delete_stack()
-- [~] T046 [US4] Implement stack logging in `web/src/state/db.rs` — log_stack() creates individual LogEntry for each item (exists in db.rs but not wired to UI)
+- [X] T046 [US4] Implement stack logging in `web/src/state/db.rs` — log_stack() creates individual LogEntry for each item (FIXED: was matching against regenerated seed_catalog UUIDs → "Unknown" names; now reads persisted catalog — verified: 3-item stack logs with correct names)
 - [ ] T047 [P] [US4] Add YAML import/export for stacks in `web/src/components/stack_builder.rs`
 
-**Checkpoint**: User Stories 1-4 functional — complete core logging workflow. ❌
+**Checkpoint**: User Stories 1-4 functional — complete core logging workflow. ✅ (US4 verified 2026-09-07 in browser; T044 stack-edit modal and T047 YAML import/export remain as enhancements)
 
 ---
 
@@ -169,9 +169,9 @@ User Stories 5 (Drug Interactions) and 6 (Insights) have been moved to the Seman
 **Independent Test**: Log a note → open history → verify note displayed with timestamp. Search for keyword → verify matching notes returned.
 
 **Acceptance Criteria**:
-- AC-1: Standalone note logged with text and timestamp, visible in history ❌
-- AC-2: Note search returns notes containing keyword ❌
-- AC-3: Note editing/deletion updates history view ❌
+- AC-1: Standalone note logged with text and timestamp, visible in history ✅
+- AC-2: Note search returns notes containing keyword ✅
+- AC-3: Note editing/deletion updates history view ✅
 
 ### Implementation
 
@@ -255,22 +255,25 @@ User Stories 5 (Drug Interactions) and 6 (Insights) have been moved to the Seman
 - **US1 (Log Consumption)**: ✅ Fully functional
 - **US2 (View and Inspect Logs)**: ✅ Unified history with log entries, vitals readings, date grouping, search, category filters, and summary stats
 - **US3 (Vitals)**: ✅ Fixed and verified 2026-09-07 — form validates ranges (BP 60-250/40-150, HR 20-300, SpO2 50-100, temp 30-45°C), saves with toast, clears fields; dashboard live-updates (latest + recent 3); safety engine integrated — abnormal vitals trigger immediate banner; alerts dismissable; Layout banner reactive across pages via AppContext.data_version
-- **US4 (Stacks)**: ❌ Stub page exists, CRUD in db.rs but no UI components
+- **US4 (Stacks)**: ✅ Fixed and verified 2026-09-07 — builder uses persisted catalog (stable IDs), stack create/log/delete all update live via AppContext.data_version; log_stack reads persisted catalog so entries get real item names (was "Unknown" due to regenerated seed UUIDs); toasts for all actions. Remaining enhancements: stack-edit modal (T044), YAML import/export (T047).
 - **US5 (Drug Interactions)**: 🔄 Moved to spec 002 (Semantica integration)
 - **US6 (Insights)**: 🔄 Moved to spec 002 (Semantica integration)
 - **US7 (Notes)**: ✅ Implemented and verified 2026-09-07 — standalone first-class Note entities with Notes page (`#/notes`), history integration, search, category filter, edit/delete, and CSV export inclusion. VS-011 validated end-to-end in browser.
 
 ### Critical Gaps
-1. **No CSS styling** — global.css missing, all components use undefined classes
-2. **US3 vitals safety engine not integrated** — check_vitals() exists but never called
-3. **US4 stacks UI missing** — only db.rs functions exist, no builder/list/edit components
+1. ~~No CSS styling~~ — RESOLVED: global.css has full component styling incl. notes, settings, stacks
+2. ~~US3 vitals safety engine not integrated~~ — RESOLVED 2026-09-07: check_vitals() runs on save, immediate banner
+3. ~~US4 stacks UI missing~~ — RESOLVED 2026-09-07: builder + list view + live updates; log_stack reads persisted catalog
 4. **US5 interactions** — moved to spec 002 (Semantica integration)
 5. **US6 insights** — moved to spec 002 (Semantica integration)
-6. **US7 notes** — redesigned as standalone first-class entries (T104-T114 pending); old attached-note components superseded
-7. **PWA not implemented** — no manifest.json or service worker
-8. **Theme toggle not implemented** — no dark mode support
-9. **Data export not implemented** — no CSV/JSON export
-10. **WASM size ~14MB** — far exceeds 100KB target due to sqlx WASM runtime
+6. ~~US7 notes~~ — RESOLVED 2026-09-07: standalone first-class notes implemented and verified
+7. ~~PWA not implemented~~ — RESOLVED: manifest.json + sw.js shipped (icons are placeholders)
+8. ~~Theme toggle not implemented~~ — RESOLVED: light/dark via body class + CSS variables in Settings
+9. ~~Data export not implemented~~ — RESOLVED: CSV export from History and Settings (blob download + localStorage fallback)
+10. ~~WASM size ~14MB~~ — RESOLVED: ~88KB after wasm-opt via wasm-pack release build
+11. **Stack-edit modal (T044) and YAML import/export (T047)** — not implemented (enhancements)
+12. **Date-range filter in History (T029/T078/T031)** — search + category chips work; date-range picker still missing
+13. **Contextual advice cross-referencing recent supplements (T039)** — alert recommendations are static protocol text; no log-derived advice yet
 
 ### Working Components
 - Log page with search, selection, custom items, loading states, offline indicator
