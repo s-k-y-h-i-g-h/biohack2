@@ -43,15 +43,19 @@ pub fn VitalsPage() -> impl IntoView {
             name: log.name.clone(),
             category: log.item_type.clone(),
             taken_at: log.timestamp,
-            is_stimulant: false,
-            is_serotonergic: false,
+            is_stimulant: engine::safety::is_stimulant_name(&log.name),
+            is_serotonergic: engine::safety::is_serotonergic_name(&log.name),
         }).collect();
 
         let safety_result = engine.check_vitals(&entry, &substances);
 
-        // Persist any triggered alerts
-        for alert in &safety_result.alerts {
-            if let Err(e) = create_alert(alert) {
+        // Persist any triggered alerts, enriched with log-derived contextual advice (FR-009)
+        for mut alert in safety_result.alerts {
+            if let Some(advice) = engine::safety::contextual_advice(&alert, &substances) {
+                let rec = alert.recommendation.clone().unwrap_or_default();
+                alert.recommendation = Some(format!("{} Context: {}", rec, advice));
+            }
+            if let Err(e) = create_alert(&alert) {
                 web_sys::console::error_1(&format!("Failed to create alert: {}", e).into());
             }
         }

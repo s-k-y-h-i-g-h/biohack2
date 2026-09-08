@@ -167,6 +167,18 @@ pub fn get_stacks() -> Result<Vec<Stack>, String> {
     }
 }
 
+pub fn update_stack(stack: &Stack) -> Result<(), String> {
+    let mut stacks = get_stacks()?;
+    if let Some(idx) = stacks.iter().position(|s| s.id == stack.id) {
+        stacks[idx] = stack.clone();
+    } else {
+        return Err(format!("Stack {} not found", stack.id));
+    }
+    LocalStorage::set(STORAGE_KEY_STACKS, &stacks)
+        .map_err(|e| format!("Failed to update stack: {:?}", e))?;
+    Ok(())
+}
+
 pub fn delete_stack(id: &str) -> Result<(), String> {
     let mut stacks = get_stacks()?;
     stacks.retain(|s| s.id.to_string() != id);

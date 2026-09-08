@@ -11,6 +11,7 @@ pub mod alert_banner;
 pub mod layout;
 pub mod stack_builder;
 pub mod stack_list_view;
+pub mod stack_edit_modal;
 pub mod interaction_warning;
 pub mod note_form;
 
@@ -28,5 +29,6 @@ pub use alert_banner::AlertBanner;
 pub use layout::Layout;
 pub use stack_builder::StackBuilder;
 pub use stack_list_view::StackListView;
+pub use stack_edit_modal::StackEditModal;
 pub use interaction_warning::InteractionWarning;
 pub use note_form::NoteForm;

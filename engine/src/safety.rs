@@ -223,28 +223,136 @@ impl SafetyEngine {
 
 /// Returns true if the log entry represents a serotonergic substance.
 fn is_serotonergic_item(entry: &LogEntry) -> bool {
-    (matches!(entry.item_type, ItemType::Medication | ItemType::Drug)
-        || matches!(entry.item_type, ItemType::Supplement))
-        && (entry
-            .name
-            .to_lowercase()
-            .contains("ssri")
-            || entry.name.to_lowercase().contains("snao")
-            || entry.name.to_lowercase().contains("mao")
-            || entry.name.to_lowercase().contains("tryptophan")
-            || entry.name.to_lowercase().contains("5-htp")
-            || entry.name.to_lowercase().contains("tramadol")
-            || entry.name.to_lowercase().contains("dextromethorphan")
-            || entry.name.to_lowercase().contains("st john")
-            || entry.name.to_lowercase().contains("fluoxetine")
-            || entry.name.to_lowercase().contains("sertraline")
-            || entry.name.to_lowercase().contains("paroxetine"))
+    is_serotonergic_name(&entry.name)
+}
+
+/// Returns true if the name matches a serotonergic substance.
+pub fn is_serotonergic_name(name: &str) -> bool {
+    // Normalize: lowercase, punctuation → space, collapse runs of spaces
+    // so "St. John's Wort" → "st john s wort" (matches "st john")
+    let cleaned: String = name
+        .to_lowercase()
+        .chars()
+        .map(|c| if c.is_alphanumeric() || c == ' ' || c == '-' { c } else { ' ' })
+        .collect();
+    let n = cleaned.split_whitespace().collect::<Vec<_>>().join(" ");
+    (n.contains("ssri")
+        || n.contains("snri")
+        || n.contains("mao")
+        || n.contains("tryptophan")
+        || n.contains("5-htp")
+        || n.contains("tramadol")
+        || n.contains("dextromethorphan")
+        || n.contains("st john")
+        || n.contains("fluoxetine")
+        || n.contains("sertraline")
+        || n.contains("paroxetine"))
+}
+
+/// Returns true if the name matches a stimulant substance.
+pub fn is_stimulant_name(name: &str) -> bool {
+    let n = name.to_lowercase();
+    (n.contains("caffeine")
+        || n.contains("coffee")
+        || n.contains("espresso")
+        || n.contains("tea")
+        || n.contains("energy drink")
+        || n.contains("ephedrine")
+        || n.contains("amphetamine")
+        || n.contains("adderall")
+        || n.contains("ritalin")
+        || n.contains("methylphenidate")
+        || n.contains("modafinil")
+        || n.contains("armodafinil")
+        || n.contains("nicotine")
+        || n.contains("yohimbine")
+        || n.contains("synephrine"))
 }
 
 /// Runs all safety checks for a vitals entry.
 pub fn run_safety_check(entry: &VitalsEntry, recent_substances: &[RecentSubstance]) -> SafetyResult {
     let engine = SafetyEngine::new();
     engine.check_vitals(entry, recent_substances)
+}
+
+/// Contextual advice derived from the user's recent consumption log (FR-009).
+///
+/// Cross-references recent supplements/medications/actions to enrich an
+/// alert's recommendation with log-derived context (e.g. "no magnesium this
+/// week" for hypertension, "recent stimulant use" for tachycardia).
+pub fn contextual_advice(
+    alert: &Alert,
+    recent_substances: &[RecentSubstance],
+) -> Option<String> {
+    let now = Utc::now();
+    let week_ago = now - Duration::days(7);
+
+    let taken_last_week: Vec<&RecentSubstance> = recent_substances
+        .iter()
+        .filter(|s| s.taken_at >= week_ago)
+        .collect();
+
+    let msg = alert.message.to_lowercase();
+
+    // Hypertension → check magnesium (relaxation of vascular smooth muscle)
+    if msg.contains("hypertens") {
+        let has_magnesium = taken_last_week.iter().any(|s| {
+            let n = s.name.to_lowercase();
+            n.contains("magnesium") || n.contains("mg glycinate") || n.contains("citrate")
+        });
+        let has_stimulant_use = taken_last_week.iter().any(|s| s.is_stimulant);
+
+        let mut parts = Vec::new();
+        if !has_magnesium {
+            parts.push(
+                "Your magnesium intake has been low this week — consider magnesium glycinate 200-400mg"
+                    .to_string(),
+            );
+        }
+        if has_stimulant_use {
+            parts.push(
+                "You've used stimulants recently — avoid caffeine and other stimulants until BP normalizes"
+                    .to_string(),
+            );
+        }
+        if parts.is_empty() {
+            return None;
+        }
+        return Some(parts.join(". "));
+    }
+
+    // Tachycardia → stimulant context
+    if msg.contains("tachycardia") {
+        let recent_stimulants: Vec<&str> = taken_last_week
+            .iter()
+            .filter(|s| s.is_stimulant)
+            .map(|s| s.name.as_str())
+            .collect();
+        if !recent_stimulants.is_empty() {
+            return Some(format!(
+                "Recent stimulants in your log: {}. Allow 6+ hours before any further stimulant use.",
+                recent_stimulants.join(", ")
+            ));
+        }
+        return None;
+    }
+
+    // Interaction alerts → list co-ingested agents
+    if msg.contains("serotonin") {
+        let serotonergic: Vec<&str> = taken_last_week
+            .iter()
+            .filter(|s| s.is_serotonergic)
+            .map(|s| s.name.as_str())
+            .collect();
+        if !serotonergic.is_empty() {
+            return Some(format!(
+                "Serotonergic agents in your recent log: {}.",
+                serotonergic.join(", ")
+            ));
+        }
+    }
+
+    None
 }
 
 #[cfg(test)]

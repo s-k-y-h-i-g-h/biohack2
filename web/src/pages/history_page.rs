@@ -1,18 +1,31 @@
-use leptos::*;
 use leptos::prelude::*;
 use crate::state::db::{get_log_entries, get_vitals_entries, get_notes};
+use crate::state::store::AppContext;
 use crate::components::SummaryStats;
 use crate::types::HistoryEntry;
 
+const PAGE_SIZE: usize = 100;
+
 #[component]
 pub fn HistoryPage() -> impl IntoView {
+    // Global data version — re-reads storage after any page writes
+    let ctx = expect_context::<AppContext>();
+    let version = ctx.data_version;
+
     let search = RwSignal::new(String::new());
     let category = RwSignal::new(None::<String>);
+    let date_start = RwSignal::new(String::new()); // YYYY-MM-DD, inclusive
+    let date_end = RwSignal::new(String::new());   // YYYY-MM-DD, inclusive
+    let visible = RwSignal::new(PAGE_SIZE);         // pagination: entries shown
 
     // Computed filtered entries (used by both SummaryStats and the list)
     let filtered_entries = move || {
+        let _ = version.get(); // track: re-read after writes on any page
         let s = search.get();
         let c = category.get();
+        let start = date_start.get();
+        let end = date_end.get();
+
         let log_entries = get_log_entries().unwrap_or_default();
         let vitals_entries = get_vitals_entries(&Default::default()).unwrap_or_default();
         let note_entries = get_notes().unwrap_or_default();
@@ -28,34 +41,61 @@ pub fn HistoryPage() -> impl IntoView {
         all_entries.sort_by(|a, b| b.timestamp().cmp(&a.timestamp()));
 
         // Apply filters
-        let filtered: Vec<HistoryEntry> = all_entries
-            .into_iter()
-            .filter(|entry| {
-                if let Some(cat) = &c {
-                    if let Some(entry_cat) = entry.category() {
-                        if entry_cat != *cat {
-                            return false;
-                        }
-                    }
-                }
-                if !s.is_empty() {
-                    let q = s.to_lowercase();
-                    let name_matches = entry.name().to_lowercase().contains(&q);
-                    let notes_matches = match entry {
-                        HistoryEntry::Log(log) => log.notes.as_ref().map(|n| n.to_lowercase().contains(&q)).unwrap_or(false),
-                        HistoryEntry::Vitals(v) => v.notes.as_ref().map(|n| n.to_lowercase().contains(&q)).unwrap_or(false),
-                        HistoryEntry::Note(n) => n.content.to_lowercase().contains(&q),
-                    };
-                    if !name_matches && !notes_matches {
+        all_entries.into_iter().filter(|entry| {
+            // Category filter
+            if let Some(cat) = &c {
+                if let Some(entry_cat) = entry.category() {
+                    if &entry_cat != cat {
                         return false;
                     }
                 }
-                true
-            })
-            .collect();
+            }
 
-        filtered
+            // Date-range filter (inclusive, compares the date part)
+            let date = entry.timestamp().format("%Y-%m-%d").to_string();
+            if !start.is_empty() && date.as_str() < start.as_str() {
+                return false;
+            }
+            if !end.is_empty() && date.as_str() > end.as_str() {
+                return false;
+            }
+
+            // Search filter: name or note content
+            if !s.is_empty() {
+                let q = s.to_lowercase();
+                let name_matches = entry.name().to_lowercase().contains(&q);
+                let notes_matches = match entry {
+                    HistoryEntry::Log(log) => log.notes.as_ref().map(|n| n.to_lowercase().contains(&q)).unwrap_or(false),
+                    HistoryEntry::Vitals(v) => v.notes.as_ref().map(|n| n.to_lowercase().contains(&q)).unwrap_or(false),
+                    HistoryEntry::Note(n) => n.content.to_lowercase().contains(&q),
+                };
+                if !name_matches && !notes_matches {
+                    return false;
+                }
+            }
+            true
+        }).collect::<Vec<_>>()
     };
+
+    // Filtered entries visible on the current page
+    let visible_entries = move || {
+        let n = visible.get();
+        filtered_entries().into_iter().take(n).collect::<Vec<_>>()
+    };
+
+    let total_count = move || filtered_entries().len();
+    let shown_count = move || visible_entries().len();
+
+    let chips = [
+        ("All", ""),
+        ("Supplement", "supplement"),
+        ("Medication", "medication"),
+        ("Drug", "drug"),
+        ("Food", "food"),
+        ("Action", "action"),
+        ("Vitals", "vitals"),
+        ("Note", "note"),
+    ];
 
     view! {
         <div class="page">
@@ -63,126 +103,59 @@ pub fn HistoryPage() -> impl IntoView {
             <div class="filter-bar">
                 <input
                     type="text"
-                    placeholder="Search..."
-                    on:input=move |e| {
-                        search.set(event_target_value(&e));
-                    }
+                    placeholder="Search... (names and notes)"
+                    on:input=move |e| { search.set(event_target_value(&e)); }
                     class="search-input"
                     aria-label="Search entries"
                 />
+                <div class="date-range">
+                    <label for="date-start">"From"</label>
+                    <input
+                        id="date-start"
+                        type="date"
+                        on:input=move |e| { date_start.set(event_target_value(&e)); }
+                        aria-label="Filter from date"
+                    />
+                    <label for="date-end">"To"</label>
+                    <input
+                        id="date-end"
+                        type="date"
+                        on:input=move |e| { date_end.set(event_target_value(&e)); }
+                        aria-label="Filter to date"
+                    />
+                    <button
+                        type="button"
+                        class="chip"
+                        on:click=move |_| {
+                            date_start.set(String::new());
+                            date_end.set(String::new());
+                        }
+                        aria-label="Clear date range"
+                    >"Clear dates"</button>
+                </div>
                 <div class="category-chips">
-                    <button
-                        type="button"
-                        class=move || {
-                            if category.get().is_none() {
-                                "chip active"
-                            } else {
-                                "chip"
-                            }
+                    {chips.iter().map(|(label, value)| {
+                        let value = value.to_string();
+                        let value2 = value.clone();
+                        let label = label.to_string();
+                        view! {
+                            <button
+                                type="button"
+                                class=move || {
+                                    let active = if value.is_empty() {
+                                        category.get().is_none()
+                                    } else {
+                                        category.get().as_deref() == Some(value.as_str())
+                                    };
+                                    if active { "chip active" } else { "chip" }
+                                }
+                                on:click=move |_| {
+                                    category.set(if value2.is_empty() { None } else { Some(value2.clone()) });
+                                }
+                                aria-label=format!("Filter by {}", label)
+                            >{label.clone()}</button>
                         }
-                        on:click=move |_| {
-                            category.set(None);
-                        }
-                        aria-label="Filter by All"
-                    >"All"</button>
-                    <button
-                        type="button"
-                        class=move || {
-                            if category.get() == Some("supplement".to_string()) {
-                                "chip active"
-                            } else {
-                                "chip"
-                            }
-                        }
-                        on:click=move |_| {
-                            category.set(Some("supplement".to_string()));
-                        }
-                        aria-label="Filter by Supplement"
-                    >"Supplement"</button>
-                    <button
-                        type="button"
-                        class=move || {
-                            if category.get() == Some("medication".to_string()) {
-                                "chip active"
-                            } else {
-                                "chip"
-                            }
-                        }
-                        on:click=move |_| {
-                            category.set(Some("medication".to_string()));
-                        }
-                        aria-label="Filter by Medication"
-                    >"Medication"</button>
-                    <button
-                        type="button"
-                        class=move || {
-                            if category.get() == Some("drug".to_string()) {
-                                "chip active"
-                            } else {
-                                "chip"
-                            }
-                        }
-                        on:click=move |_| {
-                            category.set(Some("drug".to_string()));
-                        }
-                        aria-label="Filter by Drug"
-                    >"Drug"</button>
-                    <button
-                        type="button"
-                        class=move || {
-                            if category.get() == Some("food".to_string()) {
-                                "chip active"
-                            } else {
-                                "chip"
-                            }
-                        }
-                        on:click=move |_| {
-                            category.set(Some("food".to_string()));
-                        }
-                        aria-label="Filter by Food"
-                    >"Food"</button>
-                    <button
-                        type="button"
-                        class=move || {
-                            if category.get() == Some("action".to_string()) {
-                                "chip active"
-                            } else {
-                                "chip"
-                            }
-                        }
-                        on:click=move |_| {
-                            category.set(Some("action".to_string()));
-                        }
-                        aria-label="Filter by Action"
-                    >"Action"</button>
-                    <button
-                        type="button"
-                        class=move || {
-                            if category.get() == Some("vitals".to_string()) {
-                                "chip active"
-                            } else {
-                                "chip"
-                            }
-                        }
-                        on:click=move |_| {
-                            category.set(Some("vitals".to_string()));
-                        }
-                        aria-label="Filter by Vitals"
-                    >"Vitals"</button>
-                    <button
-                        type="button"
-                        class=move || {
-                            if category.get() == Some("note".to_string()) {
-                                "chip active"
-                            } else {
-                                "chip"
-                            }
-                        }
-                        on:click=move |_| {
-                            category.set(Some("note".to_string()));
-                        }
-                        aria-label="Filter by Note"
-                    >"Note"</button>
+                    }).collect_view()}
                 </div>
                 <button
                     type="button"
@@ -197,7 +170,7 @@ pub fn HistoryPage() -> impl IntoView {
             <div class="history-container">
                 <div class="history-list">
                     {move || {
-                        let filtered = filtered_entries();
+                        let filtered = visible_entries();
 
                         // Group by date
                         let mut grouped: std::collections::HashMap<String, Vec<HistoryEntry>> = std::collections::HashMap::new();
@@ -253,6 +226,21 @@ pub fn HistoryPage() -> impl IntoView {
                             }
                         }).collect_view()
                     }}
+                    <Show when=move || { let t = total_count(); let s = shown_count(); t > s }>
+                        <div class="pagination-row">
+                            <span class="pagination-info">
+                                {move || format!("Showing {} of {} entries", shown_count(), total_count())}
+                            </span>
+                            <button
+                                type="button"
+                                class="load-more-btn"
+                                on:click=move |_| {
+                                    visible.update(|n| *n += PAGE_SIZE);
+                                }
+                                aria-label="Load more entries"
+                            >"Load more"</button>
+                        </div>
+                    </Show>
                 </div>
             </div>
         </div>
