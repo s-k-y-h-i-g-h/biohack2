@@ -1,7 +1,5 @@
-use crate::state::db::create_log_entry;
 use engine::models::{CatalogItem, LogEntry};
 use leptos::prelude::*;
-use leptos::*;
 
 #[component]
 pub fn LogForm(catalog: Vec<CatalogItem>, on_save: Callback<LogEntry>) -> impl IntoView {
@@ -45,7 +43,7 @@ pub fn LogForm(catalog: Vec<CatalogItem>, on_save: Callback<LogEntry>) -> impl I
             LogEntry {
                 id: uuid::Uuid::new_v4(),
                 user_id: "local-device".to_string(),
-                item_type: item.category.clone(),
+                item_type: item.category,
                 item_id: None,
                 name: item.name.clone(),
                 quantity: quantity.get().parse().ok(),

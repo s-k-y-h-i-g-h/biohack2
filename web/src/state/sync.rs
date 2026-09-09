@@ -171,7 +171,7 @@ pub fn sync_from_server() {
             };
             match send_result {
                 Ok(r) if r.ok() => {
-                    let _ = LocalStorage::set(SYNCED_FLAG, &true);
+                    let _ = LocalStorage::set(SYNCED_FLAG, true);
                     log_info("sync: migrated local data to server");
                 }
                 Ok(r) => log_warn(&format!("sync: migration rejected ({})", r.status())),
@@ -249,16 +249,15 @@ pub fn sync_from_server() {
         let _ = LocalStorage::set("biohack2_notes", &merged_notes);
         if !state.catalog.is_empty() {
             let _ = LocalStorage::set("biohack2_catalog_items", &state.catalog);
-            let _ = LocalStorage::set("biohack2_catalog_seeded", &true);
+            let _ = LocalStorage::set("biohack2_catalog_seeded", true);
         }
-        let _ = LocalStorage::set(SYNCED_FLAG, &true);
+        let _ = LocalStorage::set(SYNCED_FLAG, true);
 
         // Notify the UI to re-read storage: bump the global data version.
-        if let Some(win) = web_sys::window() {
-            if let Ok(ev) = web_sys::Event::new("biohack2-sync-complete") {
+        if let Some(win) = web_sys::window()
+            && let Ok(ev) = web_sys::Event::new("biohack2-sync-complete") {
                 let _ = win.dispatch_event(&ev);
             }
-        }
         log_info(&format!(
             "sync: merged with server ({} logs, {} vitals, {} stacks, {} notes)",
             merged_logs.len(),

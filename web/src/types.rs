@@ -32,7 +32,8 @@ impl HistoryEntry {
     pub fn details(&self) -> Option<String> {
         match self {
             HistoryEntry::Log(e) => {
-                let qty = e.quantity.map(|q| {
+                
+                e.quantity.map(|q| {
                     let unit = e.unit.as_deref().unwrap_or("");
                     let qty_str = if q == q.trunc() {
                         format!("{}", q as i64)
@@ -44,8 +45,7 @@ impl HistoryEntry {
                     } else {
                         format!("{} {}", qty_str, unit)
                     }
-                });
-                qty
+                })
             }
             HistoryEntry::Vitals(e) => {
                 let parts: Vec<String> = [

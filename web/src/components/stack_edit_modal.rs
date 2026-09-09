@@ -60,15 +60,14 @@ pub fn StackEditModal(
         let _ = el.focus();
     });
     on_cleanup(move || {
-        if let Some(el) = restore_focus.as_ref() {
-            if let Some(h) = el.dyn_ref::<web_sys::HtmlElement>() {
+        if let Some(el) = restore_focus.as_ref()
+            && let Some(h) = el.dyn_ref::<web_sys::HtmlElement>() {
                 let _ = h.focus();
             }
-        }
     });
 
     // Escape cancels the dialog.
-    let cancel_cb = on_cancel.clone();
+    let cancel_cb = on_cancel;
     let esc_handle =
         window_event_listener(leptos::ev::keydown, move |ev: web_sys::KeyboardEvent| {
             if ev.key() == "Escape" {

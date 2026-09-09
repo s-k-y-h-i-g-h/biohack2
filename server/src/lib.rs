@@ -324,7 +324,7 @@ async fn check_vitals_safety(
         .iter()
         .map(|log| engine::safety::RecentSubstance {
             name: log.name.clone(),
-            category: log.item_type.clone(),
+            category: log.item_type,
             taken_at: log.timestamp,
             is_stimulant: engine::safety::is_stimulant_name(&log.name),
             is_serotonergic: engine::safety::is_serotonergic_name(&log.name),
@@ -401,55 +401,50 @@ async fn sync_push(
     if let Some(entries) = payload.get("log_entries").and_then(|v| v.as_array()) {
         let mut n = 0u64;
         for e in entries {
-            if let Ok(entry) = serde_json::from_value::<LogEntry>(e.clone()) {
-                if db::create_log_entry(&state.pool, &entry).await.is_ok() {
+            if let Ok(entry) = serde_json::from_value::<LogEntry>(e.clone())
+                && db::create_log_entry(&state.pool, &entry).await.is_ok() {
                     n += 1;
                 }
-            }
         }
         counts.insert("log_entries".into(), n.into());
     }
     if let Some(vitals) = payload.get("vitals_entries").and_then(|v| v.as_array()) {
         let mut n = 0u64;
         for e in vitals {
-            if let Ok(entry) = serde_json::from_value::<VitalsEntry>(e.clone()) {
-                if db::create_vitals_entry(&state.pool, &entry).await.is_ok() {
+            if let Ok(entry) = serde_json::from_value::<VitalsEntry>(e.clone())
+                && db::create_vitals_entry(&state.pool, &entry).await.is_ok() {
                     n += 1;
                 }
-            }
         }
         counts.insert("vitals_entries".into(), n.into());
     }
     if let Some(alerts) = payload.get("alerts").and_then(|v| v.as_array()) {
         let mut n = 0u64;
         for e in alerts {
-            if let Ok(alert) = serde_json::from_value::<Alert>(e.clone()) {
-                if db::create_alert(&state.pool, &alert).await.is_ok() {
+            if let Ok(alert) = serde_json::from_value::<Alert>(e.clone())
+                && db::create_alert(&state.pool, &alert).await.is_ok() {
                     n += 1;
                 }
-            }
         }
         counts.insert("alerts".into(), n.into());
     }
     if let Some(stacks) = payload.get("stacks").and_then(|v| v.as_array()) {
         let mut n = 0u64;
         for e in stacks {
-            if let Ok(stack) = serde_json::from_value::<Stack>(e.clone()) {
-                if db::create_stack(&state.pool, &stack).await.is_ok() {
+            if let Ok(stack) = serde_json::from_value::<Stack>(e.clone())
+                && db::create_stack(&state.pool, &stack).await.is_ok() {
                     n += 1;
                 }
-            }
         }
         counts.insert("stacks".into(), n.into());
     }
     if let Some(notes) = payload.get("notes").and_then(|v| v.as_array()) {
         let mut n = 0u64;
         for e in notes {
-            if let Ok(note) = serde_json::from_value::<Note>(e.clone()) {
-                if db::create_note(&state.pool, &note).await.is_ok() {
+            if let Ok(note) = serde_json::from_value::<Note>(e.clone())
+                && db::create_note(&state.pool, &note).await.is_ok() {
                     n += 1;
                 }
-            }
         }
         counts.insert("notes".into(), n.into());
     }

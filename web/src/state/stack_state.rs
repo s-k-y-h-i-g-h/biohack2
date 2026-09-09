@@ -1,5 +1,4 @@
 use leptos::prelude::*;
-use leptos::*;
 
 #[derive(Debug, Clone)]
 pub struct StackItem {

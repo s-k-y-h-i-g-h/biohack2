@@ -11,6 +11,12 @@ pub struct AppContext {
     pub current_path: RwSignal<String>,
 }
 
+impl Default for AppContext {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl AppContext {
     pub fn new() -> Self {
         Self {

@@ -63,7 +63,7 @@ pub fn catalog_seeded() -> bool {
 pub fn seed_catalog(items: &[CatalogItem]) -> Result<(), String> {
     LocalStorage::set(STORAGE_KEY_CATALOG_ITEMS, items)
         .map_err(|e| format!("Failed to seed catalog: {:?}", e))?;
-    LocalStorage::set(STORAGE_KEY_CATALOG_SEEDED, &true)
+    LocalStorage::set(STORAGE_KEY_CATALOG_SEEDED, true)
         .map_err(|e| format!("Failed to mark catalog seeded: {:?}", e))?;
     Ok(())
 }
@@ -218,7 +218,7 @@ pub fn log_stack(stack: &Stack) -> Result<Vec<Uuid>, String> {
             id: Uuid::new_v4(),
             user_id: stack.user_id.clone(),
             item_type: catalog_item
-                .map(|c| c.category.clone())
+                .map(|c| c.category)
                 .unwrap_or(ItemType::Supplement),
             item_id: Some(item.item_id),
             name,
@@ -292,7 +292,7 @@ pub fn export_data() -> Result<String, String> {
     // Log entries
     for entry in &log_entries {
         let qty = entry.quantity.map(|q| q.to_string()).unwrap_or_default();
-        let unit = entry.unit.as_ref().map(|u| u.as_str()).unwrap_or("");
+        let unit = entry.unit.as_deref().unwrap_or("");
         let notes = entry.notes.as_deref().unwrap_or("").replace(',', ";");
         let item_type_str = match &entry.item_type {
             ItemType::Supplement => "supplement",

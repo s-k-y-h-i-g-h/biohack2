@@ -1,7 +1,5 @@
 use crate::types::HistoryEntry;
-use engine::models::*;
 use leptos::prelude::*;
-use leptos::*;
 
 #[component]
 pub fn SummaryStats(entries: Vec<HistoryEntry>) -> impl IntoView {

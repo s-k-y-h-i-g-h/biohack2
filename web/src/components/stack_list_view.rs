@@ -30,7 +30,7 @@ pub fn StackListView(
 
                         let edit_button = on_edit.as_ref().map(|cb| {
                             let id = stack_id;
-                            let cb = cb.clone();
+                            let cb = *cb;
                             view! {
                                 <button
                                     type="button"

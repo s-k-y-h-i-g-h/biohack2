@@ -47,7 +47,7 @@ pub fn VitalsPage() -> impl IntoView {
             .iter()
             .map(|log| RecentSubstance {
                 name: log.name.clone(),
-                category: log.item_type.clone(),
+                category: log.item_type,
                 taken_at: log.timestamp,
                 is_stimulant: engine::safety::is_stimulant_name(&log.name),
                 is_serotonergic: engine::safety::is_serotonergic_name(&log.name),

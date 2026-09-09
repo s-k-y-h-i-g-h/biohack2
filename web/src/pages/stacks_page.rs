@@ -111,25 +111,20 @@ pub fn StacksPage() -> impl IntoView {
             }
         }
 
-        if let Some(win) = web_sys::window() {
-            if let Ok(blob) = web_sys::Blob::new_with_str_sequence(&js_sys::Array::from_iter([
+        if let Some(win) = web_sys::window()
+            && let Ok(blob) = web_sys::Blob::new_with_str_sequence(&js_sys::Array::from_iter([
                 js_sys::JsString::from(yaml),
-            ])) {
-                if let Ok(url) = web_sys::Url::create_object_url_with_blob(&blob) {
-                    if let Some(doc) = win.document() {
-                        if let Ok(a) = doc.create_element("a") {
-                            if let Ok(anchor) = a.dyn_into::<web_sys::HtmlElement>() {
+            ]))
+                && let Ok(url) = web_sys::Url::create_object_url_with_blob(&blob)
+                    && let Some(doc) = win.document()
+                        && let Ok(a) = doc.create_element("a")
+                            && let Ok(anchor) = a.dyn_into::<web_sys::HtmlElement>() {
                                 let _ = anchor.set_attribute("href", &url);
                                 let _ = anchor.set_attribute("download", "stacks.yaml");
-                                let _ = anchor.click();
+                                anchor.click();
                                 let _ = web_sys::Url::revoke_object_url(&url);
                                 flash("Exported stacks.yaml".to_string());
                             }
-                        }
-                    }
-                }
-            }
-        }
     };
 
     // ── YAML import (T047) ────────────────────────────────────────────────────
@@ -264,18 +259,15 @@ fn parse_stacks_yaml(text: &str) -> Result<Vec<Stack>, String> {
                 });
             }
         } else if let Some(rest) = trimmed.strip_prefix("quantity:") {
-            if let Some(s) = current.as_mut() {
-                if let Some(last) = s.items.last_mut() {
+            if let Some(s) = current.as_mut()
+                && let Some(last) = s.items.last_mut() {
                     last.quantity = rest.trim().parse().ok();
                 }
-            }
-        } else if let Some(rest) = trimmed.strip_prefix("unit:") {
-            if let Some(s) = current.as_mut() {
-                if let Some(last) = s.items.last_mut() {
+        } else if let Some(rest) = trimmed.strip_prefix("unit:")
+            && let Some(s) = current.as_mut()
+                && let Some(last) = s.items.last_mut() {
                     last.unit = Some(rest.trim().trim_matches('"').trim_matches('\'').to_string());
                 }
-            }
-        }
     }
     if let Some(s) = current.take() {
         stacks.push(s);

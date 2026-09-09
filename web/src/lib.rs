@@ -16,8 +16,8 @@ use components::Layout;
 #[wasm_bindgen(start)]
 pub fn main() {
     // Inject global styles by reading from document head
-    if let Some(win) = web_sys::window() {
-        if let Some(doc) = win.document() {
+    if let Some(win) = web_sys::window()
+        && let Some(doc) = win.document() {
             if let Some(head) = doc.head() {
                 let css = include_str!("./styles/global.css");
                 let style = doc.create_element("style").unwrap();
@@ -47,7 +47,6 @@ pub fn main() {
                 let _ = body.class_list().add_1(&saved);
             }
         }
-    }
 
     mount_to_body(app);
 
@@ -60,17 +59,15 @@ pub fn main() {
 fn get_path() -> String {
     if let Some(win) = web_sys::window() {
         // Try hash first (hash-based routing)
-        if let Ok(hash) = win.location().hash() {
-            if !hash.is_empty() && hash != "#" {
+        if let Ok(hash) = win.location().hash()
+            && !hash.is_empty() && hash != "#" {
                 return hash[1..].to_string();
             }
-        }
         // Fall back to pathname (HTML5 history mode)
-        if let Ok(pathname) = win.location().pathname() {
-            if !pathname.is_empty() {
+        if let Ok(pathname) = win.location().pathname()
+            && !pathname.is_empty() {
                 return pathname;
             }
-        }
     }
     "/".to_string()
 }
@@ -97,7 +94,7 @@ fn app() -> impl IntoView {
 
     // Listen for popstate (browser back/forward)
     {
-        let location = location.clone();
+        let location = location;
         let listener = Closure::wrap(Box::new(move |_ev: web_sys::Event| {
             location.set(get_path());
         }) as Box<dyn FnMut(_)>);
@@ -110,7 +107,7 @@ fn app() -> impl IntoView {
 
     // Listen for hashchange events
     {
-        let location = location.clone();
+        let location = location;
         let listener = Closure::wrap(Box::new(move |_ev: web_sys::Event| {
             location.set(get_path());
         }) as Box<dyn FnMut(_)>);

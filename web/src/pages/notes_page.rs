@@ -37,8 +37,8 @@ pub fn NotesPage() -> impl IntoView {
     };
 
     let handle_edit_save = move |_| {
-        if let Some(id) = editing_id.get_untracked() {
-            if let Some(mut note) = notes.get_untracked().into_iter().find(|n| n.id == id) {
+        if let Some(id) = editing_id.get_untracked()
+            && let Some(mut note) = notes.get_untracked().into_iter().find(|n| n.id == id) {
                 let text = edit_content.get_untracked();
                 if text.trim().is_empty() {
                     flash("Note cannot be empty".to_string());
@@ -56,7 +56,6 @@ pub fn NotesPage() -> impl IntoView {
                     Err(e) => flash(format!("Failed to update note: {}", e)),
                 }
             }
-        }
     };
 
     let handle_cancel_edit = move |_| {

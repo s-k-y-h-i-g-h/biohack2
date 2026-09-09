@@ -14,15 +14,13 @@ pub fn SettingsPage() -> impl IntoView {
 
     // Apply theme to body when it changes
     let apply_theme = move |new_theme: &str| {
-        if let Some(win) = window() {
-            if let Some(doc) = win.document() {
-                if let Some(body) = doc.body() {
+        if let Some(win) = window()
+            && let Some(doc) = win.document()
+                && let Some(body) = doc.body() {
                     let _ = body.class_list().remove_1("dark");
                     let _ = body.class_list().remove_1("light");
                     let _ = body.class_list().add_1(new_theme);
                 }
-            }
-        }
     };
 
     // Apply on mount
@@ -47,27 +45,25 @@ pub fn SettingsPage() -> impl IntoView {
         match result {
             Ok(csv) => {
                 // Create a Blob from the CSV string
-                if let Some(win) = window() {
-                    if let Some(doc) = win.document() {
+                if let Some(win) = window()
+                    && let Some(doc) = win.document() {
                         let array = js_sys::Array::new();
                         array.push(&js_sys::JsString::from(csv));
                         if let Ok(blob) = web_sys::Blob::new_with_str_sequence(&array) {
                             // Create object URL
                             if let Ok(url) = web_sys::Url::create_object_url_with_blob(&blob) {
                                 // Create and click a download link
-                                if let Ok(a) = doc.create_element("a") {
-                                    if let Ok(anchor) = a.dyn_into::<web_sys::HtmlElement>() {
+                                if let Ok(a) = doc.create_element("a")
+                                    && let Ok(anchor) = a.dyn_into::<web_sys::HtmlElement>() {
                                         let _ = anchor.set_attribute("href", &url);
                                         let _ =
                                             anchor.set_attribute("download", "biohack_export.csv");
-                                        let _ = anchor.click();
+                                        anchor.click();
                                         let _ = web_sys::Url::revoke_object_url(&url);
                                     }
-                                }
                             }
                         }
                     }
-                }
             }
             Err(e) => {
                 web_sys::console::error_1(&format!("Export failed: {}", e).into());

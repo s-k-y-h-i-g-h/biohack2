@@ -248,7 +248,7 @@ pub fn is_serotonergic_name(name: &str) -> bool {
         })
         .collect();
     let n = cleaned.split_whitespace().collect::<Vec<_>>().join(" ");
-    (n.contains("ssri")
+    n.contains("ssri")
         || n.contains("snri")
         || n.contains("mao")
         || n.contains("tryptophan")
@@ -258,13 +258,13 @@ pub fn is_serotonergic_name(name: &str) -> bool {
         || n.contains("st john")
         || n.contains("fluoxetine")
         || n.contains("sertraline")
-        || n.contains("paroxetine"))
+        || n.contains("paroxetine")
 }
 
 /// Returns true if the name matches a stimulant substance.
 pub fn is_stimulant_name(name: &str) -> bool {
     let n = name.to_lowercase();
-    (n.contains("caffeine")
+    n.contains("caffeine")
         || n.contains("coffee")
         || n.contains("espresso")
         || n.contains("tea")
@@ -278,7 +278,7 @@ pub fn is_stimulant_name(name: &str) -> bool {
         || n.contains("armodafinil")
         || n.contains("nicotine")
         || n.contains("yohimbine")
-        || n.contains("synephrine"))
+        || n.contains("synephrine")
 }
 
 /// Runs all safety checks for a vitals entry.

@@ -10,7 +10,9 @@ use uuid::Uuid;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[derive(Default)]
 pub enum ItemType {
+    #[default]
     Supplement,
     Medication,
     Drug,
@@ -18,11 +20,6 @@ pub enum ItemType {
     Action,
 }
 
-impl Default for ItemType {
-    fn default() -> Self {
-        Self::Supplement
-    }
-}
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
