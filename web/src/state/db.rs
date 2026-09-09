@@ -20,6 +20,7 @@ pub fn create_log_entry(entry: &LogEntry) -> Result<(), String> {
     entries.push(entry.clone());
     LocalStorage::set(STORAGE_KEY_LOG_ENTRIES, &entries)
         .map_err(|e| format!("Failed to write log entries: {:?}", e))?;
+    crate::state::sync::push_log_entry(entry);
     Ok(())
 }
 
@@ -38,6 +39,7 @@ pub fn delete_log_entry(id: &str) -> Result<(), String> {
     entries.retain(|e| e.id.to_string() != id);
     LocalStorage::set(STORAGE_KEY_LOG_ENTRIES, &entries)
         .map_err(|e| format!("Failed to delete log entry: {:?}", e))?;
+    crate::state::sync::push_log_entry_delete(id);
     Ok(())
 }
 
@@ -48,6 +50,7 @@ pub fn update_log_entry(entry: &LogEntry) -> Result<(), String> {
     }
     LocalStorage::set(STORAGE_KEY_LOG_ENTRIES, &entries)
         .map_err(|e| format!("Failed to update log entry: {:?}", e))?;
+    crate::state::sync::push_log_entry(entry);
     Ok(())
 }
 
@@ -93,6 +96,7 @@ pub fn create_vitals_entry(entry: &VitalsEntry) -> Result<(), String> {
     entries.push(entry.clone());
     LocalStorage::set(STORAGE_KEY_VITALS, &entries)
         .map_err(|e| format!("Failed to write vitals: {:?}", e))?;
+    crate::state::sync::push_vitals_entry(entry);
     Ok(())
 }
 
@@ -121,6 +125,7 @@ pub fn create_alert(alert: &Alert) -> Result<(), String> {
     alerts.insert(0, alert.clone());
     LocalStorage::set(STORAGE_KEY_ALERTS, &alerts)
         .map_err(|e| format!("Failed to write alerts: {:?}", e))?;
+    crate::state::sync::push_alert(alert);
     Ok(())
 }
 
@@ -147,6 +152,7 @@ pub fn acknowledge_alert(id: &Uuid) -> Result<(), String> {
     }
     LocalStorage::set(STORAGE_KEY_ALERTS, &alerts)
         .map_err(|e| format!("Failed to acknowledge alert: {:?}", e))?;
+    crate::state::sync::push_alert_acknowledge(&id.to_string());
     Ok(())
 }
 
@@ -157,6 +163,7 @@ pub fn create_stack(stack: &Stack) -> Result<(), String> {
     stacks.insert(0, stack.clone());
     LocalStorage::set(STORAGE_KEY_STACKS, &stacks)
         .map_err(|e| format!("Failed to write stacks: {:?}", e))?;
+    crate::state::sync::push_stack(stack);
     Ok(())
 }
 
@@ -176,6 +183,7 @@ pub fn update_stack(stack: &Stack) -> Result<(), String> {
     }
     LocalStorage::set(STORAGE_KEY_STACKS, &stacks)
         .map_err(|e| format!("Failed to update stack: {:?}", e))?;
+    crate::state::sync::push_stack_update(stack);
     Ok(())
 }
 
@@ -184,6 +192,7 @@ pub fn delete_stack(id: &str) -> Result<(), String> {
     stacks.retain(|s| s.id.to_string() != id);
     LocalStorage::set(STORAGE_KEY_STACKS, &stacks)
         .map_err(|e| format!("Failed to delete stack: {:?}", e))?;
+    crate::state::sync::push_stack_delete(id);
     Ok(())
 }
 
@@ -237,6 +246,7 @@ pub fn create_note(note: &Note) -> Result<(), String> {
     notes.push(note.clone());
     LocalStorage::set(STORAGE_KEY_NOTES, &notes)
         .map_err(|e| format!("Failed to write notes: {:?}", e))?;
+    crate::state::sync::push_note(note);
     Ok(())
 }
 
@@ -257,6 +267,7 @@ pub fn update_note(note: &Note) -> Result<(), String> {
     }
     LocalStorage::set(STORAGE_KEY_NOTES, &notes)
         .map_err(|e| format!("Failed to update note: {:?}", e))?;
+    crate::state::sync::push_note_update(note);
     Ok(())
 }
 
@@ -265,6 +276,7 @@ pub fn delete_note(id: &str) -> Result<(), String> {
     notes.retain(|n| n.id.to_string() != id);
     LocalStorage::set(STORAGE_KEY_NOTES, &notes)
         .map_err(|e| format!("Failed to delete note: {:?}", e))?;
+    crate::state::sync::push_note_delete(id);
     Ok(())
 }
 

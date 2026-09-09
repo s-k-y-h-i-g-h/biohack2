@@ -32,3 +32,7 @@ Thumbs.db
 .idea/
 *.swp
 *.tmp
+
+# App database (durable store — lives on the machine, not in git)
+biohack.db
+biohack.db-*

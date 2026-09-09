@@ -17,6 +17,33 @@ fn item_type_to_str(item_type: &ItemType) -> String {
     }
 }
 
+/// Helper: AlertType to bare string (schema CHECK requires unquoted values)
+fn alert_type_to_str(t: &AlertType) -> String {
+    match t {
+        AlertType::Vital => "vital".to_string(),
+        AlertType::Interaction => "interaction".to_string(),
+        AlertType::Warning => "warning".to_string(),
+    }
+}
+
+/// Helper: AlertSeverity to bare string (schema CHECK requires unquoted values)
+fn alert_severity_to_str(s: &AlertSeverity) -> String {
+    match s {
+        AlertSeverity::Info => "info".to_string(),
+        AlertSeverity::Warning => "warning".to_string(),
+        AlertSeverity::Critical => "critical".to_string(),
+    }
+}
+
+/// Helper: InsightType to bare string (schema CHECK requires unquoted values)
+fn insight_type_to_str(t: &InsightType) -> String {
+    match t {
+        InsightType::Correlation => "correlation".to_string(),
+        InsightType::Trend => "trend".to_string(),
+        InsightType::Pattern => "pattern".to_string(),
+    }
+}
+
 /// Helper to parse DateTime<Utc> from RFC3339 string
 fn parse_datetime(s: &str) -> Option<DateTime<Utc>> {
     Some(DateTime::parse_from_rfc3339(s).ok()?.with_timezone(&Utc))
@@ -164,6 +191,22 @@ pub async fn migrate(pool: &DbPool) -> anyhow::Result<()> {
     .execute(pool)
     .await?;
 
+    sqlx::query(
+        "CREATE TABLE IF NOT EXISTS notes (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            content TEXT NOT NULL,
+            timestamp TEXT NOT NULL,
+            linked_entry_id TEXT
+        )",
+    )
+    .execute(pool)
+    .await?;
+
+    sqlx::query("CREATE INDEX IF NOT EXISTS idx_notes_user_timestamp ON notes(user_id, timestamp)")
+        .execute(pool)
+        .await?;
+
     Ok(())
 }
 
@@ -230,7 +273,9 @@ pub async fn get_log_entries(
     }
     if let Some(cat) = &filter.category {
         query.push_str(" AND item_type = ?");
-        bind_vars.push(serde_json::to_string(cat)?);
+        // NOT serde_json — that adds quotes around the value ("\"supplement\"")
+        // which never matches the stored bare string.
+        bind_vars.push(item_type_to_str(cat));
     }
 
     query.push_str(" ORDER BY timestamp DESC");
@@ -544,8 +589,10 @@ pub async fn create_alert(pool: &DbPool, alert: &Alert) -> anyhow::Result<()> {
     )
     .bind(alert.id.to_string())
     .bind(&alert.user_id)
-    .bind(serde_json::to_string(&alert.alert_type)?)
-    .bind(serde_json::to_string(&alert.severity)?)
+    // Bare strings — the schema's CHECK constraints require 'vital'/'warning'/etc
+    // without JSON quotes (serde_json::to_string would write "\"vital\"" and fail).
+    .bind(alert_type_to_str(&alert.alert_type))
+    .bind(alert_severity_to_str(&alert.severity))
     .bind(&alert.message)
     .bind(alert.recommendation.as_ref().map(|s| s.as_str()))
     .bind(alert.is_acknowledged as i32)
@@ -569,7 +616,8 @@ pub async fn get_alerts(pool: &DbPool, filter: &AlertFilter) -> anyhow::Result<V
     }
     if let Some(ack) = filter.acknowledged {
         query.push_str(" AND is_acknowledged = ?");
-        bind_vars.push(ack.to_string());
+        // Integer, not string — the column is INTEGER; 'true' would never match 1.
+        bind_vars.push((ack as i32).to_string());
     }
 
     query.push_str(" ORDER BY generated_at DESC");
@@ -600,7 +648,8 @@ pub async fn create_insight(pool: &DbPool, insight: &Insight) -> anyhow::Result<
     )
     .bind(insight.id.to_string())
     .bind(&insight.user_id)
-    .bind(serde_json::to_string(&insight.insight_type)?)
+    // Bare string — schema CHECK requires 'correlation'/'trend'/'pattern' unquoted
+    .bind(insight_type_to_str(&insight.insight_type))
     .bind(&insight.title)
     .bind(&insight.description)
     .bind(insight.confidence)
@@ -747,6 +796,66 @@ fn row_to_alert(row: SqliteRow) -> Alert {
             .unwrap_or(None)
             .and_then(|s| parse_datetime(&s)),
     }
+}
+
+// ── Notes (US7 — standalone first-class entries) ────────────────────────────
+
+pub async fn create_note(pool: &DbPool, note: &Note) -> anyhow::Result<()> {
+    sqlx::query(
+        "INSERT INTO notes (id, user_id, content, timestamp, linked_entry_id)
+         VALUES (?1, ?2, ?3, ?4, ?5)",
+    )
+    .bind(note.id.to_string())
+    .bind(&note.user_id)
+    .bind(&note.content)
+    .bind(note.timestamp.to_rfc3339())
+    .bind(note.linked_entry_id.map(|u| u.to_string()))
+    .execute(pool)
+    .await?;
+    Ok(())
+}
+
+pub async fn get_notes(pool: &DbPool, user_id: &str) -> anyhow::Result<Vec<Note>> {
+    let rows = sqlx::query(
+        "SELECT id, user_id, content, timestamp, linked_entry_id
+         FROM notes WHERE user_id = ?1 ORDER BY timestamp DESC",
+    )
+    .bind(user_id)
+    .fetch_all(pool)
+    .await?;
+    Ok(rows
+        .into_iter()
+        .map(|row| Note {
+            id: Uuid::parse_str(&row.try_get::<String, _>("id").unwrap_or_default())
+                .unwrap_or_default(),
+            user_id: row.try_get::<String, _>("user_id").unwrap_or_default(),
+            content: row.try_get::<String, _>("content").unwrap_or_default(),
+            timestamp: parse_datetime(&row.try_get::<String, _>("timestamp").unwrap_or_default())
+                .unwrap_or_default(),
+            linked_entry_id: row
+                .try_get::<Option<String>, _>("linked_entry_id")
+                .unwrap_or(None)
+                .and_then(|s| Uuid::parse_str(&s).ok()),
+        })
+        .collect())
+}
+
+pub async fn update_note(pool: &DbPool, note: &Note) -> anyhow::Result<()> {
+    sqlx::query("UPDATE notes SET content = ?2, linked_entry_id = ?3 WHERE id = ?1")
+        .bind(note.id.to_string())
+        .bind(&note.content)
+        .bind(note.linked_entry_id.map(|u| u.to_string()))
+        .execute(pool)
+        .await?;
+    Ok(())
+}
+
+pub async fn delete_note(pool: &DbPool, id: &Uuid) -> anyhow::Result<()> {
+    sqlx::query("DELETE FROM notes WHERE id = ?1")
+        .bind(id.to_string())
+        .execute(pool)
+        .await?;
+    Ok(())
 }
 
 fn row_to_insight(row: SqliteRow) -> Insight {

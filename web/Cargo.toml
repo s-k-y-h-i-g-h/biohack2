@@ -29,6 +29,7 @@ web-sys = { version = "0.3", features = ["console", "Window", "Document", "Navig
 
 gloo-storage = "0.3"
 gloo-utils = "0.2"
+gloo-net = "0.6"
 getrandom = { version = "0.3", features = ["wasm_js"] }
 
 [features]

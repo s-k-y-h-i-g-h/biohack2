@@ -50,6 +50,11 @@ pub fn main() {
     }
 
     mount_to_body(app);
+
+    // Hydrate from the backend: server is the durable source of truth.
+    // Runs after mount so the UI renders instantly from the local cache,
+    // then refreshes when server state lands (biohack2-sync-complete event).
+    crate::state::sync::sync_from_server();
 }
 
 fn get_path() -> String {
@@ -112,6 +117,22 @@ fn app() -> impl IntoView {
         if let Some(win) = web_sys::window() {
             let _ = win
                 .add_event_listener_with_callback("hashchange", listener.as_ref().unchecked_ref());
+        }
+        listener.forget();
+    }
+
+    // When the boot sync replaces the local cache from the server, bump the
+    // global data version so every reactive reader re-reads storage.
+    {
+        let ctx_sync = ctx2.clone();
+        let listener = Closure::wrap(Box::new(move |_ev: web_sys::Event| {
+            ctx_sync.data_version.update(|v| *v += 1);
+        }) as Box<dyn FnMut(_)>);
+        if let Some(win) = web_sys::window() {
+            let _ = win.add_event_listener_with_callback(
+                "biohack2-sync-complete",
+                listener.as_ref().unchecked_ref(),
+            );
         }
         listener.forget();
     }

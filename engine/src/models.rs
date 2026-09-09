@@ -212,3 +212,48 @@ pub struct AlertFilter {
     pub user_id: Option<String>,
     pub acknowledged: Option<bool>,
 }
+
+// ── Sync merge support ────────────────────────────────────────────────────────
+
+/// Uniform id/timestamp accessors so the web sync layer can merge any
+/// entity collection by id without per-type closures.
+pub trait SortableEntry {
+    fn sort_id(&self) -> Uuid;
+    fn sort_time(&self) -> chrono::DateTime<chrono::Utc>;
+}
+
+impl SortableEntry for LogEntry {
+    fn sort_id(&self) -> Uuid {
+        self.id
+    }
+    fn sort_time(&self) -> chrono::DateTime<chrono::Utc> {
+        self.timestamp
+    }
+}
+
+impl SortableEntry for VitalsEntry {
+    fn sort_id(&self) -> Uuid {
+        self.id
+    }
+    fn sort_time(&self) -> chrono::DateTime<chrono::Utc> {
+        self.timestamp
+    }
+}
+
+impl SortableEntry for Alert {
+    fn sort_id(&self) -> Uuid {
+        self.id
+    }
+    fn sort_time(&self) -> chrono::DateTime<chrono::Utc> {
+        self.generated_at
+    }
+}
+
+impl SortableEntry for Note {
+    fn sort_id(&self) -> Uuid {
+        self.id
+    }
+    fn sort_time(&self) -> chrono::DateTime<chrono::Utc> {
+        self.timestamp
+    }
+}
