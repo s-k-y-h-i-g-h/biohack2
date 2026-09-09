@@ -1,16 +1,15 @@
-use leptos::*;
-use leptos::prelude::*;
-use engine::models::*;
 use crate::types::HistoryEntry;
+use engine::models::*;
+use leptos::prelude::*;
+use leptos::*;
 
 #[component]
-pub fn SummaryStats(
-    entries: Vec<HistoryEntry>,
-) -> impl IntoView {
+pub fn SummaryStats(entries: Vec<HistoryEntry>) -> impl IntoView {
     let total_entries = entries.len();
 
     // Count by category
-    let mut category_counts: std::collections::HashMap<String, i32> = std::collections::HashMap::new();
+    let mut category_counts: std::collections::HashMap<String, i32> =
+        std::collections::HashMap::new();
     for entry in &entries {
         if let Some(cat) = entry.category() {
             *category_counts.entry(cat.to_string()).or_insert(0) += 1;

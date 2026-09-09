@@ -1,6 +1,6 @@
-use leptos::prelude::*;
-use engine::models::*;
 use crate::state::db::{create_stack, search_catalog};
+use engine::models::*;
+use leptos::prelude::*;
 use uuid::Uuid;
 
 #[derive(Clone)]
@@ -16,9 +16,7 @@ struct StackFormItem {
 /// `engine::catalog::seed_catalog()` regenerates UUIDs per call — never use
 /// it directly for selections that get saved.
 #[component]
-pub fn StackBuilder(
-    on_created: Callback<String>,
-) -> impl IntoView {
+pub fn StackBuilder(on_created: Callback<String>) -> impl IntoView {
     let stack_name = RwSignal::new(String::new());
     let search_query = RwSignal::new(String::new());
     let selected_items = RwSignal::new(Vec::<StackFormItem>::new());
@@ -40,10 +38,14 @@ pub fn StackBuilder(
             items.push(StackFormItem {
                 item_id: item.id,
                 name: item.name.clone(),
-                quantity: item.dosage_range.as_ref()
+                quantity: item
+                    .dosage_range
+                    .as_ref()
                     .map(|d| d.min.to_string())
                     .unwrap_or_else(|| "1".to_string()),
-                unit: item.dosage_range.as_ref()
+                unit: item
+                    .dosage_range
+                    .as_ref()
                     .map(|d| d.unit.clone())
                     .unwrap_or_default(),
             });
@@ -69,12 +71,19 @@ pub fn StackBuilder(
         }
         error.set(None);
 
-        let stack_items: Vec<StackItem> = items.iter().map(|f| StackItem {
-            item_id: f.item_id,
-            quantity: Some(f.quantity.parse().unwrap_or(1.0)),
-            unit: if f.unit.is_empty() { None } else { Some(f.unit.clone()) },
-            note: None,
-        }).collect();
+        let stack_items: Vec<StackItem> = items
+            .iter()
+            .map(|f| StackItem {
+                item_id: f.item_id,
+                quantity: Some(f.quantity.parse().unwrap_or(1.0)),
+                unit: if f.unit.is_empty() {
+                    None
+                } else {
+                    Some(f.unit.clone())
+                },
+                note: None,
+            })
+            .collect();
 
         let stack = Stack {
             id: Uuid::new_v4(),

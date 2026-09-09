@@ -11,7 +11,10 @@ description = "Biohacker tracking platform with local-first storage"
 [workspace.dependencies]
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-chrono = { version = "0.4", features = ["serde"] }
+chrono = { version = "0.4", default-features = false, features = ["serde", "alloc", "now", "wasmbind"] }
+# Note: chrono trimmed but `wasmbind`+`now` are REQUIRED — without them
+# Utc::now() compiles to unreachable on wasm32 and every save silently panics.
+# (clock/local-timezone machinery stays off; that's the dead weight we cut.)
 uuid = { version = "1.8", features = ["v4", "serde"] }
 thiserror = "1.0"
 anyhow = "1.0"
@@ -22,3 +25,12 @@ getrandom = { version = "0.3", features = ["wasm_js"] }
 all = { level = "warn", priority = -1 }
 pedantic = { level = "warn", priority = -1 }
 nursery = { level = "warn", priority = -1 }
+
+# Optimize WASM bundle size.
+# Empirically (2026-09-09), for this workspace:
+#   - strip = true removes the ~4.9MB `name` custom section — the single biggest win
+#   - lto/codegen-units=1/opt-level="z" each GROW the code section (250KB+)
+# Don't re-add the others without measuring against dist/ output.
+[profile.release]
+opt-level = "s"
+strip = true

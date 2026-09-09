@@ -146,7 +146,9 @@ impl SafetyEngine {
 
         // Check if any stimulant was taken within the window
         let window_start = Utc::now() - Duration::hours(self.stimulant_window_hours as i64);
-        let has_recent_stimulant = recent_substances.iter().any(|s| s.is_stimulant && s.taken_at >= window_start);
+        let has_recent_stimulant = recent_substances
+            .iter()
+            .any(|s| s.is_stimulant && s.taken_at >= window_start);
 
         if !has_recent_stimulant {
             return None;
@@ -157,7 +159,10 @@ impl SafetyEngine {
             user_id: entry.user_id.clone(),
             alert_type: AlertType::Vital,
             severity: AlertSeverity::Critical,
-            message: format!("Stimulant-associated tachycardia: HR {} bpm with recent stimulant use", hr),
+            message: format!(
+                "Stimulant-associated tachycardia: HR {} bpm with recent stimulant use",
+                hr
+            ),
             recommendation: Some(
                 "Consider: cold face immersion (30s), hydrate with electrolytes, \
                  magnesium glycinate 400mg, L-theanine 200-400mg. \
@@ -175,7 +180,8 @@ impl SafetyEngine {
         let sbp = entry.bp_systolic?;
         let dbp = entry.bp_diastolic?;
 
-        let is_hypertensive = sbp >= self.hypertensive_sbp_threshold || dbp >= self.hypertensive_dbp_threshold;
+        let is_hypertensive =
+            sbp >= self.hypertensive_sbp_threshold || dbp >= self.hypertensive_dbp_threshold;
 
         if !is_hypertensive {
             return None;
@@ -233,7 +239,13 @@ pub fn is_serotonergic_name(name: &str) -> bool {
     let cleaned: String = name
         .to_lowercase()
         .chars()
-        .map(|c| if c.is_alphanumeric() || c == ' ' || c == '-' { c } else { ' ' })
+        .map(|c| {
+            if c.is_alphanumeric() || c == ' ' || c == '-' {
+                c
+            } else {
+                ' '
+            }
+        })
         .collect();
     let n = cleaned.split_whitespace().collect::<Vec<_>>().join(" ");
     (n.contains("ssri")
@@ -270,7 +282,10 @@ pub fn is_stimulant_name(name: &str) -> bool {
 }
 
 /// Runs all safety checks for a vitals entry.
-pub fn run_safety_check(entry: &VitalsEntry, recent_substances: &[RecentSubstance]) -> SafetyResult {
+pub fn run_safety_check(
+    entry: &VitalsEntry,
+    recent_substances: &[RecentSubstance],
+) -> SafetyResult {
     let engine = SafetyEngine::new();
     engine.check_vitals(entry, recent_substances)
 }
@@ -280,10 +295,7 @@ pub fn run_safety_check(entry: &VitalsEntry, recent_substances: &[RecentSubstanc
 /// Cross-references recent supplements/medications/actions to enrich an
 /// alert's recommendation with log-derived context (e.g. "no magnesium this
 /// week" for hypertension, "recent stimulant use" for tachycardia).
-pub fn contextual_advice(
-    alert: &Alert,
-    recent_substances: &[RecentSubstance],
-) -> Option<String> {
+pub fn contextual_advice(alert: &Alert, recent_substances: &[RecentSubstance]) -> Option<String> {
     let now = Utc::now();
     let week_ago = now - Duration::days(7);
 
@@ -424,7 +436,12 @@ mod tests {
         let vitals = make_vitals(None, Some(185), Some(125));
         let result = engine.check_vitals(&vitals, &[]);
         assert_eq!(result.alerts.len(), 1);
-        assert!(result.alerts[0].message.to_lowercase().contains("hypertensive"));
+        assert!(
+            result.alerts[0]
+                .message
+                .to_lowercase()
+                .contains("hypertensive")
+        );
     }
 
     #[test]

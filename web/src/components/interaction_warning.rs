@@ -1,13 +1,10 @@
-use leptos::*;
-use leptos::prelude::*;
 use engine::models::Alert;
 use engine::models::AlertSeverity;
+use leptos::prelude::*;
+use leptos::*;
 
 #[component]
-pub fn InteractionWarning(
-    alert: Alert,
-    on_acknowledge: Callback<()>,
-) -> impl IntoView {
+pub fn InteractionWarning(alert: Alert, on_acknowledge: Callback<()>) -> impl IntoView {
     let severity_class = match alert.severity {
         AlertSeverity::Critical => "critical",
         AlertSeverity::Warning => "warning",

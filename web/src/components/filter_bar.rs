@@ -1,5 +1,5 @@
-use leptos::*;
 use leptos::prelude::*;
+use leptos::*;
 
 #[derive(Clone, Default)]
 pub struct HistoryFilter {
@@ -8,9 +8,7 @@ pub struct HistoryFilter {
 }
 
 #[component]
-pub fn FilterBar(
-    filter: RwSignal<HistoryFilter>,
-) -> impl IntoView {
+pub fn FilterBar(filter: RwSignal<HistoryFilter>) -> impl IntoView {
     let categories = vec![
         "All".to_string(),
         "supplement".to_string(),

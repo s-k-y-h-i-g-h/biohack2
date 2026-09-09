@@ -1,8 +1,8 @@
-use leptos::prelude::*;
-use crate::state::db::{get_log_entries, get_vitals_entries, get_notes};
-use crate::state::store::AppContext;
 use crate::components::SummaryStats;
+use crate::state::db::{get_log_entries, get_notes, get_vitals_entries};
+use crate::state::store::AppContext;
 use crate::types::HistoryEntry;
+use leptos::prelude::*;
 
 const PAGE_SIZE: usize = 100;
 
@@ -15,8 +15,8 @@ pub fn HistoryPage() -> impl IntoView {
     let search = RwSignal::new(String::new());
     let category = RwSignal::new(None::<String>);
     let date_start = RwSignal::new(String::new()); // YYYY-MM-DD, inclusive
-    let date_end = RwSignal::new(String::new());   // YYYY-MM-DD, inclusive
-    let visible = RwSignal::new(PAGE_SIZE);         // pagination: entries shown
+    let date_end = RwSignal::new(String::new()); // YYYY-MM-DD, inclusive
+    let visible = RwSignal::new(PAGE_SIZE); // pagination: entries shown
 
     // Computed filtered entries (used by both SummaryStats and the list)
     let filtered_entries = move || {
@@ -41,40 +41,51 @@ pub fn HistoryPage() -> impl IntoView {
         all_entries.sort_by(|a, b| b.timestamp().cmp(&a.timestamp()));
 
         // Apply filters
-        all_entries.into_iter().filter(|entry| {
-            // Category filter
-            if let Some(cat) = &c {
-                if let Some(entry_cat) = entry.category() {
-                    if &entry_cat != cat {
+        all_entries
+            .into_iter()
+            .filter(|entry| {
+                // Category filter
+                if let Some(cat) = &c {
+                    if let Some(entry_cat) = entry.category() {
+                        if &entry_cat != cat {
+                            return false;
+                        }
+                    }
+                }
+
+                // Date-range filter (inclusive, compares the date part)
+                let date = entry.timestamp().format("%Y-%m-%d").to_string();
+                if !start.is_empty() && date.as_str() < start.as_str() {
+                    return false;
+                }
+                if !end.is_empty() && date.as_str() > end.as_str() {
+                    return false;
+                }
+
+                // Search filter: name or note content
+                if !s.is_empty() {
+                    let q = s.to_lowercase();
+                    let name_matches = entry.name().to_lowercase().contains(&q);
+                    let notes_matches = match entry {
+                        HistoryEntry::Log(log) => log
+                            .notes
+                            .as_ref()
+                            .map(|n| n.to_lowercase().contains(&q))
+                            .unwrap_or(false),
+                        HistoryEntry::Vitals(v) => v
+                            .notes
+                            .as_ref()
+                            .map(|n| n.to_lowercase().contains(&q))
+                            .unwrap_or(false),
+                        HistoryEntry::Note(n) => n.content.to_lowercase().contains(&q),
+                    };
+                    if !name_matches && !notes_matches {
                         return false;
                     }
                 }
-            }
-
-            // Date-range filter (inclusive, compares the date part)
-            let date = entry.timestamp().format("%Y-%m-%d").to_string();
-            if !start.is_empty() && date.as_str() < start.as_str() {
-                return false;
-            }
-            if !end.is_empty() && date.as_str() > end.as_str() {
-                return false;
-            }
-
-            // Search filter: name or note content
-            if !s.is_empty() {
-                let q = s.to_lowercase();
-                let name_matches = entry.name().to_lowercase().contains(&q);
-                let notes_matches = match entry {
-                    HistoryEntry::Log(log) => log.notes.as_ref().map(|n| n.to_lowercase().contains(&q)).unwrap_or(false),
-                    HistoryEntry::Vitals(v) => v.notes.as_ref().map(|n| n.to_lowercase().contains(&q)).unwrap_or(false),
-                    HistoryEntry::Note(n) => n.content.to_lowercase().contains(&q),
-                };
-                if !name_matches && !notes_matches {
-                    return false;
-                }
-            }
-            true
-        }).collect::<Vec<_>>()
+                true
+            })
+            .collect::<Vec<_>>()
     };
 
     // Filtered entries visible on the current page

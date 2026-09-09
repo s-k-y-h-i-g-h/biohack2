@@ -1,8 +1,8 @@
-use leptos::prelude::*;
-use engine::models::*;
-use crate::state::db::{get_stacks, delete_stack, log_stack, search_catalog, create_stack};
+use crate::components::{StackBuilder, StackEditModal, StackListView};
+use crate::state::db::{create_stack, delete_stack, get_stacks, log_stack, search_catalog};
 use crate::state::store::AppContext;
-use crate::components::{StackBuilder, StackListView, StackEditModal};
+use engine::models::*;
+use leptos::prelude::*;
 use uuid::Uuid;
 use wasm_bindgen::JsCast;
 
@@ -56,14 +56,12 @@ pub fn StacksPage() -> impl IntoView {
         }
     };
 
-    let handle_delete = move |stack_id: Uuid| {
-        match delete_stack(&stack_id.to_string()) {
-            Ok(()) => {
-                refresh();
-                flash("Stack deleted".to_string());
-            }
-            Err(e) => flash(format!("Failed to delete stack: {}", e)),
+    let handle_delete = move |stack_id: Uuid| match delete_stack(&stack_id.to_string()) {
+        Ok(()) => {
+            refresh();
+            flash("Stack deleted".to_string());
         }
+        Err(e) => flash(format!("Failed to delete stack: {}", e)),
     };
 
     let open_edit = move |stack_id: Uuid| {
@@ -114,9 +112,9 @@ pub fn StacksPage() -> impl IntoView {
         }
 
         if let Some(win) = web_sys::window() {
-            if let Ok(blob) = web_sys::Blob::new_with_str_sequence(
-                &js_sys::Array::from_iter([js_sys::JsString::from(yaml)]),
-            ) {
+            if let Ok(blob) = web_sys::Blob::new_with_str_sequence(&js_sys::Array::from_iter([
+                js_sys::JsString::from(yaml),
+            ])) {
                 if let Ok(url) = web_sys::Url::create_object_url_with_blob(&blob) {
                     if let Some(doc) = win.document() {
                         if let Ok(a) = doc.create_element("a") {
@@ -141,9 +139,7 @@ pub fn StacksPage() -> impl IntoView {
         let input = e
             .target()
             .and_then(|t| t.dyn_into::<web_sys::HtmlInputElement>().ok());
-        let file = input
-            .and_then(|i| i.files())
-            .and_then(|f| f.get(0));
+        let file = input.and_then(|i| i.files()).and_then(|f| f.get(0));
         let Some(file) = file else { return };
 
         let reader = web_sys::FileReader::new().unwrap();

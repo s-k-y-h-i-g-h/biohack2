@@ -1,11 +1,9 @@
-use leptos::*;
-use leptos::prelude::*;
 use engine::models::LogEntry;
+use leptos::prelude::*;
+use leptos::*;
 
 #[component]
-pub fn HistoryView(
-    entries: Vec<LogEntry>,
-) -> impl IntoView {
+pub fn HistoryView(entries: Vec<LogEntry>) -> impl IntoView {
     view! {
         <div class="history-view">
             {move || {

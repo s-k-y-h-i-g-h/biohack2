@@ -1,7 +1,7 @@
-use leptos::prelude::*;
-use engine::models::Note;
-use crate::state::db::{create_note, get_notes, update_note, delete_note};
 use crate::components::NoteForm;
+use crate::state::db::{create_note, delete_note, get_notes, update_note};
+use engine::models::Note;
+use leptos::prelude::*;
 
 /// Notes page — log standalone notes (realizations, observations) and review recent ones.
 /// Notes are first-class entries: they also appear in the unified history view.
@@ -23,14 +23,12 @@ pub fn NotesPage() -> impl IntoView {
         );
     };
 
-    let handle_save = move |note: Note| {
-        match create_note(&note) {
-            Ok(()) => {
-                notes.set(load_notes());
-                flash("Note logged!".to_string());
-            }
-            Err(e) => flash(format!("Failed to save note: {}", e)),
+    let handle_save = move |note: Note| match create_note(&note) {
+        Ok(()) => {
+            notes.set(load_notes());
+            flash("Note logged!".to_string());
         }
+        Err(e) => flash(format!("Failed to save note: {}", e)),
     };
 
     let start_edit = move |note: Note| {
@@ -66,14 +64,12 @@ pub fn NotesPage() -> impl IntoView {
         edit_content.set(String::new());
     };
 
-    let handle_delete = move |id: uuid::Uuid| {
-        match delete_note(&id.to_string()) {
-            Ok(()) => {
-                notes.set(load_notes());
-                flash("Note deleted".to_string());
-            }
-            Err(e) => flash(format!("Failed to delete note: {}", e)),
+    let handle_delete = move |id: uuid::Uuid| match delete_note(&id.to_string()) {
+        Ok(()) => {
+            notes.set(load_notes());
+            flash("Note deleted".to_string());
         }
+        Err(e) => flash(format!("Failed to delete note: {}", e)),
     };
 
     view! {

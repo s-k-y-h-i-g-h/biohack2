@@ -19,7 +19,8 @@ uuid = { workspace = true, features = ["v4", "serde", "js"] }
 engine = { path = "../engine", default-features = false }
 
 leptos = { version = "0.7", features = ["csr"] }
-leptos_router = "0.7"
+# Note: leptos_router removed — routing is hand-rolled in lib.rs (hash-based),
+# and the unused crate pulled router machinery into the WASM bundle.
 
 wasm-bindgen = "0.2"
 wasm-bindgen-futures = "0.4"
@@ -30,14 +31,14 @@ gloo-storage = "0.3"
 gloo-utils = "0.2"
 getrandom = { version = "0.3", features = ["wasm_js"] }
 
-[[bin]]
-name = "biohack2_web"
-path = "src/main.rs"
-required-features = ["ssr"]
-
 [features]
 default = []
 ssr = ["leptos/ssr"]
+
+# wasm-pack's auto-invoked wasm-opt fails on Windows with the npm wrapper;
+# build-web.sh runs wasm-opt explicitly instead.
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = false
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3"

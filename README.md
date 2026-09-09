@@ -4,37 +4,35 @@ Local-first, offline-capable biohacking tracker built with Rust + Leptos.
 
 ## Tech Stack
 
-- **Frontend**: Leptos 0.7 (Rust → WASM, ~60KB bundle)
+- **Frontend**: Leptos 0.7 (Rust → WASM; ~1.3MB raw / ~375KB gzipped — see T073 note in tasks.md)
 - **Engine**: Rust 2024 (reuses `biohack` CLI safety protocols)
-- **Storage**: SQLite via WASM + OPFS (local-first, no cloud required)
-- **Build**: `cargo-leptos` for WASM compilation + HMR
+- **Storage**: localStorage via gloo-storage (local-first, no cloud required; OPFS/SQLite deferred)
+- **Build**: `wasm-pack` + `build-web.sh` (includes wasm-opt + PWA asset deployment)
 
 ## Prerequisites
 
-- Rust 2024 toolchain
-- `cargo-leptos`: `cargo install cargo-leptos`
-- SQLite3 (for build-time sqlx checks)
-- Browser with OPFS support (Chrome 109+, Edge 109+, Firefox 118+)
+- Rust stable toolchain (`rustup`, with `wasm32-unknown-unknown` target)
+- `wasm-pack` for building the WASM frontend
+- `binaryen` (wasm-opt) — optional, for a smaller bundle
+- Python 3 for `server.py` (static SPA server)
 
 ## Quick Start
 
 ```bash
-# Install cargo-leptos if needed
-cargo install cargo-leptos
+# Install wasm-pack if needed
+cargo install wasm-pack
+# wasm-opt (optional, shrinks the bundle):
+npm install -g binaryen
 
-# Install SQLite dev headers (if not present)
-# macOS: brew install sqlite
-# Ubuntu: sudo apt install libsqlite3-dev
-# Windows: Download SQLite DLL and set SQLX_OFFLINE=true
+# Build the frontend into dist/ (WASM + PWA assets)
+bash build-web.sh
 
-# Run development server with HMR
-cargo leptos watch
-
-# Build for production
-cargo leptos build --release
+# Serve at http://localhost:8082
+python server.py
 
 # Run tests
-cargo test --release --workspace
+cargo test --workspace          # engine (27 tests)
+cd web && wasm-pack test --headless --chrome   # web (16 tests)
 ```
 
 ## Architecture
@@ -82,13 +80,13 @@ See `specs/001-biohacker-tracking-platform/data-model.md` for full schema.
 
 ```bash
 # Engine tests (safety protocols, catalog, DB)
-cargo test --release -p engine
+cargo test -p engine
 
 # Full workspace tests
-cargo test --release --workspace
+cargo test --workspace
 
-# WASM component tests
-cargo test --release -p biohack2-web --target wasm32-unknown-unknown
+# WASM component tests (requires Chrome + matching chromedriver)
+cd web && wasm-pack test --headless --chrome
 ```
 
 ## Validation

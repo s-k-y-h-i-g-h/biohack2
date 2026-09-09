@@ -1,9 +1,11 @@
 //! Safety protocol tests — the 3 deterministic protocols from the biohack CLI,
 //! plus stimulant/serotonergic classification and contextual advice (FR-009).
 
-use engine::models::*;
-use engine::safety::{SafetyEngine, RecentSubstance, contextual_advice, is_stimulant_name, is_serotonergic_name};
 use chrono::{Duration, Utc};
+use engine::models::*;
+use engine::safety::{
+    RecentSubstance, SafetyEngine, contextual_advice, is_serotonergic_name, is_stimulant_name,
+};
 
 fn make_vitals(hr: Option<i32>, sbp: Option<i32>, dbp: Option<i32>) -> VitalsEntry {
     VitalsEntry {
@@ -107,7 +109,12 @@ fn test_hypertensive_urgency_alert() {
     let vitals = make_vitals(None, Some(185), Some(125));
     let result = engine.check_vitals(&vitals, &[]);
     assert_eq!(result.alerts.len(), 1);
-    assert!(result.alerts[0].message.to_lowercase().contains("hypertensive"));
+    assert!(
+        result.alerts[0]
+            .message
+            .to_lowercase()
+            .contains("hypertensive")
+    );
 }
 
 #[test]

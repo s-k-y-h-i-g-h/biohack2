@@ -1,5 +1,5 @@
-use leptos::*;
 use leptos::prelude::*;
+use leptos::*;
 
 #[derive(Debug, Clone)]
 pub struct StackItem {
@@ -52,12 +52,18 @@ impl StackState {
 
     pub fn log_stack(&self, id: &str) -> Option<Vec<String>> {
         let stacks = self.stacks.read();
-        stacks.iter()
-            .find(|s| s.id == id)
-            .map(|stack| {
-                stack.items.iter()
-                    .map(|item| format!("Logged: {} {}", item.name, item.unit.as_deref().unwrap_or("")))
-                    .collect()
-            })
+        stacks.iter().find(|s| s.id == id).map(|stack| {
+            stack
+                .items
+                .iter()
+                .map(|item| {
+                    format!(
+                        "Logged: {} {}",
+                        item.name,
+                        item.unit.as_deref().unwrap_or("")
+                    )
+                })
+                .collect()
+        })
     }
 }

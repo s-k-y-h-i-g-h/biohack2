@@ -1,13 +1,14 @@
-use leptos::*;
+use gloo_storage::Storage;
 use leptos::prelude::*;
+use leptos::*;
 use wasm_bindgen::prelude::*;
 
-mod pages;
 mod components;
+mod pages;
 pub mod state;
-pub mod types;
 #[cfg(test)]
 mod tests;
+pub mod types;
 
 use components::Layout;
 
@@ -33,6 +34,17 @@ pub fn main() {
                 if let Some(win2) = web_sys::window() {
                     let _ = win2.navigator().service_worker().register("/sw.js");
                 }
+            }
+
+            // Apply the persisted theme at startup so a saved dark mode
+            // survives reloads on every page (was previously applied only
+            // when the Settings page happened to be mounted).
+            if let Some(body) = doc.body() {
+                let saved = gloo_storage::LocalStorage::get::<String>("biohack2_theme")
+                    .unwrap_or_else(|_| "light".to_string());
+                let _ = body.class_list().remove_1("dark");
+                let _ = body.class_list().remove_1("light");
+                let _ = body.class_list().add_1(&saved);
             }
         }
     }
@@ -66,6 +78,18 @@ fn app() -> impl IntoView {
     let location = RwSignal::new(get_path());
     let current_path = move || location.get();
 
+    // Mirror the route into AppContext so Layout can mark the active nav link
+    // (aria-current) without prop-drilling.
+    let ctx2 = expect_context::<crate::state::store::AppContext>();
+    ctx2.current_path.set(location.get_untracked());
+    {
+        let current_path_sig = ctx2.current_path;
+        create_effect(move |_| {
+            let p = location.get();
+            current_path_sig.set(p);
+        });
+    }
+
     // Listen for popstate (browser back/forward)
     {
         let location = location.clone();
@@ -73,8 +97,8 @@ fn app() -> impl IntoView {
             location.set(get_path());
         }) as Box<dyn FnMut(_)>);
         if let Some(win) = web_sys::window() {
-            let _ = win
-                .add_event_listener_with_callback("popstate", listener.as_ref().unchecked_ref());
+            let _ =
+                win.add_event_listener_with_callback("popstate", listener.as_ref().unchecked_ref());
         }
         listener.forget();
     }

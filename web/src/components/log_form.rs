@@ -1,13 +1,10 @@
-use leptos::*;
-use leptos::prelude::*;
-use engine::models::{LogEntry, CatalogItem};
 use crate::state::db::create_log_entry;
+use engine::models::{CatalogItem, LogEntry};
+use leptos::prelude::*;
+use leptos::*;
 
 #[component]
-pub fn LogForm(
-    catalog: Vec<CatalogItem>,
-    on_save: Callback<LogEntry>,
-) -> impl IntoView {
+pub fn LogForm(catalog: Vec<CatalogItem>, on_save: Callback<LogEntry>) -> impl IntoView {
     let search_query = RwSignal::new(String::new());
     let selected_item = RwSignal::new(None::<CatalogItem>);
     let quantity = RwSignal::new(String::new());
@@ -24,7 +21,8 @@ pub fn LogForm(
         if q.is_empty() {
             catalog.clone()
         } else {
-            catalog.iter()
+            catalog
+                .iter()
                 .filter(|item| item.name.to_lowercase().contains(&q.to_lowercase()))
                 .cloned()
                 .collect()
@@ -97,9 +95,12 @@ pub fn LogForm(
         quantity.set(String::new());
         unit.set(String::new());
         search_query.set(String::new());
-        set_timeout(move || {
-            success.set(false);
-        }, std::time::Duration::from_millis(2000));
+        set_timeout(
+            move || {
+                success.set(false);
+            },
+            std::time::Duration::from_millis(2000),
+        );
 
         loading.set(false);
     };

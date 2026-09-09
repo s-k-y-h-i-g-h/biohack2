@@ -1,13 +1,11 @@
-use leptos::prelude::*;
 use engine::models::Note;
+use leptos::prelude::*;
 use uuid::Uuid;
 
 /// Standalone note logging form — textarea + optional link to a recent log entry.
 /// The note is saved as a first-class entry with its own timestamp.
 #[component]
-pub fn NoteForm(
-    on_save: Callback<Note>,
-) -> impl IntoView {
+pub fn NoteForm(on_save: Callback<Note>) -> impl IntoView {
     let content = RwSignal::new(String::new());
     let linked_entry_id = RwSignal::new(None::<Uuid>);
     let show_link = RwSignal::new(false);

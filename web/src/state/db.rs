@@ -199,9 +199,7 @@ pub fn log_stack(stack: &Stack) -> Result<Vec<Uuid>, String> {
         LocalStorage::get(STORAGE_KEY_CATALOG_ITEMS).unwrap_or_default();
 
     for item in &stack.items {
-        let catalog_item = catalog_items
-            .iter()
-            .find(|c| c.id == item.item_id);
+        let catalog_item = catalog_items.iter().find(|c| c.id == item.item_id);
 
         let name = catalog_item
             .map(|c| c.name.clone())

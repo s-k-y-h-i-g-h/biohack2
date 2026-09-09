@@ -1,5 +1,5 @@
 use chrono::{DateTime, Utc};
-use sqlx::{sqlite::SqliteRow, SqlitePool, Row};
+use sqlx::{Row, SqlitePool, sqlite::SqliteRow};
 use uuid::Uuid;
 
 use crate::models::*;
@@ -67,11 +67,9 @@ pub async fn migrate(pool: &DbPool) -> anyhow::Result<()> {
     .execute(pool)
     .await?;
 
-    sqlx::query(
-        "CREATE INDEX IF NOT EXISTS idx_catalog_category ON catalog_items(category)"
-    )
-    .execute(pool)
-    .await?;
+    sqlx::query("CREATE INDEX IF NOT EXISTS idx_catalog_category ON catalog_items(category)")
+        .execute(pool)
+        .await?;
 
     sqlx::query(
         "CREATE TABLE IF NOT EXISTS stacks (
@@ -81,7 +79,7 @@ pub async fn migrate(pool: &DbPool) -> anyhow::Result<()> {
             description TEXT,
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL
-        )"
+        )",
     )
     .execute(pool)
     .await?;
@@ -95,7 +93,7 @@ pub async fn migrate(pool: &DbPool) -> anyhow::Result<()> {
             note TEXT,
             PRIMARY KEY (stack_id, item_id),
             FOREIGN KEY(stack_id) REFERENCES stacks(id) ON DELETE CASCADE
-        )"
+        )",
     )
     .execute(pool)
     .await?;
@@ -116,7 +114,7 @@ pub async fn migrate(pool: &DbPool) -> anyhow::Result<()> {
             sleep_quality TEXT,
             custom_metrics TEXT,
             notes TEXT
-        )"
+        )",
     )
     .execute(pool)
     .await?;
@@ -139,13 +137,13 @@ pub async fn migrate(pool: &DbPool) -> anyhow::Result<()> {
             linked_entry_id TEXT,
             generated_at TEXT NOT NULL,
             resolved_at TEXT
-        )"
+        )",
     )
     .execute(pool)
     .await?;
 
     sqlx::query(
-        "CREATE INDEX IF NOT EXISTS idx_alerts_user_unack ON alerts(user_id, is_acknowledged)"
+        "CREATE INDEX IF NOT EXISTS idx_alerts_user_unack ON alerts(user_id, is_acknowledged)",
     )
     .execute(pool)
     .await?;
@@ -161,7 +159,7 @@ pub async fn migrate(pool: &DbPool) -> anyhow::Result<()> {
             supporting_data_points INTEGER NOT NULL,
             generated_at TEXT NOT NULL,
             related_entry_ids TEXT
-        )"
+        )",
     )
     .execute(pool)
     .await?;
@@ -205,8 +203,13 @@ pub async fn get_log_entry(pool: &DbPool, id: &Uuid) -> anyhow::Result<Option<Lo
     Ok(row.map(row_to_log_entry))
 }
 
-pub async fn get_log_entries(pool: &DbPool, filter: &LogEntryFilter) -> anyhow::Result<Vec<LogEntry>> {
-    let mut query = String::from("SELECT id, user_id, item_type, item_id, name, quantity, unit, route, timestamp, stack_id, notes, acknowledged_interaction, custom_fields FROM log_entries WHERE 1=1");
+pub async fn get_log_entries(
+    pool: &DbPool,
+    filter: &LogEntryFilter,
+) -> anyhow::Result<Vec<LogEntry>> {
+    let mut query = String::from(
+        "SELECT id, user_id, item_type, item_id, name, quantity, unit, route, timestamp, stack_id, notes, acknowledged_interaction, custom_fields FROM log_entries WHERE 1=1",
+    );
     let mut bind_vars: Vec<String> = Vec::new();
 
     if let Some(ref uid) = filter.user_id {
@@ -242,19 +245,20 @@ pub async fn get_log_entries(pool: &DbPool, filter: &LogEntryFilter) -> anyhow::
 }
 
 pub async fn update_log_entry(pool: &DbPool, entry: &LogEntry) -> anyhow::Result<()> {
-    sqlx::query(
-        "UPDATE log_entries SET notes = ?2, acknowledged_interaction = ?3 WHERE id = ?1"
-    )
-    .bind(entry.id.to_string())
-    .bind(entry.notes.clone())
-    .bind(entry.acknowledged_interaction as i32)
-    .execute(pool)
-    .await?;
+    sqlx::query("UPDATE log_entries SET notes = ?2, acknowledged_interaction = ?3 WHERE id = ?1")
+        .bind(entry.id.to_string())
+        .bind(entry.notes.clone())
+        .bind(entry.acknowledged_interaction as i32)
+        .execute(pool)
+        .await?;
     Ok(())
 }
 
 pub async fn delete_log_entry(pool: &DbPool, id: &Uuid) -> anyhow::Result<()> {
-    sqlx::query("DELETE FROM log_entries WHERE id = ?1").bind(id.to_string()).execute(pool).await?;
+    sqlx::query("DELETE FROM log_entries WHERE id = ?1")
+        .bind(id.to_string())
+        .execute(pool)
+        .await?;
     Ok(())
 }
 
@@ -279,10 +283,14 @@ pub async fn seed_catalog(pool: &DbPool, items: &[CatalogItem]) -> anyhow::Resul
         .bind(item.version)
         .execute(pool)
         .await;
-        
+
         match &result {
             Ok(res) => {
-                println!("Inserted {}: rows_affected={}", item.name, res.rows_affected());
+                println!(
+                    "Inserted {}: rows_affected={}",
+                    item.name,
+                    res.rows_affected()
+                );
             }
             Err(e) => {
                 println!("Error inserting {}: {:?}", item.name, e);
@@ -316,7 +324,7 @@ pub async fn search_catalog(pool: &DbPool, query: &str) -> anyhow::Result<Vec<Ca
 pub async fn create_stack(pool: &DbPool, stack: &Stack) -> anyhow::Result<()> {
     sqlx::query(
         "INSERT INTO stacks (id, user_id, name, description, created_at, updated_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6)"
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
     )
     .bind(stack.id.to_string())
     .bind(&stack.user_id)
@@ -344,7 +352,7 @@ pub async fn create_stack(pool: &DbPool, stack: &Stack) -> anyhow::Result<()> {
 
 pub async fn get_stack(pool: &DbPool, id: &Uuid) -> anyhow::Result<Option<Stack>> {
     let row = sqlx::query(
-        "SELECT id, user_id, name, description, created_at, updated_at FROM stacks WHERE id = ?1"
+        "SELECT id, user_id, name, description, created_at, updated_at FROM stacks WHERE id = ?1",
     )
     .bind(id.to_string())
     .fetch_optional(pool)
@@ -354,7 +362,7 @@ pub async fn get_stack(pool: &DbPool, id: &Uuid) -> anyhow::Result<Option<Stack>
         None => Ok(None),
         Some(r) => {
             let items_rows = sqlx::query(
-                "SELECT item_id, quantity, unit, note FROM stack_items WHERE stack_id = ?1"
+                "SELECT item_id, quantity, unit, note FROM stack_items WHERE stack_id = ?1",
             )
             .bind(id.to_string())
             .fetch_all(pool)
@@ -365,12 +373,17 @@ pub async fn get_stack(pool: &DbPool, id: &Uuid) -> anyhow::Result<Option<Stack>
                 user_id: r.try_get::<String, _>("user_id")?,
                 name: r.try_get::<String, _>("name")?,
                 description: r.try_get::<Option<String>, _>("description")?,
-                created_at: parse_datetime(&r.try_get::<String, _>("created_at")?).unwrap_or_default(),
-                updated_at: parse_datetime(&r.try_get::<String, _>("updated_at")?).unwrap_or_default(),
+                created_at: parse_datetime(&r.try_get::<String, _>("created_at")?)
+                    .unwrap_or_default(),
+                updated_at: parse_datetime(&r.try_get::<String, _>("updated_at")?)
+                    .unwrap_or_default(),
                 items: items_rows
                     .into_iter()
                     .map(|row| StackItem {
-                        item_id: Uuid::parse_str(&row.try_get::<String, _>("item_id").unwrap_or_default()).unwrap_or_default(),
+                        item_id: Uuid::parse_str(
+                            &row.try_get::<String, _>("item_id").unwrap_or_default(),
+                        )
+                        .unwrap_or_default(),
                         quantity: row.try_get::<Option<f64>, _>("quantity").unwrap_or(None),
                         unit: row.try_get::<Option<String>, _>("unit").unwrap_or(None),
                         note: row.try_get::<Option<String>, _>("note").unwrap_or(None),
@@ -394,7 +407,7 @@ pub async fn get_stacks(pool: &DbPool, user_id: &str) -> anyhow::Result<Vec<Stac
     for r in rows {
         let id = Uuid::parse_str(&r.try_get::<String, _>("id")?).unwrap_or_default();
         let items_rows = sqlx::query(
-            "SELECT item_id, quantity, unit, note FROM stack_items WHERE stack_id = ?1"
+            "SELECT item_id, quantity, unit, note FROM stack_items WHERE stack_id = ?1",
         )
         .bind(id.to_string())
         .fetch_all(pool)
@@ -410,7 +423,10 @@ pub async fn get_stacks(pool: &DbPool, user_id: &str) -> anyhow::Result<Vec<Stac
             items: items_rows
                 .into_iter()
                 .map(|row| StackItem {
-                    item_id: Uuid::parse_str(&row.try_get::<String, _>("item_id").unwrap_or_default()).unwrap_or_default(),
+                    item_id: Uuid::parse_str(
+                        &row.try_get::<String, _>("item_id").unwrap_or_default(),
+                    )
+                    .unwrap_or_default(),
                     quantity: row.try_get::<Option<f64>, _>("quantity").unwrap_or(None),
                     unit: row.try_get::<Option<String>, _>("unit").unwrap_or(None),
                     note: row.try_get::<Option<String>, _>("note").unwrap_or(None),
@@ -422,17 +438,18 @@ pub async fn get_stacks(pool: &DbPool, user_id: &str) -> anyhow::Result<Vec<Stac
 }
 
 pub async fn update_stack(pool: &DbPool, stack: &Stack) -> anyhow::Result<()> {
-    sqlx::query(
-        "UPDATE stacks SET name = ?2, description = ?3, updated_at = ?4 WHERE id = ?1"
-    )
-    .bind(stack.id.to_string())
-    .bind(&stack.name)
-    .bind(stack.description.as_ref().map(|s| s.as_str()))
-    .bind(stack.updated_at.to_rfc3339())
-    .execute(pool)
-    .await?;
+    sqlx::query("UPDATE stacks SET name = ?2, description = ?3, updated_at = ?4 WHERE id = ?1")
+        .bind(stack.id.to_string())
+        .bind(&stack.name)
+        .bind(stack.description.as_ref().map(|s| s.as_str()))
+        .bind(stack.updated_at.to_rfc3339())
+        .execute(pool)
+        .await?;
 
-    sqlx::query("DELETE FROM stack_items WHERE stack_id = ?1").bind(stack.id.to_string()).execute(pool).await?;
+    sqlx::query("DELETE FROM stack_items WHERE stack_id = ?1")
+        .bind(stack.id.to_string())
+        .execute(pool)
+        .await?;
     for item in &stack.items {
         sqlx::query(
             "INSERT INTO stack_items (stack_id, item_id, quantity, unit, note) VALUES (?1, ?2, ?3, ?4, ?5)"
@@ -449,8 +466,14 @@ pub async fn update_stack(pool: &DbPool, stack: &Stack) -> anyhow::Result<()> {
 }
 
 pub async fn delete_stack(pool: &DbPool, id: &Uuid) -> anyhow::Result<()> {
-    sqlx::query("DELETE FROM stack_items WHERE stack_id = ?1").bind(id.to_string()).execute(pool).await?;
-    sqlx::query("DELETE FROM stacks WHERE id = ?1").bind(id.to_string()).execute(pool).await?;
+    sqlx::query("DELETE FROM stack_items WHERE stack_id = ?1")
+        .bind(id.to_string())
+        .execute(pool)
+        .await?;
+    sqlx::query("DELETE FROM stacks WHERE id = ?1")
+        .bind(id.to_string())
+        .execute(pool)
+        .await?;
     Ok(())
 }
 
@@ -480,8 +503,13 @@ pub async fn create_vitals_entry(pool: &DbPool, entry: &VitalsEntry) -> anyhow::
     Ok(())
 }
 
-pub async fn get_vitals_entries(pool: &DbPool, filter: &VitalsEntryFilter) -> anyhow::Result<Vec<VitalsEntry>> {
-    let mut query = String::from("SELECT id, user_id, timestamp, bp_systolic, bp_diastolic, heart_rate, weight, blood_glucose, temperature, spo2, hrv, sleep_quality, custom_metrics, notes FROM vitals_entries WHERE 1=1");
+pub async fn get_vitals_entries(
+    pool: &DbPool,
+    filter: &VitalsEntryFilter,
+) -> anyhow::Result<Vec<VitalsEntry>> {
+    let mut query = String::from(
+        "SELECT id, user_id, timestamp, bp_systolic, bp_diastolic, heart_rate, weight, blood_glucose, temperature, spo2, hrv, sleep_quality, custom_metrics, notes FROM vitals_entries WHERE 1=1",
+    );
     let mut bind_vars: Vec<String> = Vec::new();
 
     if let Some(ref uid) = filter.user_id {
@@ -530,7 +558,9 @@ pub async fn create_alert(pool: &DbPool, alert: &Alert) -> anyhow::Result<()> {
 }
 
 pub async fn get_alerts(pool: &DbPool, filter: &AlertFilter) -> anyhow::Result<Vec<Alert>> {
-    let mut query = String::from("SELECT id, user_id, type, severity, message, recommendation, is_acknowledged, linked_entry_id, generated_at, resolved_at FROM alerts WHERE 1=1");
+    let mut query = String::from(
+        "SELECT id, user_id, type, severity, message, recommendation, is_acknowledged, linked_entry_id, generated_at, resolved_at FROM alerts WHERE 1=1",
+    );
     let mut bind_vars: Vec<String> = Vec::new();
 
     if let Some(ref uid) = filter.user_id {
@@ -553,13 +583,11 @@ pub async fn get_alerts(pool: &DbPool, filter: &AlertFilter) -> anyhow::Result<V
 }
 
 pub async fn acknowledge_alert(pool: &DbPool, id: &Uuid) -> anyhow::Result<()> {
-    sqlx::query(
-        "UPDATE alerts SET is_acknowledged = 1, resolved_at = ?1 WHERE id = ?2"
-    )
-    .bind(Utc::now().to_rfc3339())
-    .bind(id.to_string())
-    .execute(pool)
-    .await?;
+    sqlx::query("UPDATE alerts SET is_acknowledged = 1, resolved_at = ?1 WHERE id = ?2")
+        .bind(Utc::now().to_rfc3339())
+        .bind(id.to_string())
+        .execute(pool)
+        .await?;
     Ok(())
 }
 
@@ -599,31 +627,64 @@ pub async fn get_insights(pool: &DbPool, user_id: &str) -> anyhow::Result<Vec<In
 
 fn row_to_log_entry(row: SqliteRow) -> LogEntry {
     LogEntry {
-        id: Uuid::parse_str(&row.try_get::<String, _>("id").unwrap_or_default()).unwrap_or_default(),
+        id: Uuid::parse_str(&row.try_get::<String, _>("id").unwrap_or_default())
+            .unwrap_or_default(),
         user_id: row.try_get::<String, _>("user_id").unwrap_or_default(),
-        item_type: serde_json::from_str(&row.try_get::<String, _>("item_type").unwrap_or_default()).unwrap_or_default(),
-        item_id: row.try_get::<Option<String>, _>("item_id").unwrap_or(None).and_then(|s| Uuid::parse_str(&s).ok()),
+        item_type: serde_json::from_str(&row.try_get::<String, _>("item_type").unwrap_or_default())
+            .unwrap_or_default(),
+        item_id: row
+            .try_get::<Option<String>, _>("item_id")
+            .unwrap_or(None)
+            .and_then(|s| Uuid::parse_str(&s).ok()),
         name: row.try_get::<String, _>("name").unwrap_or_default(),
         quantity: row.try_get::<Option<f64>, _>("quantity").unwrap_or(None),
         unit: row.try_get::<Option<String>, _>("unit").unwrap_or(None),
-        route: row.try_get::<Option<String>, _>("route").unwrap_or(None).and_then(|s| serde_json::from_str(&s).ok()),
-        timestamp: parse_datetime(&row.try_get::<String, _>("timestamp").unwrap_or_default()).unwrap_or_default(),
-        stack_id: row.try_get::<Option<String>, _>("stack_id").unwrap_or(None).and_then(|s| Uuid::parse_str(&s).ok()),
+        route: row
+            .try_get::<Option<String>, _>("route")
+            .unwrap_or(None)
+            .and_then(|s| serde_json::from_str(&s).ok()),
+        timestamp: parse_datetime(&row.try_get::<String, _>("timestamp").unwrap_or_default())
+            .unwrap_or_default(),
+        stack_id: row
+            .try_get::<Option<String>, _>("stack_id")
+            .unwrap_or(None)
+            .and_then(|s| Uuid::parse_str(&s).ok()),
         notes: row.try_get::<Option<String>, _>("notes").unwrap_or(None),
-        acknowledged_interaction: row.try_get::<i32, _>("acknowledged_interaction").unwrap_or(0) != 0,
-        custom_fields: row.try_get::<Option<String>, _>("custom_fields").unwrap_or(None).and_then(|s| serde_json::from_str(&s).ok()),
+        acknowledged_interaction: row
+            .try_get::<i32, _>("acknowledged_interaction")
+            .unwrap_or(0)
+            != 0,
+        custom_fields: row
+            .try_get::<Option<String>, _>("custom_fields")
+            .unwrap_or(None)
+            .and_then(|s| serde_json::from_str(&s).ok()),
     }
 }
 
 fn row_to_catalog_item(row: SqliteRow) -> CatalogItem {
     CatalogItem {
-        id: Uuid::parse_str(&row.try_get::<String, _>("id").unwrap_or_default()).unwrap_or_default(),
+        id: Uuid::parse_str(&row.try_get::<String, _>("id").unwrap_or_default())
+            .unwrap_or_default(),
         name: row.try_get::<String, _>("name").unwrap_or_default(),
-        category: serde_json::from_str(&row.try_get::<String, _>("category").unwrap_or_default()).unwrap_or_default(),
-        dosage_range: row.try_get::<Option<String>, _>("dosage_range").unwrap_or(None).and_then(|s| serde_json::from_str(&s).ok()),
-        half_life: row.try_get::<Option<String>, _>("half_life").unwrap_or(None),
-        contraindications: row.try_get::<Option<String>, _>("contraindications").unwrap_or(None).and_then(|s| serde_json::from_str(&s).ok()).unwrap_or_default(),
-        warnings: row.try_get::<Option<String>, _>("warnings").unwrap_or(None).and_then(|s| serde_json::from_str(&s).ok()).unwrap_or_default(),
+        category: serde_json::from_str(&row.try_get::<String, _>("category").unwrap_or_default())
+            .unwrap_or_default(),
+        dosage_range: row
+            .try_get::<Option<String>, _>("dosage_range")
+            .unwrap_or(None)
+            .and_then(|s| serde_json::from_str(&s).ok()),
+        half_life: row
+            .try_get::<Option<String>, _>("half_life")
+            .unwrap_or(None),
+        contraindications: row
+            .try_get::<Option<String>, _>("contraindications")
+            .unwrap_or(None)
+            .and_then(|s| serde_json::from_str(&s).ok())
+            .unwrap_or_default(),
+        warnings: row
+            .try_get::<Option<String>, _>("warnings")
+            .unwrap_or(None)
+            .and_then(|s| serde_json::from_str(&s).ok())
+            .unwrap_or_default(),
         is_custom: row.try_get::<i32, _>("is_custom").unwrap_or(0) != 0,
         source: row.try_get::<Option<String>, _>("source").unwrap_or(None),
         version: row.try_get::<i32, _>("version").unwrap_or(1),
@@ -632,48 +693,79 @@ fn row_to_catalog_item(row: SqliteRow) -> CatalogItem {
 
 fn row_to_vitals_entry(row: SqliteRow) -> VitalsEntry {
     VitalsEntry {
-        id: Uuid::parse_str(&row.try_get::<String, _>("id").unwrap_or_default()).unwrap_or_default(),
+        id: Uuid::parse_str(&row.try_get::<String, _>("id").unwrap_or_default())
+            .unwrap_or_default(),
         user_id: row.try_get::<String, _>("user_id").unwrap_or_default(),
-        timestamp: parse_datetime(&row.try_get::<String, _>("timestamp").unwrap_or_default()).unwrap_or_default(),
+        timestamp: parse_datetime(&row.try_get::<String, _>("timestamp").unwrap_or_default())
+            .unwrap_or_default(),
         bp_systolic: row.try_get::<Option<i32>, _>("bp_systolic").unwrap_or(None),
-        bp_diastolic: row.try_get::<Option<i32>, _>("bp_diastolic").unwrap_or(None),
+        bp_diastolic: row
+            .try_get::<Option<i32>, _>("bp_diastolic")
+            .unwrap_or(None),
         heart_rate: row.try_get::<Option<i32>, _>("heart_rate").unwrap_or(None),
         weight: row.try_get::<Option<f64>, _>("weight").unwrap_or(None),
-        blood_glucose: row.try_get::<Option<f64>, _>("blood_glucose").unwrap_or(None),
+        blood_glucose: row
+            .try_get::<Option<f64>, _>("blood_glucose")
+            .unwrap_or(None),
         temperature: row.try_get::<Option<f64>, _>("temperature").unwrap_or(None),
         spo2: row.try_get::<Option<i32>, _>("spo2").unwrap_or(None),
         hrv: row.try_get::<Option<f64>, _>("hrv").unwrap_or(None),
-        sleep_quality: row.try_get::<Option<String>, _>("sleep_quality").unwrap_or(None).and_then(|s| serde_json::from_str(&s).ok()),
-        custom_metrics: row.try_get::<Option<String>, _>("custom_metrics").unwrap_or(None).and_then(|s| serde_json::from_str(&s).ok()),
+        sleep_quality: row
+            .try_get::<Option<String>, _>("sleep_quality")
+            .unwrap_or(None)
+            .and_then(|s| serde_json::from_str(&s).ok()),
+        custom_metrics: row
+            .try_get::<Option<String>, _>("custom_metrics")
+            .unwrap_or(None)
+            .and_then(|s| serde_json::from_str(&s).ok()),
         notes: row.try_get::<Option<String>, _>("notes").unwrap_or(None),
     }
 }
 
 fn row_to_alert(row: SqliteRow) -> Alert {
     Alert {
-        id: Uuid::parse_str(&row.try_get::<String, _>("id").unwrap_or_default()).unwrap_or_default(),
+        id: Uuid::parse_str(&row.try_get::<String, _>("id").unwrap_or_default())
+            .unwrap_or_default(),
         user_id: row.try_get::<String, _>("user_id").unwrap_or_default(),
-        alert_type: serde_json::from_str(&row.try_get::<String, _>("type").unwrap_or_default()).unwrap_or_default(),
-        severity: serde_json::from_str(&row.try_get::<String, _>("severity").unwrap_or_default()).unwrap_or_default(),
+        alert_type: serde_json::from_str(&row.try_get::<String, _>("type").unwrap_or_default())
+            .unwrap_or_default(),
+        severity: serde_json::from_str(&row.try_get::<String, _>("severity").unwrap_or_default())
+            .unwrap_or_default(),
         message: row.try_get::<String, _>("message").unwrap_or_default(),
-        recommendation: row.try_get::<Option<String>, _>("recommendation").unwrap_or(None),
+        recommendation: row
+            .try_get::<Option<String>, _>("recommendation")
+            .unwrap_or(None),
         is_acknowledged: row.try_get::<i32, _>("is_acknowledged").unwrap_or(0) != 0,
-        linked_entry_id: row.try_get::<Option<String>, _>("linked_entry_id").unwrap_or(None).and_then(|s| Uuid::parse_str(&s).ok()),
-        generated_at: parse_datetime(&row.try_get::<String, _>("generated_at").unwrap_or_default()).unwrap_or_default(),
-        resolved_at: row.try_get::<Option<String>, _>("resolved_at").unwrap_or(None).and_then(|s| parse_datetime(&s)),
+        linked_entry_id: row
+            .try_get::<Option<String>, _>("linked_entry_id")
+            .unwrap_or(None)
+            .and_then(|s| Uuid::parse_str(&s).ok()),
+        generated_at: parse_datetime(&row.try_get::<String, _>("generated_at").unwrap_or_default())
+            .unwrap_or_default(),
+        resolved_at: row
+            .try_get::<Option<String>, _>("resolved_at")
+            .unwrap_or(None)
+            .and_then(|s| parse_datetime(&s)),
     }
 }
 
 fn row_to_insight(row: SqliteRow) -> Insight {
     Insight {
-        id: Uuid::parse_str(&row.try_get::<String, _>("id").unwrap_or_default()).unwrap_or_default(),
+        id: Uuid::parse_str(&row.try_get::<String, _>("id").unwrap_or_default())
+            .unwrap_or_default(),
         user_id: row.try_get::<String, _>("user_id").unwrap_or_default(),
-        insight_type: serde_json::from_str(&row.try_get::<String, _>("type").unwrap_or_default()).unwrap_or_default(),
+        insight_type: serde_json::from_str(&row.try_get::<String, _>("type").unwrap_or_default())
+            .unwrap_or_default(),
         title: row.try_get::<String, _>("title").unwrap_or_default(),
         description: row.try_get::<String, _>("description").unwrap_or_default(),
         confidence: row.try_get::<f64, _>("confidence").unwrap_or(0.0),
         supporting_data_points: row.try_get::<i32, _>("supporting_data_points").unwrap_or(0),
-        generated_at: parse_datetime(&row.try_get::<String, _>("generated_at").unwrap_or_default()).unwrap_or_default(),
-        related_entry_ids: row.try_get::<Option<String>, _>("related_entry_ids").unwrap_or(None).and_then(|s| serde_json::from_str(&s).ok()).unwrap_or_default(),
+        generated_at: parse_datetime(&row.try_get::<String, _>("generated_at").unwrap_or_default())
+            .unwrap_or_default(),
+        related_entry_ids: row
+            .try_get::<Option<String>, _>("related_entry_ids")
+            .unwrap_or(None)
+            .and_then(|s| serde_json::from_str(&s).ok())
+            .unwrap_or_default(),
     }
 }

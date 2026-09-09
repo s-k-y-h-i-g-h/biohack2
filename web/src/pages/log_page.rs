@@ -1,8 +1,8 @@
-use leptos::*;
-use leptos::prelude::*;
+use crate::state::db::{create_log_entry, get_log_entries, search_catalog};
 use engine::models::LogEntry;
 use engine::safety::SafetyEngine;
-use crate::state::db::{create_log_entry, get_log_entries, search_catalog};
+use leptos::prelude::*;
+use leptos::*;
 
 #[component]
 pub fn LogPage() -> impl IntoView {

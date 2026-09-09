@@ -1,12 +1,10 @@
-use leptos::prelude::*;
 use engine::models::VitalsEntry;
+use leptos::prelude::*;
 
 /// Displays the latest vitals plus recent readings. Takes a reactive signal so
 /// the dashboard live-updates when a new entry is saved.
 #[component]
-pub fn VitalsDashboard(
-    recent_vitals: Signal<Vec<VitalsEntry>>,
-) -> impl IntoView {
+pub fn VitalsDashboard(recent_vitals: Signal<Vec<VitalsEntry>>) -> impl IntoView {
     view! {
         <div class="vitals-dashboard">
             <h3>"Recent Vitals"</h3>

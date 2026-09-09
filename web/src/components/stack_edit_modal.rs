@@ -1,7 +1,8 @@
-use leptos::prelude::*;
-use engine::models::*;
 use crate::state::db::{search_catalog, update_stack};
+use engine::models::*;
+use leptos::prelude::*;
 use uuid::Uuid;
+use wasm_bindgen::JsCast;
 
 #[derive(Clone)]
 struct EditFormItem {
@@ -13,6 +14,9 @@ struct EditFormItem {
 
 /// Modal for editing an existing stack: rename, add/remove items,
 /// adjust quantities. Saves via update_stack (per US4/AC-3).
+///
+/// Keyboard support: Escape cancels, Tab cycles within the dialog,
+/// and focus returns to the element that opened it on close.
 #[component]
 pub fn StackEditModal(
     stack: Stack,
@@ -43,6 +47,35 @@ pub fn StackEditModal(
     );
     let search_query = RwSignal::new(String::new());
     let error = RwSignal::new(None::<String>);
+    let modal_el = NodeRef::<leptos::html::Div>::new();
+
+    // Remember the element that had focus before the modal opened so we can
+    // restore it when the dialog closes.
+    let restore_focus = web_sys::window()
+        .and_then(|w| w.document())
+        .and_then(|d| d.active_element());
+
+    // Focus the dialog when it mounts; restore focus on cleanup.
+    modal_el.on_load(move |el: web_sys::HtmlDivElement| {
+        let _ = el.focus();
+    });
+    on_cleanup(move || {
+        if let Some(el) = restore_focus.as_ref() {
+            if let Some(h) = el.dyn_ref::<web_sys::HtmlElement>() {
+                let _ = h.focus();
+            }
+        }
+    });
+
+    // Escape cancels the dialog.
+    let cancel_cb = on_cancel.clone();
+    let esc_handle =
+        window_event_listener(leptos::ev::keydown, move |ev: web_sys::KeyboardEvent| {
+            if ev.key() == "Escape" {
+                cancel_cb.run(());
+            }
+        });
+    on_cleanup(move || esc_handle.remove());
 
     let filtered_catalog = move || {
         let q = search_query.get();
@@ -57,10 +90,14 @@ pub fn StackEditModal(
             list.push(EditFormItem {
                 item_id: item.id,
                 name: item.name.clone(),
-                quantity: item.dosage_range.as_ref()
+                quantity: item
+                    .dosage_range
+                    .as_ref()
                     .map(|d| d.min.to_string())
                     .unwrap_or_else(|| "1".to_string()),
-                unit: item.dosage_range.as_ref()
+                unit: item
+                    .dosage_range
+                    .as_ref()
                     .map(|d| d.unit.clone())
                     .unwrap_or_default(),
             });
@@ -94,7 +131,11 @@ pub fn StackEditModal(
             .map(|f| StackItem {
                 item_id: f.item_id,
                 quantity: Some(f.quantity.parse().unwrap_or(1.0)),
-                unit: if f.unit.is_empty() { None } else { Some(f.unit.clone()) },
+                unit: if f.unit.is_empty() {
+                    None
+                } else {
+                    Some(f.unit.clone())
+                },
                 note: None,
             })
             .collect();
@@ -106,7 +147,14 @@ pub fn StackEditModal(
     };
 
     view! {
-        <div class="modal-overlay" role="dialog" aria-modal="true" aria-label="Edit stack">
+        <div
+            class="modal-overlay"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Edit stack"
+            node_ref=modal_el
+            tabindex="-1"
+        >
             <div class="modal-content">
                 <h3>"Edit Stack"</h3>
 

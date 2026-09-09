@@ -1,9 +1,12 @@
-use leptos::prelude::*;
-use engine::models::*;
-use engine::safety::{SafetyEngine, RecentSubstance};
-use crate::state::db::{create_vitals_entry, create_alert, get_vitals_entries, get_log_entries, acknowledge_alert, get_alerts};
+use crate::components::{AlertBanner, VitalsDashboard, VitalsForm};
+use crate::state::db::{
+    acknowledge_alert, create_alert, create_vitals_entry, get_alerts, get_log_entries,
+    get_vitals_entries,
+};
 use crate::state::store::AppContext;
-use crate::components::{VitalsForm, VitalsDashboard, AlertBanner};
+use engine::models::*;
+use engine::safety::{RecentSubstance, SafetyEngine};
+use leptos::prelude::*;
 
 #[component]
 pub fn VitalsPage() -> impl IntoView {
@@ -23,7 +26,8 @@ pub fn VitalsPage() -> impl IntoView {
         get_alerts(&AlertFilter {
             user_id: Some("local-device".to_string()),
             acknowledged: Some(false),
-        }).unwrap_or_default()
+        })
+        .unwrap_or_default()
     });
 
     let refresh = move || {
@@ -39,13 +43,16 @@ pub fn VitalsPage() -> impl IntoView {
         // Run safety checks with recent log context
         let engine = SafetyEngine::new();
         let recent_logs = get_log_entries().unwrap_or_default();
-        let substances: Vec<RecentSubstance> = recent_logs.iter().map(|log| RecentSubstance {
-            name: log.name.clone(),
-            category: log.item_type.clone(),
-            taken_at: log.timestamp,
-            is_stimulant: engine::safety::is_stimulant_name(&log.name),
-            is_serotonergic: engine::safety::is_serotonergic_name(&log.name),
-        }).collect();
+        let substances: Vec<RecentSubstance> = recent_logs
+            .iter()
+            .map(|log| RecentSubstance {
+                name: log.name.clone(),
+                category: log.item_type.clone(),
+                taken_at: log.timestamp,
+                is_stimulant: engine::safety::is_stimulant_name(&log.name),
+                is_serotonergic: engine::safety::is_serotonergic_name(&log.name),
+            })
+            .collect();
 
         let safety_result = engine.check_vitals(&entry, &substances);
 
@@ -66,7 +73,10 @@ pub fn VitalsPage() -> impl IntoView {
 
     // Tracked read for the page-level banner: shows first unacknowledged alert
     let alert_message = Signal::derive(move || {
-        unacknowledged_alerts.get().first().map(|a| a.message.clone())
+        unacknowledged_alerts
+            .get()
+            .first()
+            .map(|a| a.message.clone())
     });
 
     view! {

@@ -1,7 +1,7 @@
-use leptos::prelude::*;
 use gloo_storage::{LocalStorage, Storage};
-use web_sys::window;
+use leptos::prelude::*;
 use wasm_bindgen::JsCast;
+use web_sys::window;
 
 const THEME_STORAGE_KEY: &str = "biohack2_theme";
 
@@ -9,7 +9,7 @@ const THEME_STORAGE_KEY: &str = "biohack2_theme";
 pub fn SettingsPage() -> impl IntoView {
     // Load theme from localStorage or default to "light"
     let theme = RwSignal::new(
-        LocalStorage::get::<String>(THEME_STORAGE_KEY).unwrap_or_else(|_| "light".to_string())
+        LocalStorage::get::<String>(THEME_STORAGE_KEY).unwrap_or_else(|_| "light".to_string()),
     );
 
     // Apply theme to body when it changes
@@ -32,7 +32,11 @@ pub fn SettingsPage() -> impl IntoView {
 
     let toggle_theme = move |_| {
         let current = theme.get();
-        let new_theme = if current == "light" { "dark".to_string() } else { "light".to_string() };
+        let new_theme = if current == "light" {
+            "dark".to_string()
+        } else {
+            "light".to_string()
+        };
         let _ = LocalStorage::set(THEME_STORAGE_KEY, &new_theme);
         theme.set(new_theme.clone());
         apply_theme(&new_theme);
@@ -54,7 +58,8 @@ pub fn SettingsPage() -> impl IntoView {
                                 if let Ok(a) = doc.create_element("a") {
                                     if let Ok(anchor) = a.dyn_into::<web_sys::HtmlElement>() {
                                         let _ = anchor.set_attribute("href", &url);
-                                        let _ = anchor.set_attribute("download", "biohack_export.csv");
+                                        let _ =
+                                            anchor.set_attribute("download", "biohack_export.csv");
                                         let _ = anchor.click();
                                         let _ = web_sys::Url::revoke_object_url(&url);
                                     }

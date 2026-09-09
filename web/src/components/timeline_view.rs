@@ -1,13 +1,12 @@
-use leptos::*;
-use leptos::prelude::*;
 use engine::models::LogEntry;
+use leptos::prelude::*;
+use leptos::*;
 
 #[component]
-pub fn TimelineView(
-    entries: Vec<LogEntry>,
-) -> impl IntoView {
+pub fn TimelineView(entries: Vec<LogEntry>) -> impl IntoView {
     let total_entries = entries.len();
-    let last_7 = entries.iter()
+    let last_7 = entries
+        .iter()
         .filter(|e| {
             let now = chrono::Utc::now();
             let days_diff = (now.date_naive() - e.timestamp.date_naive()).num_days();

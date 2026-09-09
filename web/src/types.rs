@@ -1,5 +1,5 @@
-use engine::models::*;
 use chrono::{DateTime, Utc};
+use engine::models::*;
 
 /// Unified entry type for the history view, combining log entries, vitals, and notes
 #[derive(Debug, Clone)]
@@ -39,7 +39,11 @@ impl HistoryEntry {
                     } else {
                         format!("{}", q)
                     };
-                    if unit.is_empty() { qty_str } else { format!("{} {}", qty_str, unit) }
+                    if unit.is_empty() {
+                        qty_str
+                    } else {
+                        format!("{} {}", qty_str, unit)
+                    }
                 });
                 qty
             }
@@ -60,7 +64,11 @@ impl HistoryEntry {
                 .into_iter()
                 .flatten()
                 .collect();
-                if parts.is_empty() { None } else { Some(parts.join(" · ")) }
+                if parts.is_empty() {
+                    None
+                } else {
+                    Some(parts.join(" · "))
+                }
             }
             HistoryEntry::Note(_) => None,
         }
@@ -68,13 +76,16 @@ impl HistoryEntry {
 
     pub fn category(&self) -> Option<String> {
         match self {
-            HistoryEntry::Log(e) => Some(match e.item_type {
-                ItemType::Supplement => "supplement",
-                ItemType::Medication => "medication",
-                ItemType::Drug => "drug",
-                ItemType::Food => "food",
-                ItemType::Action => "action",
-            }.to_string()),
+            HistoryEntry::Log(e) => Some(
+                match e.item_type {
+                    ItemType::Supplement => "supplement",
+                    ItemType::Medication => "medication",
+                    ItemType::Drug => "drug",
+                    ItemType::Food => "food",
+                    ItemType::Action => "action",
+                }
+                .to_string(),
+            ),
             HistoryEntry::Vitals(_) => Some("vitals".to_string()),
             HistoryEntry::Note(_) => Some("note".to_string()),
         }

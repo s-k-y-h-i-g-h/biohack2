@@ -1,9 +1,9 @@
 //! WASM tests for the database layer and component logic.
 //! Run with: `wasm-pack test --headless --chrome` from the `web/` directory
 
+use chrono::Utc;
 use engine::models::*;
 use uuid::Uuid;
-use chrono::Utc;
 use wasm_bindgen_test::*;
 
 wasm_bindgen_test_configure!(run_in_browser);
@@ -11,7 +11,10 @@ wasm_bindgen_test_configure!(run_in_browser);
 fn clear_test_storage() {
     use wasm_bindgen::JsCast;
     let window = web_sys::window().expect("should have window");
-    let storage = window.local_storage().expect("should have local storage").expect("storage should not be null");
+    let storage = window
+        .local_storage()
+        .expect("should have local storage")
+        .expect("storage should not be null");
     storage.clear().expect("should clear storage");
 }
 
@@ -96,7 +99,7 @@ fn test_get_log_entries_returns_sorted_descending() {
 #[wasm_bindgen_test]
 fn test_delete_log_entry() {
     clear_test_storage();
-    use crate::state::db::{create_log_entry, get_log_entries, delete_log_entry};
+    use crate::state::db::{create_log_entry, delete_log_entry, get_log_entries};
 
     let entry = LogEntry {
         id: Uuid::new_v4(),
@@ -165,9 +168,14 @@ fn test_get_vitals_entries_sorted_descending() {
         bp_systolic: Some(110),
         bp_diastolic: Some(70),
         heart_rate: Some(65),
-        weight: None, blood_glucose: None, temperature: None,
-        spo2: None, hrv: None, sleep_quality: None,
-        custom_metrics: None, notes: None,
+        weight: None,
+        blood_glucose: None,
+        temperature: None,
+        spo2: None,
+        hrv: None,
+        sleep_quality: None,
+        custom_metrics: None,
+        notes: None,
     };
 
     let later = VitalsEntry {
@@ -177,9 +185,14 @@ fn test_get_vitals_entries_sorted_descending() {
         bp_systolic: Some(130),
         bp_diastolic: Some(85),
         heart_rate: Some(80),
-        weight: None, blood_glucose: None, temperature: None,
-        spo2: None, hrv: None, sleep_quality: None,
-        custom_metrics: None, notes: None,
+        weight: None,
+        blood_glucose: None,
+        temperature: None,
+        spo2: None,
+        hrv: None,
+        sleep_quality: None,
+        custom_metrics: None,
+        notes: None,
     };
 
     create_vitals_entry(&earlier).expect("should create entry");
@@ -221,8 +234,8 @@ fn test_create_and_get_alerts() {
 #[wasm_bindgen_test]
 fn test_acknowledge_alert() {
     clear_test_storage();
-    use crate::state::db::{create_alert, get_alerts, acknowledge_alert};
-    use engine::models::{AlertSeverity, AlertType, AlertFilter};
+    use crate::state::db::{acknowledge_alert, create_alert, get_alerts};
+    use engine::models::{AlertFilter, AlertSeverity, AlertType};
 
     let alert = Alert {
         id: Uuid::new_v4(),
@@ -243,7 +256,8 @@ fn test_acknowledge_alert() {
     let unacked = get_alerts(&AlertFilter {
         user_id: Some("test".to_string()),
         acknowledged: Some(false),
-    }).expect("should read unacknowledged");
+    })
+    .expect("should read unacknowledged");
     assert_eq!(unacked.len(), 1);
 
     acknowledge_alert(&alert.id).expect("should acknowledge");
@@ -252,7 +266,8 @@ fn test_acknowledge_alert() {
     let unacked = get_alerts(&AlertFilter {
         user_id: Some("test".to_string()),
         acknowledged: Some(false),
-    }).expect("should read unacknowledged");
+    })
+    .expect("should read unacknowledged");
     assert_eq!(unacked.len(), 0);
 }
 
@@ -267,22 +282,34 @@ fn test_vitals_filter_by_user_id() {
         id: Uuid::new_v4(),
         user_id: "user-a".to_string(),
         timestamp: Utc::now(),
-        bp_systolic: Some(120), bp_diastolic: Some(80),
+        bp_systolic: Some(120),
+        bp_diastolic: Some(80),
         heart_rate: Some(70),
-        weight: None, blood_glucose: None, temperature: None,
-        spo2: None, hrv: None, sleep_quality: None,
-        custom_metrics: None, notes: None,
+        weight: None,
+        blood_glucose: None,
+        temperature: None,
+        spo2: None,
+        hrv: None,
+        sleep_quality: None,
+        custom_metrics: None,
+        notes: None,
     };
 
     let user_b = VitalsEntry {
         id: Uuid::new_v4(),
         user_id: "user-b".to_string(),
         timestamp: Utc::now(),
-        bp_systolic: Some(140), bp_diastolic: Some(90),
+        bp_systolic: Some(140),
+        bp_diastolic: Some(90),
         heart_rate: Some(90),
-        weight: None, blood_glucose: None, temperature: None,
-        spo2: None, hrv: None, sleep_quality: None,
-        custom_metrics: None, notes: None,
+        weight: None,
+        blood_glucose: None,
+        temperature: None,
+        spo2: None,
+        hrv: None,
+        sleep_quality: None,
+        custom_metrics: None,
+        notes: None,
     };
 
     create_vitals_entry(&user_a).expect("should create");
@@ -291,7 +318,8 @@ fn test_vitals_filter_by_user_id() {
     let filtered = get_vitals_entries(&VitalsEntryFilter {
         user_id: Some("user-a".to_string()),
         ..Default::default()
-    }).expect("should filter");
+    })
+    .expect("should filter");
 
     assert_eq!(filtered.len(), 1);
     assert_eq!(filtered[0].user_id, "user-a");
@@ -352,9 +380,14 @@ fn test_vitals_dashboard_uses_first_entry() {
             bp_systolic: Some(110),
             bp_diastolic: Some(70),
             heart_rate: Some(65),
-            weight: None, blood_glucose: None, temperature: None,
-            spo2: None, hrv: None, sleep_quality: None,
-            custom_metrics: None, notes: None,
+            weight: None,
+            blood_glucose: None,
+            temperature: None,
+            spo2: None,
+            hrv: None,
+            sleep_quality: None,
+            custom_metrics: None,
+            notes: None,
         },
         VitalsEntry {
             id: Uuid::new_v4(),
@@ -363,9 +396,14 @@ fn test_vitals_dashboard_uses_first_entry() {
             bp_systolic: Some(130),
             bp_diastolic: Some(85),
             heart_rate: Some(80),
-            weight: None, blood_glucose: None, temperature: None,
-            spo2: None, hrv: None, sleep_quality: None,
-            custom_metrics: None, notes: None,
+            weight: None,
+            blood_glucose: None,
+            temperature: None,
+            spo2: None,
+            hrv: None,
+            sleep_quality: None,
+            custom_metrics: None,
+            notes: None,
         },
     ];
 
@@ -403,10 +441,10 @@ fn test_alert_banner_visibility_logic() {
 
 #[wasm_bindgen_test]
 fn test_safety_engine_hypertensive_urgency_detection() {
-    use engine::safety::{SafetyEngine, run_safety_check};
-    use engine::models::VitalsEntry;
-    use uuid::Uuid;
     use chrono::Utc;
+    use engine::models::VitalsEntry;
+    use engine::safety::{SafetyEngine, run_safety_check};
+    use uuid::Uuid;
 
     let entry = VitalsEntry {
         id: Uuid::new_v4(),
@@ -415,23 +453,39 @@ fn test_safety_engine_hypertensive_urgency_detection() {
         bp_systolic: Some(185),
         bp_diastolic: Some(125),
         heart_rate: None,
-        weight: None, blood_glucose: None, temperature: None,
-        spo2: None, hrv: None, sleep_quality: None,
-        custom_metrics: None, notes: None,
+        weight: None,
+        blood_glucose: None,
+        temperature: None,
+        spo2: None,
+        hrv: None,
+        sleep_quality: None,
+        custom_metrics: None,
+        notes: None,
     };
 
     let result = run_safety_check(&entry, &[]);
 
-    assert_eq!(result.alerts.len(), 1, "should trigger hypertensive urgency alert");
-    assert!(result.alerts[0].message.to_lowercase().contains("hypertensive"), "alert should mention hypertensive, got: {}", result.alerts[0].message);
+    assert_eq!(
+        result.alerts.len(),
+        1,
+        "should trigger hypertensive urgency alert"
+    );
+    assert!(
+        result.alerts[0]
+            .message
+            .to_lowercase()
+            .contains("hypertensive"),
+        "alert should mention hypertensive, got: {}",
+        result.alerts[0].message
+    );
 }
 
 #[wasm_bindgen_test]
 fn test_safety_engine_normal_vitals_no_alert() {
-    use engine::safety::run_safety_check;
-    use engine::models::VitalsEntry;
-    use uuid::Uuid;
     use chrono::Utc;
+    use engine::models::VitalsEntry;
+    use engine::safety::run_safety_check;
+    use uuid::Uuid;
 
     let entry = VitalsEntry {
         id: Uuid::new_v4(),
@@ -440,14 +494,23 @@ fn test_safety_engine_normal_vitals_no_alert() {
         bp_systolic: Some(120),
         bp_diastolic: Some(80),
         heart_rate: Some(72),
-        weight: None, blood_glucose: None, temperature: None,
-        spo2: None, hrv: None, sleep_quality: None,
-        custom_metrics: None, notes: None,
+        weight: None,
+        blood_glucose: None,
+        temperature: None,
+        spo2: None,
+        hrv: None,
+        sleep_quality: None,
+        custom_metrics: None,
+        notes: None,
     };
 
     let result = run_safety_check(&entry, &[]);
 
-    assert_eq!(result.alerts.len(), 0, "normal vitals should not trigger alerts");
+    assert_eq!(
+        result.alerts.len(),
+        0,
+        "normal vitals should not trigger alerts"
+    );
 }
 
 #[wasm_bindgen_test]
@@ -456,9 +519,9 @@ fn test_create_vitals_entry_triggers_safety_check() {
     // the safety engine should run and create alerts for abnormal vitals.
     // Currently this is NOT wired (known bug T038), so we test the expected behavior.
     use crate::state::db::{create_vitals_entry, get_alerts, get_vitals_entries};
+    use chrono::Utc;
     use engine::models::{AlertFilter, VitalsEntry};
     use uuid::Uuid;
-    use chrono::Utc;
 
     clear_test_storage();
 
@@ -470,9 +533,14 @@ fn test_create_vitals_entry_triggers_safety_check() {
         bp_systolic: Some(190),
         bp_diastolic: Some(130),
         heart_rate: Some(110),
-        weight: None, blood_glucose: None, temperature: None,
-        spo2: None, hrv: None, sleep_quality: None,
-        custom_metrics: None, notes: None,
+        weight: None,
+        blood_glucose: None,
+        temperature: None,
+        spo2: None,
+        hrv: None,
+        sleep_quality: None,
+        custom_metrics: None,
+        notes: None,
     };
 
     // This creates the vitals entry but currently does NOT run safety checks
@@ -508,7 +576,10 @@ fn test_create_and_get_note() {
     let notes = get_notes().expect("should read notes");
 
     assert_eq!(notes.len(), 1);
-    assert_eq!(notes[0].content, "Noticed increased anxiety after Ashwagandha at night");
+    assert_eq!(
+        notes[0].content,
+        "Noticed increased anxiety after Ashwagandha at night"
+    );
     assert_eq!(notes[0].user_id, "test-user");
 }
 
@@ -566,7 +637,7 @@ fn test_update_note() {
 #[wasm_bindgen_test]
 fn test_delete_note() {
     clear_test_storage();
-    use crate::state::db::{create_note, get_notes, delete_note};
+    use crate::state::db::{create_note, delete_note, get_notes};
 
     let note = Note {
         id: Uuid::new_v4(),

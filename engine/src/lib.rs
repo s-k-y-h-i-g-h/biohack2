@@ -7,16 +7,16 @@
 //! - SQLite-backed persistence via sqlx (when built natively)
 //! - LocalStorage persistence via gloo_storage (when built for WASM)
 
+pub mod catalog;
 pub mod models;
 pub mod safety;
-pub mod catalog;
 
 #[cfg(feature = "db")]
 pub mod db;
 
+pub use catalog::*;
 pub use models::*;
 pub use safety::*;
-pub use catalog::*;
 
 #[cfg(feature = "db")]
 pub use db::*;

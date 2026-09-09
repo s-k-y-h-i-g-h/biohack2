@@ -1,10 +1,8 @@
-use leptos::prelude::*;
 use engine::models::VitalsEntry;
+use leptos::prelude::*;
 
 #[component]
-pub fn VitalsForm(
-    on_save: Callback<VitalsEntry>,
-) -> impl IntoView {
+pub fn VitalsForm(on_save: Callback<VitalsEntry>) -> impl IntoView {
     let bp_systolic = RwSignal::new(String::new());
     let bp_diastolic = RwSignal::new(String::new());
     let heart_rate = RwSignal::new(String::new());

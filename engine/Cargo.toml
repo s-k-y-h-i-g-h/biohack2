@@ -16,12 +16,10 @@ chrono.workspace = true
 uuid.workspace = true
 thiserror.workspace = true
 anyhow.workspace = true
-log = "0.4"
-tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-
 # SQLite (only for native builds, not WASM)
 sqlx = { workspace = true, features = ["runtime-tokio", "sqlite", "chrono", "uuid", "json", "macros", "migrate"], optional = true }
+# Note: tracing/log were removed — engine never uses them; they added ~900KB
+# of regex/env-filter machinery to the WASM bundle.
 
 [features]
 default = ["db"]
