@@ -3,7 +3,7 @@
 //! Provides:
 //! - Core data models (LogEntry, CatalogItem, Stack, VitalsEntry, Alert, Insight)
 //! - Safety protocol engine (stimulant tachycardia, hypertensive urgency, serotonin syndrome)
-//! - Catalog with 27 substance seed data
+//! - Catalog with 32 substance seed data
 //! - SQLite-backed persistence via sqlx (when built natively)
 //! - LocalStorage persistence via gloo_storage (when built for WASM)
 //!

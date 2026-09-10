@@ -259,6 +259,8 @@ pub fn is_serotonergic_name(name: &str) -> bool {
         || n.contains("fluoxetine")
         || n.contains("sertraline")
         || n.contains("paroxetine")
+        || n.contains("kratom")
+        || n.contains("mitragynine")
 }
 
 /// Returns true if the name matches a stimulant substance.
@@ -279,6 +281,12 @@ pub fn is_stimulant_name(name: &str) -> bool {
         || n.contains("nicotine")
         || n.contains("yohimbine")
         || n.contains("synephrine")
+        || n.contains("cyclazodone")
+        || n.contains("pemoline")
+        || n.contains("focalin")
+        || n.contains("vyvanse")
+        || n.contains("lisdexamfetamine")
+        || n.contains("kratom")
 }
 
 /// Runs all safety checks for a vitals entry.

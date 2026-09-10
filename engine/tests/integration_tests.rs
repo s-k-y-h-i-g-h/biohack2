@@ -18,7 +18,7 @@ async fn test_pool() -> DbPool {
 async fn test_seed_and_query_catalog(pool: DbPool) -> anyhow::Result<()> {
     migrate(&pool).await?;
     let catalog = seed_catalog();
-    assert_eq!(catalog.len(), 27);
+    assert_eq!(catalog.len(), 32);
 
     // Seed the catalog
     let seeded = db_seed_catalog(&pool, &catalog).await;
@@ -50,7 +50,7 @@ async fn test_seed_and_query_catalog(pool: DbPool) -> anyhow::Result<()> {
     for item in &items {
         println!("  - {}", item.name);
     }
-    assert_eq!(items.len(), 27);
+    assert_eq!(items.len(), 32);
 
     // Verify a known item
     let vit_d3 = items

@@ -20,13 +20,12 @@ async fn main() -> anyhow::Result<()> {
 
     engine::db::migrate(&pool).await?;
 
-    // Seed the catalog on first boot (idempotent — skips if already populated).
-    let existing = engine::db::get_catalog_items(&pool).await?;
-    if existing.is_empty() {
-        let items = engine::catalog::seed_catalog();
-        engine::db::seed_catalog(&pool, &items).await?;
-        println!("Seeded catalog with {} items", items.len());
-    }
+    // Seed the catalog on every boot (name-idempotent — only inserts
+    // substances missing from the database, so new catalog additions
+    // land in existing databases without duplicating existing rows).
+    let items = engine::catalog::seed_catalog();
+    engine::db::seed_catalog(&pool, &items).await?;
+    println!("Catalog ensured: {} seed substances available", items.len());
 
     let addr = SocketAddr::from(([127, 0, 0, 1], port));
     println!("biohack2-server: http://{addr}");

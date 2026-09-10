@@ -1,9 +1,10 @@
-//! 27-substance seed database ported from the biohack CLI.
+//! 32-substance seed database ported from the biohack CLI
+//! (27 original + Caffeine, Cyclazodone, CBD, Kratom, Memantine).
 
 use crate::models::{CatalogItem, DosageRange, ItemType};
 use uuid::Uuid;
 
-/// Returns the full 27-substance seed catalog.
+/// Returns the full 32-substance seed catalog.
 pub fn seed_catalog() -> Vec<CatalogItem> {
     vec![
         // Vitamins
@@ -340,6 +341,88 @@ pub fn seed_catalog() -> Vec<CatalogItem> {
             &[],
             &["May cause drowsiness"],
         ),
+        // Stimulants / Wakefulness
+        make_item(
+            "Caffeine",
+            ItemType::Supplement,
+            Some(DosageRange {
+                min: 50.0,
+                max: 200.0,
+                unit: "mg".to_string(),
+            }),
+            "5h",
+            &[],
+            &[
+                "Can raise heart rate and blood pressure",
+                "Avoid within 8h of bedtime",
+            ],
+        ),
+        make_item(
+            "Cyclazodone",
+            ItemType::Drug,
+            Some(DosageRange {
+                min: 10.0,
+                max: 40.0,
+                unit: "mg".to_string(),
+            }),
+            "12h",
+            &[],
+            &[
+                "Research chemical — limited human safety data",
+                "Pemoline analog: potential hepatotoxicity, monitor liver enzymes",
+                "Strong stimulant — risk of tachycardia and hypertension at high doses",
+            ],
+        ),
+        // Cannabinoids
+        make_item(
+            "CBD",
+            ItemType::Supplement,
+            Some(DosageRange {
+                min: 10.0,
+                max: 100.0,
+                unit: "mg".to_string(),
+            }),
+            "8h",
+            &[],
+            &[
+                "Inhibits CYP3A4 and CYP2C19 — can raise blood levels of other medications",
+                "May cause drowsiness at higher doses",
+            ],
+        ),
+        // Botanicals
+        make_item(
+            "Kratom",
+            ItemType::Drug,
+            Some(DosageRange {
+                min: 1.0,
+                max: 5.0,
+                unit: "g".to_string(),
+            }),
+            "6h",
+            &[],
+            &[
+                "Stimulant at low doses, sedative at high doses",
+                "Serotonergic activity — serotonin syndrome risk combined with SSRIs, tramadol, or MAOIs",
+                "Dependence and withdrawal risk with regular use",
+            ],
+        ),
+        // Prescription / Nootropic
+        make_item(
+            "Memantine",
+            ItemType::Medication,
+            Some(DosageRange {
+                min: 5.0,
+                max: 20.0,
+                unit: "mg".to_string(),
+            }),
+            "70h",
+            &[],
+            &[
+                "Prescription medication (Namenda) — use under medical supervision",
+                "Long half-life (~70h) — accumulates; dose titration weekly",
+                "May cause dizziness, confusion, headache",
+            ],
+        ),
     ]
 }
 
@@ -370,9 +453,27 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_seed_catalog_has_27_items() {
+    fn test_seed_catalog_has_32_items() {
         let catalog = seed_catalog();
-        assert_eq!(catalog.len(), 27);
+        assert_eq!(catalog.len(), 32);
+    }
+
+    #[test]
+    fn test_new_substances_present() {
+        let catalog = seed_catalog();
+        for expected in [
+            "Caffeine",
+            "Cyclazodone",
+            "CBD",
+            "Kratom",
+            "Memantine",
+            "L-Theanine",
+        ] {
+            assert!(
+                catalog.iter().any(|i| i.name == expected),
+                "catalog missing {expected}"
+            );
+        }
     }
 
     #[test]

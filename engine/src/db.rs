@@ -312,9 +312,13 @@ pub async fn delete_log_entry(pool: &DbPool, id: &Uuid) -> anyhow::Result<()> {
 pub async fn seed_catalog(pool: &DbPool, items: &[CatalogItem]) -> anyhow::Result<()> {
     for item in items {
         let cat_str = item_type_to_str(&item.category);
+        // Idempotent by NAME (not id): seed_catalog() regenerates UUIDs on
+        // every call, so a fresh seed run against an existing database must
+        // match on name or it would duplicate every substance.
         let result = sqlx::query(
             "INSERT OR IGNORE INTO catalog_items (id, name, category, dosage_range, half_life, contraindications, warnings, is_custom, source, version)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)"
+             SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10
+             WHERE NOT EXISTS (SELECT 1 FROM catalog_items WHERE name = ?2)"
         )
         .bind(item.id.to_string())
         .bind(&item.name)
