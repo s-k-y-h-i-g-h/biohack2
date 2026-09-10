@@ -176,7 +176,6 @@ pub fn HistoryPage() -> impl IntoView {
                     }
                 >"Export CSV"</button>
             </div>
-            <SummaryStats entries=filtered_entries() />
             <div class="history-container">
                 <div class="history-list">
                     {move || {
@@ -252,6 +251,9 @@ pub fn HistoryPage() -> impl IntoView {
                         </div>
                     </Show>
                 </div>
+                <aside class="history-sidebar">
+                    <SummaryStats entries=filtered_entries() />
+                </aside>
             </div>
         </div>
     }
