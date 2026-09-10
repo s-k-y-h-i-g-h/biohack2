@@ -45,9 +45,15 @@ body {
 
 /* Layout */
 .app-container {
-  max-width: 900px;
+  max-width: 1200px;
   margin: 0 auto;
-  padding: 20px;
+  padding: 20px 32px;
+}
+
+@media (min-width: 1024px) {
+  .app-container {
+    padding: 24px 48px;
+  }
 }
 
 h1 {
@@ -69,13 +75,20 @@ h3 {
 }
 
 nav {
-  margin-bottom: 20px;
-  padding: 10px;
+  margin-bottom: 24px;
+  padding: 12px 16px;
   background: var(--bg-secondary);
   border-radius: var(--radius);
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
+  align-items: center;
+}
+
+@media (min-width: 1024px) {
+  nav {
+    gap: 12px;
+  }
 }
 
 .nav-link {
@@ -97,6 +110,25 @@ nav {
 /* Pages */
 .page {
   padding: 10px 0;
+}
+
+/* Desktop two-column layout for log page */
+@media (min-width: 1024px) {
+  .log-page-layout {
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    gap: 24px;
+    align-items: start;
+  }
+
+  .log-page-main {
+    min-width: 0;
+  }
+
+  .log-page-sidebar {
+    position: sticky;
+    top: 20px;
+  }
 }
 
 /* Log Form */
@@ -475,6 +507,19 @@ nav {
   padding: 16px;
   background: var(--bg-secondary);
   border-radius: var(--radius);
+}
+
+@media (min-width: 768px) {
+  .vitals-form {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+  }
+
+  .vitals-form h2,
+  .vitals-form button {
+    grid-column: 1 / -1;
+  }
 }
 
 .vitals-form button {

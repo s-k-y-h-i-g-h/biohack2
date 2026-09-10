@@ -61,9 +61,10 @@ pub fn StackEditModal(
     });
     on_cleanup(move || {
         if let Some(el) = restore_focus.as_ref()
-            && let Some(h) = el.dyn_ref::<web_sys::HtmlElement>() {
-                let _ = h.focus();
-            }
+            && let Some(h) = el.dyn_ref::<web_sys::HtmlElement>()
+        {
+            let _ = h.focus();
+        }
     });
 
     // Escape cancels the dialog.

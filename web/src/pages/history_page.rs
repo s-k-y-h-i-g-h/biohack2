@@ -47,9 +47,10 @@ pub fn HistoryPage() -> impl IntoView {
                 // Category filter
                 if let Some(cat) = &c
                     && let Some(entry_cat) = entry.category()
-                        && &entry_cat != cat {
-                            return false;
-                        }
+                    && &entry_cat != cat
+                {
+                    return false;
+                }
 
                 // Date-range filter (inclusive, compares the date part)
                 let date = entry.timestamp().format("%Y-%m-%d").to_string();

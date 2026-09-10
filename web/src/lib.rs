@@ -17,36 +17,37 @@ use components::Layout;
 pub fn main() {
     // Inject global styles by reading from document head
     if let Some(win) = web_sys::window()
-        && let Some(doc) = win.document() {
-            if let Some(head) = doc.head() {
-                let css = include_str!("./styles/global.css");
-                let style = doc.create_element("style").unwrap();
-                style.set_text_content(Some(css));
-                let _ = head.append_child(&style);
+        && let Some(doc) = win.document()
+    {
+        if let Some(head) = doc.head() {
+            let css = include_str!("./styles/global.css");
+            let style = doc.create_element("style").unwrap();
+            style.set_text_content(Some(css));
+            let _ = head.append_child(&style);
 
-                // Inject manifest link
-                let link = doc.create_element("link").unwrap();
-                let _ = link.set_attribute("rel", "manifest");
-                let _ = link.set_attribute("href", "manifest.json");
-                let _ = head.append_child(&link);
+            // Inject manifest link
+            let link = doc.create_element("link").unwrap();
+            let _ = link.set_attribute("rel", "manifest");
+            let _ = link.set_attribute("href", "manifest.json");
+            let _ = head.append_child(&link);
 
-                // Register service worker
-                if let Some(win2) = web_sys::window() {
-                    let _ = win2.navigator().service_worker().register("/sw.js");
-                }
-            }
-
-            // Apply the persisted theme at startup so a saved dark mode
-            // survives reloads on every page (was previously applied only
-            // when the Settings page happened to be mounted).
-            if let Some(body) = doc.body() {
-                let saved = gloo_storage::LocalStorage::get::<String>("biohack2_theme")
-                    .unwrap_or_else(|_| "light".to_string());
-                let _ = body.class_list().remove_1("dark");
-                let _ = body.class_list().remove_1("light");
-                let _ = body.class_list().add_1(&saved);
+            // Register service worker
+            if let Some(win2) = web_sys::window() {
+                let _ = win2.navigator().service_worker().register("/sw.js");
             }
         }
+
+        // Apply the persisted theme at startup so a saved dark mode
+        // survives reloads on every page (was previously applied only
+        // when the Settings page happened to be mounted).
+        if let Some(body) = doc.body() {
+            let saved = gloo_storage::LocalStorage::get::<String>("biohack2_theme")
+                .unwrap_or_else(|_| "light".to_string());
+            let _ = body.class_list().remove_1("dark");
+            let _ = body.class_list().remove_1("light");
+            let _ = body.class_list().add_1(&saved);
+        }
+    }
 
     mount_to_body(app);
 
@@ -60,14 +61,17 @@ fn get_path() -> String {
     if let Some(win) = web_sys::window() {
         // Try hash first (hash-based routing)
         if let Ok(hash) = win.location().hash()
-            && !hash.is_empty() && hash != "#" {
-                return hash[1..].to_string();
-            }
+            && !hash.is_empty()
+            && hash != "#"
+        {
+            return hash[1..].to_string();
+        }
         // Fall back to pathname (HTML5 history mode)
         if let Ok(pathname) = win.location().pathname()
-            && !pathname.is_empty() {
-                return pathname;
-            }
+            && !pathname.is_empty()
+        {
+            return pathname;
+        }
     }
     "/".to_string()
 }

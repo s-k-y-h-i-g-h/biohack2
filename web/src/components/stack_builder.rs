@@ -25,7 +25,7 @@ pub fn StackBuilder(on_created: Callback<String>) -> impl IntoView {
     // Persisted catalog: search_catalog reads (and on first use seeds) localStorage
     let filtered_catalog = move || {
         let q = search_query.get();
-        
+
         search_catalog(&q).unwrap_or_default()
     };
 

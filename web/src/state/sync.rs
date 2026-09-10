@@ -255,9 +255,10 @@ pub fn sync_from_server() {
 
         // Notify the UI to re-read storage: bump the global data version.
         if let Some(win) = web_sys::window()
-            && let Ok(ev) = web_sys::Event::new("biohack2-sync-complete") {
-                let _ = win.dispatch_event(&ev);
-            }
+            && let Ok(ev) = web_sys::Event::new("biohack2-sync-complete")
+        {
+            let _ = win.dispatch_event(&ev);
+        }
         log_info(&format!(
             "sync: merged with server ({} logs, {} vitals, {} stacks, {} notes)",
             merged_logs.len(),

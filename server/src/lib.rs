@@ -402,9 +402,10 @@ async fn sync_push(
         let mut n = 0u64;
         for e in entries {
             if let Ok(entry) = serde_json::from_value::<LogEntry>(e.clone())
-                && db::create_log_entry(&state.pool, &entry).await.is_ok() {
-                    n += 1;
-                }
+                && db::create_log_entry(&state.pool, &entry).await.is_ok()
+            {
+                n += 1;
+            }
         }
         counts.insert("log_entries".into(), n.into());
     }
@@ -412,9 +413,10 @@ async fn sync_push(
         let mut n = 0u64;
         for e in vitals {
             if let Ok(entry) = serde_json::from_value::<VitalsEntry>(e.clone())
-                && db::create_vitals_entry(&state.pool, &entry).await.is_ok() {
-                    n += 1;
-                }
+                && db::create_vitals_entry(&state.pool, &entry).await.is_ok()
+            {
+                n += 1;
+            }
         }
         counts.insert("vitals_entries".into(), n.into());
     }
@@ -422,9 +424,10 @@ async fn sync_push(
         let mut n = 0u64;
         for e in alerts {
             if let Ok(alert) = serde_json::from_value::<Alert>(e.clone())
-                && db::create_alert(&state.pool, &alert).await.is_ok() {
-                    n += 1;
-                }
+                && db::create_alert(&state.pool, &alert).await.is_ok()
+            {
+                n += 1;
+            }
         }
         counts.insert("alerts".into(), n.into());
     }
@@ -432,9 +435,10 @@ async fn sync_push(
         let mut n = 0u64;
         for e in stacks {
             if let Ok(stack) = serde_json::from_value::<Stack>(e.clone())
-                && db::create_stack(&state.pool, &stack).await.is_ok() {
-                    n += 1;
-                }
+                && db::create_stack(&state.pool, &stack).await.is_ok()
+            {
+                n += 1;
+            }
         }
         counts.insert("stacks".into(), n.into());
     }
@@ -442,9 +446,10 @@ async fn sync_push(
         let mut n = 0u64;
         for e in notes {
             if let Ok(note) = serde_json::from_value::<Note>(e.clone())
-                && db::create_note(&state.pool, &note).await.is_ok() {
-                    n += 1;
-                }
+                && db::create_note(&state.pool, &note).await.is_ok()
+            {
+                n += 1;
+            }
         }
         counts.insert("notes".into(), n.into());
     }

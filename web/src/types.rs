@@ -31,22 +31,19 @@ impl HistoryEntry {
     /// (note content is displayed as the note text).
     pub fn details(&self) -> Option<String> {
         match self {
-            HistoryEntry::Log(e) => {
-                
-                e.quantity.map(|q| {
-                    let unit = e.unit.as_deref().unwrap_or("");
-                    let qty_str = if q == q.trunc() {
-                        format!("{}", q as i64)
-                    } else {
-                        format!("{}", q)
-                    };
-                    if unit.is_empty() {
-                        qty_str
-                    } else {
-                        format!("{} {}", qty_str, unit)
-                    }
-                })
-            }
+            HistoryEntry::Log(e) => e.quantity.map(|q| {
+                let unit = e.unit.as_deref().unwrap_or("");
+                let qty_str = if q == q.trunc() {
+                    format!("{}", q as i64)
+                } else {
+                    format!("{}", q)
+                };
+                if unit.is_empty() {
+                    qty_str
+                } else {
+                    format!("{} {}", qty_str, unit)
+                }
+            }),
             HistoryEntry::Vitals(e) => {
                 let parts: Vec<String> = [
                     match (e.bp_systolic, e.bp_diastolic) {
