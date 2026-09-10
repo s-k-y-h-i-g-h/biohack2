@@ -548,6 +548,21 @@ nav {
   gap: 20px;
 }
 
+/* Desktop: form and recent-vitals panel side-by-side */
+@media (min-width: 1024px) {
+  .vitals-container {
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    gap: 24px;
+    align-items: start;
+  }
+
+  .vitals-dashboard-section {
+    position: sticky;
+    top: 20px;
+  }
+}
+
 .vitals-form-section,
 .vitals-dashboard-section {
   padding: 16px;

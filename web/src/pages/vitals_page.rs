@@ -1,7 +1,6 @@
-use crate::components::{AlertBanner, VitalsDashboard, VitalsForm};
+use crate::components::{VitalsDashboard, VitalsForm};
 use crate::state::db::{
-    acknowledge_alert, create_alert, create_vitals_entry, get_alerts, get_log_entries,
-    get_vitals_entries,
+    create_alert, create_vitals_entry, get_alerts, get_log_entries, get_vitals_entries,
 };
 use crate::state::store::AppContext;
 use engine::models::*;
@@ -20,7 +19,9 @@ pub fn VitalsPage() -> impl IntoView {
         get_vitals_entries(&Default::default()).unwrap_or_default()
     });
 
-    // Reactive: re-reads unacknowledged alerts whenever version changes
+    // Reactive: re-reads unacknowledged alerts whenever version changes.
+    // Kept for future page-level alert UI; the visible banner lives in Layout.
+    #[allow(unused_variables)]
     let unacknowledged_alerts = Signal::derive(move || {
         version.get(); // track
         get_alerts(&AlertFilter {
@@ -71,30 +72,9 @@ pub fn VitalsPage() -> impl IntoView {
         refresh();
     };
 
-    // Tracked read for the page-level banner: shows first unacknowledged alert
-    let alert_message = Signal::derive(move || {
-        unacknowledged_alerts
-            .get()
-            .first()
-            .map(|a| a.message.clone())
-    });
-
     view! {
         <div class="page">
             <h2>"Vitals"</h2>
-            <AlertBanner
-                alert=alert_message
-                on_dismiss=Some(Callback::new(move |_| {
-                    let alerts = get_alerts(&AlertFilter {
-                        user_id: Some("local-device".to_string()),
-                        acknowledged: Some(false),
-                    }).unwrap_or_default();
-                    if let Some(alert) = alerts.first() {
-                        let _ = acknowledge_alert(&alert.id);
-                    }
-                    refresh();
-                }))
-            />
             <div class="vitals-container">
                 <div class="vitals-form-section">
                     <VitalsForm on_save=Callback::new(handle_save) />
