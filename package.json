@@ -8,7 +8,7 @@
     "test": "cargo test --workspace && wasm-pack test --headless --chrome web",
     "lint": "cargo clippy --workspace",
     "format": "cargo fmt --all",
-    "serve": "python server.py",
-    "dev": "bash build-web.sh && python server.py"
+    "serve": "./target/release/biohack2-server",
+    "dev": "bash build-web.sh && ./target/release/biohack2-server"
   }
 }
