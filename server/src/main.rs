@@ -27,8 +27,11 @@ async fn main() -> anyhow::Result<()> {
     engine::db::seed_catalog(&pool, &items).await?;
     println!("Catalog ensured: {} seed substances available", items.len());
 
-    let addr = SocketAddr::from(([127, 0, 0, 1], port));
+    // Bind 0.0.0.0 so the server is reachable from other devices on the LAN.
+    // 127.0.0.1 would only accept connections from this machine.
+    let addr = SocketAddr::from(([0, 0, 0, 0], port));
     println!("biohack2-server: http://{addr}");
+    println!("  LAN: http://192.168.10.101:{port}");
     println!("  db:    {db_file}");
     println!("  dist:  {dist_dir}");
     println!("  user:  {DEFAULT_USER_ID}");

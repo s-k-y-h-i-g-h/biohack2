@@ -12,7 +12,7 @@
 
 ## Scope
 
-**v1 (in scope)**: Rust engine + Leptos web app, SQLite WASM local storage, 5 user stories (US5 and US6 moved to spec 002)
+**v1 (in scope)**: Rust engine + Leptos web app, SQLite WASM local storage, 5 user stories (US5 and US6 handled by Hermes' Semantica knowledge graph)
 **v2 (deferred)**: Cloud sync, iOS/Android native apps (Dioxus), BLE wearable integration
 
 ## Phase 1: Setup (Workspace & Project Structure)
@@ -154,9 +154,9 @@
 
 ---
 
-## Phase 7 & 8: Moved to Spec 002
+## Phase 7 & 8: Moved to Hermes' Semantica Knowledge Graph
 
-User Stories 5 (Drug Interactions) and 6 (Insights) have been moved to the Semantica Knowledge Graph integration (spec 002). See `specs/002-semantica-knowledge-graph/spec.md` and `specs/002-semantica-knowledge-graph/tasks.md` for details.
+User Stories 5 (Drug Interactions) and 6 (Insights) are handled by Hermes' own Semantica knowledge graph instance (see the semantica-explorer and semantica-kg-curation skills). They are not implemented in this codebase.
 
 **Checkpoint**: User Stories 1-4 and 7 remain in this spec.
 
@@ -203,7 +203,7 @@ User Stories 5 (Drug Interactions) and 6 (Insights) have been moved to the Seman
 - [X] T067 [P] Create Service Worker in `web/public/sw.js` — cache assets, enable offline use
 - [X] T068 [P] Implement dark mode support in `web/src/components/theme_toggle.rs` — CSS variables for light/dark themes
 - [X] T069 [P] Add accessibility attributes (ARIA labels, keyboard navigation) across all components (2026-09-09: 62 aria-labels, role attributes, alert/dialog semantics; modal Escape+focus handling and nav aria-current added and verified — remaining nice-to-have: full focus-trap Tab cycling in modal)
-- [X] T070 [P] Run quickstart validation scenarios from `specs/001-biohacker-tracking-platform/quickstart.md` (VS-001, VS-002, VS-004, VS-004b, VS-006, VS-008, VS-011 all PASS in browser 2026-09-08; VS-003/VS-005/VS-007/VS-009/VS-010 N/A — interactions/insights moved to spec 002, offline/PWA/OPFS partial)
+- [X] T070 [P] Run quickstart validation scenarios from `specs/001-biohacker-tracking-platform/quickstart.md` (VS-001, VS-002, VS-004, VS-004b, VS-006, VS-008, VS-011 all PASS in browser 2026-09-08; VS-003/VS-005/VS-007/VS-009/VS-010 N/A — interactions/insights handled by Hermes' Semantica KG, offline/PWA/OPFS partial)
 - [X] T071 [P] Update README.md with setup instructions and architecture overview
 - [X] T072 [P] Run full test suite: `cargo test --release --workspace` ✅ (29 tests passing — 13 engine + 16 web)
 - [X] T073 [P] Run `cargo leptos build --release` and verify output size < 100KB WASM (CORRECTED 2026-09-09: the earlier "88KB" claim was never real — actual is ~1.29MB wasm-opt'd (raw 6.3MB, name section stripped via strip=true; code section dominated by leptos+chrono+serde). The <100KB plan goal was unrealistic for full Leptos CSR; gzip transfer is ~375KB. WASM now built reproducibly by build-web.sh)
@@ -229,9 +229,9 @@ User Stories 5 (Drug Interactions) and 6 (Insights) have been moved to the Seman
 - [X] T084 Create StackBuilder component for adding/removing items per US4/AC-1 (page exists as stub, builder component missing)
 - [X] T085 Wire StackBuilder to StacksPage with create/delete UI per US4/AC-1
 - [X] T086 Implement log_stack() to create individual LogEntries per US4/AC-2 (function exists in db.rs but not called from UI)
-- [X] T087 Create InteractionWarning component for displaying drug interaction alerts per US5/AC-1 (MOVED to spec 002 — Semantica integration; component file exists at web/src/components/interaction_warning.rs but is unwired)
-- [X] T088 Integrate check_interactions() into LogForm save flow per US5/AC-2 (MOVED to spec 002 — Semantica integration)
-- [X] T089 Create InsightsPage with correlation display per US6/AC-1 (MOVED to spec 002 — Semantica integration)
+- [X] T087 Create InteractionWarning component for displaying drug interaction alerts per US5/AC-1 (MOVED to Hermes' Semantica KG; component file exists at web/src/components/interaction_warning.rs but is unwired)
+- [X] T088 Integrate check_interactions() into LogForm save flow per US5/AC-2 (MOVED to Hermes' Semantica KG)
+- [X] T089 Create InsightsPage with correlation display per US6/AC-1 (MOVED to Hermes' Semantica KG)
 - [X] T090 Create note_input.rs component for inline note editing per US7/AC-1 (SUPERSEDED by T104-T114 — notes are standalone entries now; superseding implementation complete and verified)
 - [X] T091 Wire notes into HistoryView display per US7/AC-1 (SUPERSEDED by T109 — HistoryEntry::Note integrated with date grouping + Note chip; verified VS-011)
 - [X] T092 Implement data export (CSV/JSON) in db.rs per SC-008
@@ -256,16 +256,16 @@ User Stories 5 (Drug Interactions) and 6 (Insights) have been moved to the Seman
 - **US2 (View and Inspect Logs)**: ✅ Unified history with log entries, vitals readings, date grouping, search, category filters, and summary stats
 - **US3 (Vitals)**: ✅ Fixed and verified 2026-09-07 — form validates ranges (BP 60-250/40-150, HR 20-300, SpO2 50-100, temp 30-45°C), saves with toast, clears fields; dashboard live-updates (latest + recent 3); safety engine integrated — abnormal vitals trigger immediate banner; alerts dismissable; Layout banner reactive across pages via AppContext.data_version
 - **US4 (Stacks)**: ✅ Fixed and verified 2026-09-07 — builder uses persisted catalog (stable IDs), stack create/log/delete all update live via AppContext.data_version; log_stack reads persisted catalog so entries get real item names (was "Unknown" due to regenerated seed UUIDs); toasts for all actions. Remaining enhancements: stack-edit modal (T044), YAML import/export (T047).
-- **US5 (Drug Interactions)**: 🔄 Moved to spec 002 (Semantica integration)
-- **US6 (Insights)**: 🔄 Moved to spec 002 (Semantica integration)
+- **US5 (Drug Interactions)**: 🔄 Handled by Hermes' Semantica knowledge graph
+- **US6 (Insights)**: 🔄 Handled by Hermes' Semantica knowledge graph
 - **US7 (Notes)**: ✅ Implemented and verified 2026-09-07 — standalone first-class Note entities with Notes page (`#/notes`), history integration, search, category filter, edit/delete, and CSV export inclusion. VS-011 validated end-to-end in browser.
 
 ### Critical Gaps
 1. ~~No CSS styling~~ — RESOLVED: global.css has full component styling incl. notes, settings, stacks
 2. ~~US3 vitals safety engine not integrated~~ — RESOLVED 2026-09-07: check_vitals() runs on save, immediate banner
 3. ~~US4 stacks UI missing~~ — RESOLVED 2026-09-07: builder + list view + live updates; log_stack reads persisted catalog
-4. **US5 interactions** — moved to spec 002 (Semantica integration)
-5. **US6 insights** — moved to spec 002 (Semantica integration)
+4. **US5 interactions** — handled by Hermes' Semantica KG
+5. **US6 insights** — handled by Hermes' Semantica KG
 6. ~~US7 notes~~ — RESOLVED 2026-09-07: standalone first-class notes implemented and verified
 7. ~~PWA not implemented~~ — RESOLVED 2026-09-09: manifest.json + sw.js + real icons deployed to dist/ via build-web.sh; SW registration verified activated in browser
 8. ~~Theme toggle not implemented~~ — RESOLVED: light/dark via body class + CSS variables in Settings; startup application fixed 2026-09-09 (dark mode now survives reload on any page)

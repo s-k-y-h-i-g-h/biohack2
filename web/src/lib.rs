@@ -31,9 +31,19 @@ pub fn main() {
             let _ = link.set_attribute("href", "manifest.json");
             let _ = head.append_child(&link);
 
-            // Register service worker
-            if let Some(win2) = web_sys::window() {
-                let _ = win2.navigator().service_worker().register("/sw.js");
+            // Register service worker (progressive enhancement — not required for the app).
+            // Guard with js_sys::Reflect so a browser/context where navigator.serviceWorker
+            // is unavailable doesn't throw during init and block the whole app from mounting.
+            {
+                let navigator = web_sys::js_sys::Reflect::get(&win, &"navigator".into()).unwrap_or(JsValue::UNDEFINED);
+                let sw = web_sys::js_sys::Reflect::get(&navigator, &"service_worker".into()).unwrap_or(JsValue::UNDEFINED);
+                if !sw.is_undefined() {
+                    if let Ok(register) = web_sys::js_sys::Reflect::get(&sw, &"register".into()) {
+                        if let Some(reg_fn) = register.dyn_ref::<web_sys::js_sys::Function>() {
+                            let _ = reg_fn.call1(&sw, &"/sw.js".into());
+                        }
+                    }
+                }
             }
         }
 

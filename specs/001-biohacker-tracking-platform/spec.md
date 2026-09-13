@@ -86,7 +86,7 @@ A biohacker creates a "Morning Protocol" stack that includes Vitamin D3, Magnesi
 
 ---
 
-> **Note**: User Stories 5 (Drug Interactions) and 6 (Insights) have been moved to the Semantica Knowledge Graph integration (spec 002). See `specs/002-semantica-knowledge-graph/spec.md` for details.
+> **Note**: User Stories 5 (Drug Interactions) and 6 (Insights) are handled by Hermes' own Semantica knowledge graph instance. They are not implemented in this codebase.
 
 ---
 
