@@ -1,33 +1,41 @@
 /* Biohack Tracker — Global Styles */
+
+/* Light theme (the default) — genuinely light surfaces with dark text. */
 :root {
-  --bg-primary: #0a1628;
-  --bg-secondary: #1a2744;
-  --bg-tertiary: #2a3f5f;
-  --text-primary: #e8edf5;
-  --text-secondary: #94a3b8;
-  --accent: #4f8ef7;
-  --accent-hover: #3a7bd5;
-  --success: #7ddf9e;
-  --success-bg: #2a4a3f;
-  --error: #ff7f7f;
-  --error-bg: #4a2a2a;
-  --warning: #fbbf24;
-  --warning-bg: #4a3a1a;
-  --border: #2a3f5f;
+  --bg-primary: #f5f7fa;
+  --bg-secondary: #ffffff;
+  --bg-tertiary: #e9edf3;
+  --text-primary: #16213a;
+  --text-secondary: #5b6b85;
+  --accent: #2f6fd0;
+  --accent-hover: #245ba8;
+  --success: #1f7a4d;
+  --success-bg: #e3f3ea;
+  --error: #c0392b;
+  --error-bg: #fbe9e7;
+  --warning: #b7791f;
+  --warning-bg: #fdf3e0;
+  --border: #d5dde8;
   --radius: 8px;
   --font: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
 /* Dark theme overrides */
 body.dark {
-  --bg-primary: #1a1a2e;
-  --bg-secondary: #2a2a40;
-  --bg-tertiary: #3a3a5a;
+  --bg-primary: #14161f;
+  --bg-secondary: #1d2029;
+  --bg-tertiary: #2a2e3b;
   --text-primary: #f0f0f0;
   --text-secondary: #a0a0b0;
-  --border: #3a3a5a;
+  --border: #343846;
   --accent: #6a9ef7;
   --accent-hover: #5a8ee7;
+  --success: #7ddf9e;
+  --success-bg: #2a4a3f;
+  --error: #ff7f7f;
+  --error-bg: #4a2a2a;
+  --warning: #fbbf24;
+  --warning-bg: #4a3a1a;
 }
 /* Reset */
 * {
@@ -382,6 +390,16 @@ nav {
   font-size: 12px;
   color: var(--text-secondary);
   min-width: 50px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+}
+
+.entry-relative {
+  font-size: 11px;
+  opacity: 0.75;
+  font-variant-numeric: tabular-nums;
 }
 
 .entry-info {
@@ -839,7 +857,7 @@ nav {
 .acknowledge-btn {
   padding: 8px 16px;
   background: var(--warning);
-  color: #1a1a2e;
+  color: var(--bg-primary);
   border: none;
   border-radius: var(--radius);
   cursor: pointer;
