@@ -25,7 +25,14 @@ DIST="$ROOT/dist"
 
 echo "==> Optimizing WASM with wasm-opt (if available)..."
 if command -v wasm-opt >/dev/null 2>&1; then
-  if wasm-opt -Oz --strip-debug "$DIST/biohack2_web_bg.wasm" -o "$DIST/biohack2_web_bg.wasm.opt"; then
+  # wasm-opt is a native Windows binary — it cannot open MSYS-style /c/... paths,
+  # so convert. Without this it dies with "Failed opening '/c/...'" and the
+  # build silently ships unoptimized WASM.
+  WASM_IN="$(cygpath -w "$DIST/biohack2_web_bg.wasm")"
+  WASM_OUT="$(cygpath -w "$DIST/biohack2_web_bg.wasm.opt")"
+  if wasm-opt -Oz --strip-debug \
+       --enable-bulk-memory-opt --enable-nontrapping-float-to-int --enable-sign-ext \
+       "$WASM_IN" -o "$WASM_OUT"; then
     mv "$DIST/biohack2_web_bg.wasm.opt" "$DIST/biohack2_web_bg.wasm"
     echo "    wasm-opt applied"
   else
