@@ -81,7 +81,7 @@ pub fn HistoryPage() -> impl IntoView {
             .collect();
 
         // Sort by timestamp descending
-        all_entries.sort_by(|a, b| b.timestamp().cmp(&a.timestamp()));
+        all_entries.sort_by_key(|e| std::cmp::Reverse(e.timestamp()));
 
         // Apply filters
         all_entries

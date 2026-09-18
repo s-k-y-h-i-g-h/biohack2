@@ -27,7 +27,7 @@ pub fn create_log_entry(entry: &LogEntry) -> Result<(), String> {
 pub fn get_log_entries() -> Result<Vec<LogEntry>, String> {
     match LocalStorage::get::<Vec<LogEntry>>(STORAGE_KEY_LOG_ENTRIES) {
         Ok(mut entries) => {
-            entries.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
+            entries.sort_by_key(|e| std::cmp::Reverse(e.timestamp));
             Ok(entries)
         }
         Err(_) => Ok(Vec::new()),
@@ -114,7 +114,7 @@ pub fn get_vitals_entries(filter: &VitalsEntryFilter) -> Result<Vec<VitalsEntry>
         filtered.retain(|e| e.timestamp <= *end);
     }
 
-    filtered.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
+    filtered.sort_by_key(|e| std::cmp::Reverse(e.timestamp));
     Ok(filtered)
 }
 
@@ -140,7 +140,7 @@ pub fn get_alerts(filter: &AlertFilter) -> Result<Vec<Alert>, String> {
         filtered.retain(|a| a.is_acknowledged == ack);
     }
 
-    filtered.sort_by(|a, b| b.generated_at.cmp(&a.generated_at));
+    filtered.sort_by_key(|a| std::cmp::Reverse(a.generated_at));
     Ok(filtered)
 }
 
@@ -253,7 +253,7 @@ pub fn create_note(note: &Note) -> Result<(), String> {
 pub fn get_notes() -> Result<Vec<Note>, String> {
     match LocalStorage::get::<Vec<Note>>(STORAGE_KEY_NOTES) {
         Ok(mut notes) => {
-            notes.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
+            notes.sort_by_key(|n| std::cmp::Reverse(n.timestamp));
             Ok(notes)
         }
         Err(_) => Ok(Vec::new()),

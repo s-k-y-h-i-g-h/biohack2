@@ -37,12 +37,11 @@ pub fn main() {
             {
                 let navigator = web_sys::js_sys::Reflect::get(&win, &"navigator".into()).unwrap_or(JsValue::UNDEFINED);
                 let sw = web_sys::js_sys::Reflect::get(&navigator, &"service_worker".into()).unwrap_or(JsValue::UNDEFINED);
-                if !sw.is_undefined() {
-                    if let Ok(register) = web_sys::js_sys::Reflect::get(&sw, &"register".into()) {
-                        if let Some(reg_fn) = register.dyn_ref::<web_sys::js_sys::Function>() {
-                            let _ = reg_fn.call1(&sw, &"/sw.js".into());
-                        }
-                    }
+                if !sw.is_undefined()
+                    && let Ok(register) = web_sys::js_sys::Reflect::get(&sw, &"register".into())
+                    && let Some(reg_fn) = register.dyn_ref::<web_sys::js_sys::Function>()
+                {
+                    let _ = reg_fn.call1(&sw, &"/sw.js".into());
                 }
             }
         }

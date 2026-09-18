@@ -58,7 +58,7 @@ pub fn LogPage() -> impl IntoView {
             .chain(vitals_entries.into_iter().map(HistoryEntry::Vitals))
             .chain(note_entries.into_iter().map(HistoryEntry::Note))
             .collect();
-        all.sort_by(|a, b| b.timestamp().cmp(&a.timestamp()));
+        all.sort_by_key(|e| std::cmp::Reverse(e.timestamp()));
         all.into_iter().take(5).collect::<Vec<_>>()
     };
 

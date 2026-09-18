@@ -279,7 +279,7 @@ fn merge_by_id<T: engine::models::SortableEntry>(mut local: Vec<T>, server: Vec<
             local.push(s);
         }
     }
-    local.sort_by(|a, b| b.sort_time().cmp(&a.sort_time()));
+    local.sort_by_key(|e| std::cmp::Reverse(e.sort_time()));
     local
 }
 
