@@ -185,6 +185,42 @@ A biohacker logs a standalone note capturing a realization: "Noticed increased a
 - Q: Vital alert scope? (FR-008, FR-009) → A: Alerts for clinical conditions (tachycardia, hypertension) using established thresholds, not just personal baseline divergence.
 - Q: Cloud data lifecycle? (FR-016) → A: User can delete cloud data at any time. Cloud-stored data must be encrypted at rest. User can export cloud data to migrate to local-only mode.
 
+## UI/UX Design Requirements
+
+### Visual Design System
+- **Color Palette**:
+  - **Light Theme** (default): Slate-50 background (`#f8fafc`), white surfaces (`#ffffff`), slate-900 text (`#0f172a`), indigo-600 primary (`#4f56f3`), emerald-600 success (`#059669`), amber-600 warning (`#d97706`), rose-600 error (`#e11d48`), violet-600 stacks (`#7c3aed`).
+  - **Dark Theme**: Slate-950 background (`#020617`), slate-800 surfaces (`#1e293b`), slate-100 text (`#f1f5f9`), indigo-400 primary (`#818cf8`), emerald-400 success (`#34d399`), amber-400 warning (`#fbbf24`), rose-400 error (`#fb7185`), violet-400 stacks (`#a78bfa`).
+  - **Category Colors** (semantic, consistent across app): Supplement = emerald, Medication = amber, Drug = rose, Food = orange, Action = violet, Vitals = indigo, Note = amber.
+
+- **Typography**: System font stack (Inter/-apple-system/BlinkMacSystemFont/Segoe UI). Tabular numerals for all dosage, quantity, and vitals values. Heading scale: H1 28px/36px, H2 22px/28px, H3 18px/24px, Body 14px/22px, Caption 12px/18px.
+
+- **Spacing & Elevation**: 4px base unit. Cards: 16px padding, 8px radius, subtle shadow (`0 1px 3px rgba(0,0,0,0.08)` light / `0 1px 3px rgba(0,0,0,0.3)` dark). Modals: 24px radius, stronger elevation. Focus rings: 2px indigo offset.
+
+### Layout & Navigation
+- **Sticky Header**: Logo/icon + app name, 6 tab pills (Log, History, Vitals, Notes, Stacks, Settings) with active underline indicator. Right side: server sync status dot (green=Live, red=Offline), theme toggle, user avatar (future).
+- **Two-Column Responsive Grid** (≥1024px): Main content 1fr, sticky sidebar 320px for Recent Activity / Summary Stats / Quick Stack logging. Collapses to single column on mobile with drawer for sidebar.
+- **Card-Based Sections**: All major sections wrapped in elevated cards with consistent padding/radius.
+
+### Component Patterns
+- **Catalog Items**: Pill-style category badges, dosage range display, subtle hover/tap highlight, selected state with indigo ring.
+- **Vitals Metric Cards**: Large value + unit, small label, trend indicator (↑↓→ colored by direction), color-coded threshold zones (green=optimal, amber=elevated, red=critical).
+- **History Timeline**: Vertical connector line with category-colored dots (●). Relative timestamps (`2m ago`, `3h ago`, `Tue`). Filter bar: date range picker + category chips.
+- **Interaction Warning**: Inline banner in log form with amber background, dismiss button, explicit "Acknowledge & Save" action.
+- **Stack Builder**: Drag-to-reorder items, inline quantity editing, "Log Stack" primary action.
+- **Toast/Alert System**: Top-right, slide-in, auto-dismiss (success 2s, error persistent).
+
+### Interaction & Motion
+- **Micro-interactions**: 120ms ease-out transitions on hover/tap/focus. Button press scale 0.98. Card hover lift 2px.
+- **Loading States**: Skeleton placeholders for catalog/history, spinner on save buttons.
+- **Empty States**: Friendly illustration + action button (e.g., "Log your first item").
+- **Accessibility**: WCAG AA contrast, full keyboard nav, ARIA labels, focus-visible outlines, reduced-motion respected.
+
+### Responsive Breakpoints
+- Mobile: < 640px (single column, bottom nav option)
+- Tablet: 640–1023px (single column, expanded cards)
+- Desktop: ≥1024px (two-column, sticky sidebar)
+
 ## Assumptions
 
 <!--
