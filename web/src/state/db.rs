@@ -294,13 +294,7 @@ pub fn export_data() -> Result<String, String> {
         let qty = entry.quantity.map(|q| q.to_string()).unwrap_or_default();
         let unit = entry.unit.as_deref().unwrap_or("");
         let notes = entry.notes.as_deref().unwrap_or("").replace(',', ";");
-        let item_type_str = match &entry.item_type {
-            ItemType::Supplement => "supplement",
-            ItemType::Medication => "medication",
-            ItemType::Drug => "drug",
-            ItemType::Food => "food",
-            ItemType::Action => "action",
-        };
+        let item_type_str = entry.item_type.as_str().to_string();
         csv.push_str(&format!(
             "log,{},{},{},{},{} {},{}\n",
             entry.id,

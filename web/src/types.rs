@@ -73,16 +73,7 @@ impl HistoryEntry {
 
     pub fn category(&self) -> Option<String> {
         match self {
-            HistoryEntry::Log(e) => Some(
-                match e.item_type {
-                    ItemType::Supplement => "supplement",
-                    ItemType::Medication => "medication",
-                    ItemType::Drug => "drug",
-                    ItemType::Food => "food",
-                    ItemType::Action => "action",
-                }
-                .to_string(),
-            ),
+            HistoryEntry::Log(e) => Some(e.item_type.as_str().to_string()),
             HistoryEntry::Vitals(_) => Some("vitals".to_string()),
             HistoryEntry::Note(_) => Some("note".to_string()),
         }

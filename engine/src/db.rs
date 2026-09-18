@@ -6,44 +6,11 @@ use crate::models::*;
 
 pub type DbPool = SqlitePool;
 
-/// Helper to convert ItemType to string for database storage
-fn item_type_to_str(item_type: &ItemType) -> String {
-    match item_type {
-        ItemType::Supplement => "supplement".to_string(),
-        ItemType::Medication => "medication".to_string(),
-        ItemType::Drug => "drug".to_string(),
-        ItemType::Food => "food".to_string(),
-        ItemType::Action => "action".to_string(),
-    }
-}
-
-/// Helper: AlertType to bare string (schema CHECK requires unquoted values)
-fn alert_type_to_str(t: &AlertType) -> String {
-    match t {
-        AlertType::Vital => "vital".to_string(),
-        AlertType::Interaction => "interaction".to_string(),
-        AlertType::Warning => "warning".to_string(),
-    }
-}
-
-/// Helper: AlertSeverity to bare string (schema CHECK requires unquoted values)
-fn alert_severity_to_str(s: &AlertSeverity) -> String {
-    match s {
-        AlertSeverity::Info => "info".to_string(),
-        AlertSeverity::Warning => "warning".to_string(),
-        AlertSeverity::Critical => "critical".to_string(),
-    }
-}
-
-/// Helper: InsightType to bare string (schema CHECK requires unquoted values)
-fn insight_type_to_str(t: &InsightType) -> String {
-    match t {
-        InsightType::Correlation => "correlation".to_string(),
-        InsightType::Trend => "trend".to_string(),
-        InsightType::Pattern => "pattern".to_string(),
-    }
-}
-
+/// Canonical enum <-> bare-string conversion lives in `models.rs`
+/// (`ItemType::as_str` / `from_str`). SQLite stores bare words and the schema
+/// CHECK constraints match on exactly those words, so DB (de)serialization must
+/// NOT go through serde_json — serde's representation quotes them.
+///
 /// Helper to parse DateTime<Utc> from RFC3339 string
 fn parse_datetime(s: &str) -> Option<DateTime<Utc>> {
     Some(DateTime::parse_from_rfc3339(s).ok()?.with_timezone(&Utc))
@@ -219,7 +186,7 @@ pub async fn create_log_entry(pool: &DbPool, entry: &LogEntry) -> anyhow::Result
     )
     .bind(entry.id.to_string())
     .bind(&entry.user_id)
-    .bind(item_type_to_str(&entry.item_type))
+    .bind(entry.item_type.as_str().to_string())
     .bind(entry.item_id.map(|u| u.to_string()))
     .bind(&entry.name)
     .bind(entry.quantity)
@@ -275,7 +242,7 @@ pub async fn get_log_entries(
         query.push_str(" AND item_type = ?");
         // NOT serde_json — that adds quotes around the value ("\"supplement\"")
         // which never matches the stored bare string.
-        bind_vars.push(item_type_to_str(cat));
+        bind_vars.push(cat.as_str().to_string());
     }
 
     query.push_str(" ORDER BY timestamp DESC");
@@ -311,7 +278,7 @@ pub async fn delete_log_entry(pool: &DbPool, id: &Uuid) -> anyhow::Result<()> {
 
 pub async fn seed_catalog(pool: &DbPool, items: &[CatalogItem]) -> anyhow::Result<()> {
     for item in items {
-        let cat_str = item_type_to_str(&item.category);
+        let cat_str = item.category.as_str().to_string();
         // Idempotent by NAME (not id): seed_catalog() regenerates UUIDs on
         // every call, so a fresh seed run against an existing database must
         // match on name or it would duplicate every substance.
@@ -595,8 +562,8 @@ pub async fn create_alert(pool: &DbPool, alert: &Alert) -> anyhow::Result<()> {
     .bind(&alert.user_id)
     // Bare strings — the schema's CHECK constraints require 'vital'/'warning'/etc
     // without JSON quotes (serde_json::to_string would write "\"vital\"" and fail).
-    .bind(alert_type_to_str(&alert.alert_type))
-    .bind(alert_severity_to_str(&alert.severity))
+    .bind(alert.alert_type.as_str().to_string())
+    .bind(alert.severity.as_str().to_string())
     .bind(&alert.message)
     .bind(alert.recommendation.as_deref())
     .bind(alert.is_acknowledged as i32)
@@ -653,7 +620,7 @@ pub async fn create_insight(pool: &DbPool, insight: &Insight) -> anyhow::Result<
     .bind(insight.id.to_string())
     .bind(&insight.user_id)
     // Bare string — schema CHECK requires 'correlation'/'trend'/'pattern' unquoted
-    .bind(insight_type_to_str(&insight.insight_type))
+    .bind(insight.insight_type.as_str().to_string())
     .bind(&insight.title)
     .bind(&insight.description)
     .bind(insight.confidence)
@@ -683,7 +650,7 @@ fn row_to_log_entry(row: SqliteRow) -> LogEntry {
         id: Uuid::parse_str(&row.try_get::<String, _>("id").unwrap_or_default())
             .unwrap_or_default(),
         user_id: row.try_get::<String, _>("user_id").unwrap_or_default(),
-        item_type: serde_json::from_str(&row.try_get::<String, _>("item_type").unwrap_or_default())
+        item_type: ItemType::from_str(&row.try_get::<String, _>("item_type").unwrap_or_default())
             .unwrap_or_default(),
         item_id: row
             .try_get::<Option<String>, _>("item_id")
@@ -719,7 +686,7 @@ fn row_to_catalog_item(row: SqliteRow) -> CatalogItem {
         id: Uuid::parse_str(&row.try_get::<String, _>("id").unwrap_or_default())
             .unwrap_or_default(),
         name: row.try_get::<String, _>("name").unwrap_or_default(),
-        category: serde_json::from_str(&row.try_get::<String, _>("category").unwrap_or_default())
+        category: ItemType::from_str(&row.try_get::<String, _>("category").unwrap_or_default())
             .unwrap_or_default(),
         dosage_range: row
             .try_get::<Option<String>, _>("dosage_range")
@@ -780,9 +747,9 @@ fn row_to_alert(row: SqliteRow) -> Alert {
         id: Uuid::parse_str(&row.try_get::<String, _>("id").unwrap_or_default())
             .unwrap_or_default(),
         user_id: row.try_get::<String, _>("user_id").unwrap_or_default(),
-        alert_type: serde_json::from_str(&row.try_get::<String, _>("type").unwrap_or_default())
+        alert_type: AlertType::from_str(&row.try_get::<String, _>("type").unwrap_or_default())
             .unwrap_or_default(),
-        severity: serde_json::from_str(&row.try_get::<String, _>("severity").unwrap_or_default())
+        severity: AlertSeverity::from_str(&row.try_get::<String, _>("severity").unwrap_or_default())
             .unwrap_or_default(),
         message: row.try_get::<String, _>("message").unwrap_or_default(),
         recommendation: row
@@ -867,7 +834,7 @@ fn row_to_insight(row: SqliteRow) -> Insight {
         id: Uuid::parse_str(&row.try_get::<String, _>("id").unwrap_or_default())
             .unwrap_or_default(),
         user_id: row.try_get::<String, _>("user_id").unwrap_or_default(),
-        insight_type: serde_json::from_str(&row.try_get::<String, _>("type").unwrap_or_default())
+        insight_type: InsightType::from_str(&row.try_get::<String, _>("type").unwrap_or_default())
             .unwrap_or_default(),
         title: row.try_get::<String, _>("title").unwrap_or_default(),
         description: row.try_get::<String, _>("description").unwrap_or_default(),

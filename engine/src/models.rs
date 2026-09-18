@@ -66,6 +66,138 @@ pub enum InsightType {
     Pattern,
 }
 
+// ── Canonical enum <-> bare-string mapping ────────────────────────────────────
+//
+// SQLite stores these as bare words ('supplement', 'info', ...) and the schema
+// CHECK constraints match on exactly those words. serde's JSON representation
+// QUOTES them ("\"supplement\""), which is a different string and never matches
+// the constraint — so DB (de)serialization must NOT go through serde_json.
+// Every site converts through these methods instead.
+
+impl ItemType {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Supplement => "supplement",
+            Self::Medication => "medication",
+            Self::Drug => "drug",
+            Self::Food => "food",
+            Self::Action => "action",
+        }
+    }
+
+    pub fn from_str(s: &str) -> Option<Self> {
+        match s {
+            "supplement" => Some(Self::Supplement),
+            "medication" => Some(Self::Medication),
+            "drug" => Some(Self::Drug),
+            "food" => Some(Self::Food),
+            "action" => Some(Self::Action),
+            _ => None,
+        }
+    }
+}
+
+impl RouteType {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Oral => "oral",
+            Self::Sublingual => "sublingual",
+            Self::Topical => "topical",
+            Self::Inhalation => "inhalation",
+            Self::Injectable => "injectable",
+        }
+    }
+
+    pub fn from_str(s: &str) -> Option<Self> {
+        match s {
+            "oral" => Some(Self::Oral),
+            "sublingual" => Some(Self::Sublingual),
+            "topical" => Some(Self::Topical),
+            "inhalation" => Some(Self::Inhalation),
+            "injectable" => Some(Self::Injectable),
+            _ => None,
+        }
+    }
+}
+
+impl SleepQuality {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Poor => "poor",
+            Self::Fair => "fair",
+            Self::Good => "good",
+            Self::Excellent => "excellent",
+        }
+    }
+
+    pub fn from_str(s: &str) -> Option<Self> {
+        match s {
+            "poor" => Some(Self::Poor),
+            "fair" => Some(Self::Fair),
+            "good" => Some(Self::Good),
+            "excellent" => Some(Self::Excellent),
+            _ => None,
+        }
+    }
+}
+
+impl AlertType {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Vital => "vital",
+            Self::Interaction => "interaction",
+            Self::Warning => "warning",
+        }
+    }
+
+    pub fn from_str(s: &str) -> Option<Self> {
+        match s {
+            "vital" => Some(Self::Vital),
+            "interaction" => Some(Self::Interaction),
+            "warning" => Some(Self::Warning),
+            _ => None,
+        }
+    }
+}
+
+impl AlertSeverity {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Info => "info",
+            Self::Warning => "warning",
+            Self::Critical => "critical",
+        }
+    }
+
+    pub fn from_str(s: &str) -> Option<Self> {
+        match s {
+            "info" => Some(Self::Info),
+            "warning" => Some(Self::Warning),
+            "critical" => Some(Self::Critical),
+            _ => None,
+        }
+    }
+}
+
+impl InsightType {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Correlation => "correlation",
+            Self::Trend => "trend",
+            Self::Pattern => "pattern",
+        }
+    }
+
+    pub fn from_str(s: &str) -> Option<Self> {
+        match s {
+            "correlation" => Some(Self::Correlation),
+            "trend" => Some(Self::Trend),
+            "pattern" => Some(Self::Pattern),
+            _ => None,
+        }
+    }
+}
+
 // ── Value Objects ─────────────────────────────────────────────────────────────
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

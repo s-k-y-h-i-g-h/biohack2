@@ -76,14 +76,8 @@ fn parse_filter(q: &EntriesQuery) -> Result<LogEntryFilter, Response> {
         );
     }
     if let Some(ref cat) = q.category {
-        f.category = Some(match cat.to_lowercase().as_str() {
-            "supplement" => ItemType::Supplement,
-            "medication" => ItemType::Medication,
-            "drug" => ItemType::Drug,
-            "food" => ItemType::Food,
-            "action" => ItemType::Action,
-            other => return Err(bad_request(&format!("unknown category: {other}"))),
-        });
+        let cat = cat.to_lowercase();
+        f.category = Some(ItemType::from_str(&cat).ok_or_else(|| bad_request(&format!("unknown category: {cat}")))?);
     }
     Ok(f)
 }
