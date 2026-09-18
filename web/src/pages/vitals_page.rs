@@ -44,16 +44,7 @@ pub fn VitalsPage() -> impl IntoView {
         // Run safety checks with recent log context
         let engine = SafetyEngine::new();
         let recent_logs = get_log_entries().unwrap_or_default();
-        let substances: Vec<RecentSubstance> = recent_logs
-            .iter()
-            .map(|log| RecentSubstance {
-                name: log.name.clone(),
-                category: log.item_type,
-                taken_at: log.timestamp,
-                is_stimulant: engine::safety::is_stimulant_name(&log.name),
-                is_serotonergic: engine::safety::is_serotonergic_name(&log.name),
-            })
-            .collect();
+        let substances = RecentSubstance::from_log_entries(&recent_logs);
 
         let safety_result = engine.check_vitals(&entry, &substances);
 

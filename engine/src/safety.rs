@@ -20,6 +20,28 @@ pub struct RecentSubstance {
     pub is_serotonergic: bool,
 }
 
+impl RecentSubstance {
+    /// Classify a [`LogEntry`] for context-aware safety alerting.
+    ///
+    /// The single source of this mapping: every caller (server handler and
+    /// the WASM vitals page) must go through here so the stimulant/
+    /// serotonergic classification cannot drift between the two.
+    pub fn from_log_entry(log: &LogEntry) -> Self {
+        Self {
+            name: log.name.clone(),
+            category: log.item_type,
+            taken_at: log.timestamp,
+            is_stimulant: is_stimulant_name(&log.name),
+            is_serotonergic: is_serotonergic_name(&log.name),
+        }
+    }
+
+    /// Classify a slice of log entries, e.g. recent history for a vitals check.
+    pub fn from_log_entries(logs: &[LogEntry]) -> Vec<Self> {
+        logs.iter().map(Self::from_log_entry).collect()
+    }
+}
+
 /// Results from running safety protocols against vitals.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SafetyResult {

@@ -320,16 +320,7 @@ async fn check_vitals_safety(
     .await
     .map_err(internal)?;
 
-    let substances: Vec<engine::safety::RecentSubstance> = recent
-        .iter()
-        .map(|log| engine::safety::RecentSubstance {
-            name: log.name.clone(),
-            category: log.item_type,
-            taken_at: log.timestamp,
-            is_stimulant: engine::safety::is_stimulant_name(&log.name),
-            is_serotonergic: engine::safety::is_serotonergic_name(&log.name),
-        })
-        .collect();
+    let substances = engine::safety::RecentSubstance::from_log_entries(&recent);
 
     let engine_check = engine::safety::SafetyEngine::new();
     let result = engine_check.check_vitals(&entry, &substances);
