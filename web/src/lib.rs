@@ -100,7 +100,7 @@ fn app() -> impl IntoView {
     ctx2.current_path.set(location.get_untracked());
     {
         let current_path_sig = ctx2.current_path;
-        create_effect(move |_| {
+        Effect::new(move |_| {
             let p = location.get();
             current_path_sig.set(p);
         });
@@ -108,7 +108,6 @@ fn app() -> impl IntoView {
 
     // Listen for popstate (browser back/forward)
     {
-        let location = location;
         let listener = Closure::wrap(Box::new(move |_ev: web_sys::Event| {
             location.set(get_path());
         }) as Box<dyn FnMut(_)>);
@@ -121,7 +120,6 @@ fn app() -> impl IntoView {
 
     // Listen for hashchange events
     {
-        let location = location;
         let listener = Closure::wrap(Box::new(move |_ev: web_sys::Event| {
             location.set(get_path());
         }) as Box<dyn FnMut(_)>);

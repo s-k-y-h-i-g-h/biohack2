@@ -25,7 +25,7 @@ pub fn SettingsPage() -> impl IntoView {
     };
 
     // Apply on mount
-    let _ = create_effect(move |_| {
+    let _ = Effect::new(move |_| {
         apply_theme(&theme.get());
     });
 

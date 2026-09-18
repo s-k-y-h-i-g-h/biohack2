@@ -54,18 +54,6 @@ impl SafetyEngine {
         }
     }
 
-    /// Creates a new safety engine with custom thresholds (for testing).
-    #[cfg(test)]
-    pub fn with_thresholds(tachycardia: i32, hypertensive_sbp: i32, hypertensive_dbp: i32) -> Self {
-        Self {
-            tachycardia_threshold: tachycardia,
-            hypertensive_sbp_threshold: hypertensive_sbp,
-            hypertensive_dbp_threshold: hypertensive_dbp,
-            stimulant_window_hours: 4,
-            serotonergic_count_threshold: 2,
-        }
-    }
-
     /// Checks vitals against all safety protocols.
     ///
     /// Returns alerts for any triggered protocols.

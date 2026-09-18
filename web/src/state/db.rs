@@ -351,15 +351,3 @@ pub fn export_data() -> Result<String, String> {
 
     Ok(csv)
 }
-
-// Helper to convert string category to ItemType
-pub fn parse_item_type(s: &str) -> Result<ItemType, String> {
-    match s.to_lowercase().as_str() {
-        "supplement" => Ok(ItemType::Supplement),
-        "medication" => Ok(ItemType::Medication),
-        "drug" => Ok(ItemType::Drug),
-        "food" => Ok(ItemType::Food),
-        "action" => Ok(ItemType::Action),
-        _ => Err(format!("Invalid item type: {}", s)),
-    }
-}
