@@ -16,6 +16,7 @@ uuid = { workspace = true }
 chrono = { workspace = true }
 anyhow = "1.0"
 sqlx = { workspace = true }
+futures = "0.3"
 
 [lib]
 path = "src/lib.rs"

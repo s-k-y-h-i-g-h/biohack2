@@ -389,73 +389,86 @@ async fn sync_push(
     // Entries are keyed by id; existing rows with the same id are replaced.
     let mut counts = serde_json::Map::new();
 
-    if let Some(entries) = payload.get("log_entries").and_then(|v| v.as_array()) {
-        let mut n = 0u64;
-        for e in entries {
-            if let Ok(entry) = serde_json::from_value::<LogEntry>(e.clone())
-                && db::create_log_entry(&state.pool, &entry).await.is_ok()
-            {
-                n += 1;
-            }
-        }
-        counts.insert("log_entries".into(), n.into());
-    }
-    if let Some(vitals) = payload.get("vitals_entries").and_then(|v| v.as_array()) {
-        let mut n = 0u64;
-        for e in vitals {
-            if let Ok(entry) = serde_json::from_value::<VitalsEntry>(e.clone())
-                && db::create_vitals_entry(&state.pool, &entry).await.is_ok()
-            {
-                n += 1;
-            }
-        }
-        counts.insert("vitals_entries".into(), n.into());
-    }
-    if let Some(alerts) = payload.get("alerts").and_then(|v| v.as_array()) {
-        let mut n = 0u64;
-        for e in alerts {
-            if let Ok(alert) = serde_json::from_value::<Alert>(e.clone())
-                && db::create_alert(&state.pool, &alert).await.is_ok()
-            {
-                n += 1;
-            }
-        }
-        counts.insert("alerts".into(), n.into());
-    }
-    if let Some(stacks) = payload.get("stacks").and_then(|v| v.as_array()) {
-        let mut n = 0u64;
-        for e in stacks {
-            if let Ok(stack) = serde_json::from_value::<Stack>(e.clone())
-                && db::create_stack(&state.pool, &stack).await.is_ok()
-            {
-                n += 1;
-            }
-        }
-        counts.insert("stacks".into(), n.into());
-    }
-    if let Some(notes) = payload.get("notes").and_then(|v| v.as_array()) {
-        let mut n = 0u64;
-        for e in notes {
-            if let Ok(note) = serde_json::from_value::<Note>(e.clone())
-                && db::create_note(&state.pool, &note).await.is_ok()
-            {
-                n += 1;
-            }
-        }
-        counts.insert("notes".into(), n.into());
-    }
+    counts.insert(
+        "log_entries".into(),
+        upsert_entity::<LogEntry, _>(&state.pool, &payload, "log_entries", |p, e| {
+            Box::pin(async move { db::create_log_entry(p, &e).await })
+        })
+        .await
+        .into(),
+    );
+    counts.insert(
+        "vitals_entries".into(),
+        upsert_entity::<VitalsEntry, _>(&state.pool, &payload, "vitals_entries", |p, e| {
+            Box::pin(async move { db::create_vitals_entry(p, &e).await })
+        })
+        .await
+        .into(),
+    );
+    counts.insert(
+        "alerts".into(),
+        upsert_entity::<Alert, _>(&state.pool, &payload, "alerts", |p, e| {
+            Box::pin(async move { db::create_alert(p, &e).await })
+        })
+        .await
+        .into(),
+    );
+    counts.insert(
+        "stacks".into(),
+        upsert_entity::<Stack, _>(&state.pool, &payload, "stacks", |p, e| {
+            Box::pin(async move { db::create_stack(p, &e).await })
+        })
+        .await
+        .into(),
+    );
+    counts.insert(
+        "notes".into(),
+        upsert_entity::<Note, _>(&state.pool, &payload, "notes", |p, e| {
+            Box::pin(async move { db::create_note(p, &e).await })
+        })
+        .await
+        .into(),
+    );
     if let Some(catalog) = payload.get("catalog").and_then(|v| v.as_array()) {
         let items: Vec<CatalogItem> = catalog
             .iter()
             .filter_map(|c| serde_json::from_value(c.clone()).ok())
             .collect();
-        let n = db::seed_catalog(&state.pool, &items).await.is_ok();
-        if n {
+        if db::seed_catalog(&state.pool, &items).await.is_ok() {
             counts.insert("catalog".into(), items.len().into());
         }
     }
 
     Ok(Json(serde_json::Value::Object(counts)))
+}
+
+/// Deserialize every element under `key` and insert it via `insert`.
+///
+/// The five entity collections in the migration payload differ only in their
+/// type and the insert function; the count-and-skip-bad-rows loop is identical.
+/// Returns the number of rows successfully inserted so the caller can report it.
+async fn upsert_entity<'a, T, Fut>(
+    pool: &'a DbPool,
+    payload: &serde_json::Value,
+    key: &str,
+    insert: impl Fn(&'a DbPool, T) -> Fut + 'a,
+) -> u64
+where
+    T: serde::de::DeserializeOwned,
+    Fut: std::future::Future<Output = anyhow::Result<()>> + 'a,
+{
+    let Some(arr) = payload.get(key).and_then(|v| v.as_array()) else {
+        return 0;
+    };
+    let mut n = 0u64;
+    for e in arr {
+        if let Ok(row) = serde_json::from_value::<T>(e.clone())
+            && insert(pool, row).await.is_ok()
+        {
+            n += 1;
+        }
+    }
+    n
 }
 
 // ── SPA static serving with API fallback discipline ──────────────────────────
