@@ -92,7 +92,7 @@ pub fn LogPage() -> impl IntoView {
                     </Show>
                     {move || {
                         recent_entries().into_iter().map(|entry| {
-                            let time = entry.timestamp().format("%H:%M").to_string();
+                            let time = entry.timestamp().with_timezone(&chrono::Local).format("%H:%M").to_string();
                             let name = entry.name();
                             let details = entry.details();
                             let is_vitals = matches!(entry, HistoryEntry::Vitals(_));

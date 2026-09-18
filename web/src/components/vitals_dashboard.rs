@@ -36,7 +36,7 @@ pub fn VitalsDashboard(recent_vitals: Signal<Vec<VitalsEntry>>) -> impl IntoView
                         </div>
                         <div class="vitals-recent-list">
                             {recent.into_iter().map(|v| {
-                                let t = v.timestamp.format("%Y-%m-%d %H:%M").to_string();
+                                let t = v.timestamp.with_timezone(&chrono::Local).format("%Y-%m-%d %H:%M").to_string();
                                 let parts: Vec<String> = [
                                     v.bp_systolic.map(|x| format!("BP {}", x)),
                                     v.heart_rate.map(|x| format!("HR {}", x)),

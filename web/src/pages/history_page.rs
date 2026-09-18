@@ -6,6 +6,49 @@ use leptos::prelude::*;
 
 const PAGE_SIZE: usize = 100;
 
+/// Wall-clock time in the browser's local timezone (e.g. "14:30").
+///
+/// Timestamps are stored as UTC; formatting them directly renders UTC wall time,
+/// which reads as an hour off under daylight saving.
+pub fn local_time(ts: &chrono::DateTime<chrono::Utc>) -> String {
+    ts.with_timezone(&chrono::Local).format("%H:%M").to_string()
+}
+
+/// Local calendar date used for grouping entries into day sections.
+pub fn local_date_key(ts: &chrono::DateTime<chrono::Utc>) -> String {
+    ts.with_timezone(&chrono::Local)
+        .format("%Y-%m-%d")
+        .to_string()
+}
+
+/// Rough humanized elapsed time, e.g. "5 minutes ago" / "3 hours ago".
+pub fn relative_time(ts: &chrono::DateTime<chrono::Utc>) -> String {
+    let now = chrono::Local::now();
+    let local = ts.with_timezone(&chrono::Local);
+    let delta = now.signed_duration_since(local);
+    let secs = delta.num_seconds();
+
+    if secs < 60 {
+        "just now".to_string()
+    } else if secs < 3600 {
+        let m = secs / 60;
+        format!("{m} minute{} ago", if m == 1 { "" } else { "s" })
+    } else if secs < 86_400 {
+        let h = secs / 3600;
+        format!("{h} hour{} ago", if h == 1 { "" } else { "s" })
+    } else if secs < 7 * 86_400 {
+        let d = secs / 86_400;
+        format!("{d} day{} ago", if d == 1 { "" } else { "s" })
+    } else if secs < 30 * 86_400 {
+        let w = secs / (7 * 86_400);
+        format!("{w} week{} ago", if w == 1 { "" } else { "s" })
+    } else {
+        // Older than a month: the absolute date is more useful than an
+        // ever-growing day count.
+        local.format("%b %-d, %Y").to_string()
+    }
+}
+
 #[component]
 pub fn HistoryPage() -> impl IntoView {
     // Global data version — re-reads storage after any page writes
@@ -52,8 +95,8 @@ pub fn HistoryPage() -> impl IntoView {
                     return false;
                 }
 
-                // Date-range filter (inclusive, compares the date part)
-                let date = entry.timestamp().format("%Y-%m-%d").to_string();
+                // Date-range filter (inclusive, compares the local date part)
+                let date = local_date_key(&entry.timestamp());
                 if !start.is_empty() && date.as_str() < start.as_str() {
                     return false;
                 }
@@ -184,7 +227,7 @@ pub fn HistoryPage() -> impl IntoView {
                         // Group by date
                         let mut grouped: std::collections::HashMap<String, Vec<HistoryEntry>> = std::collections::HashMap::new();
                         for entry in &filtered {
-                            let date = entry.timestamp().format("%Y-%m-%d").to_string();
+                            let date = local_date_key(&entry.timestamp());
                             grouped.entry(date).or_default().push(entry.clone());
                         }
 
@@ -199,7 +242,9 @@ pub fn HistoryPage() -> impl IntoView {
                                 <div class="date-group">
                                     <h3 class="date-header">{date_str}</h3>
                                     {date_entries.into_iter().map(|entry| {
-                                        let time = entry.timestamp().format("%H:%M").to_string();
+                                        let ts = entry.timestamp();
+                                        let time = local_time(&ts);
+                                        let rel = relative_time(&ts);
                                         let name = entry.name();
                                         let details = entry.details();
                                         let note_text = match &entry {
@@ -214,7 +259,10 @@ pub fn HistoryPage() -> impl IntoView {
                                             <div class=format!("entry-card{}{}",
                                                 if is_vitals { " entry-card--vitals" } else { "" },
                                                 if is_note { " entry-card--note" } else { "" })>
-                                                <div class="entry-time">{time}</div>
+                                                <div class="entry-time">
+                                                    {time}
+                                                    <span class="entry-relative">{rel}</span>
+                                                </div>
                                                 <div class="entry-info">
                                                     <span class="entry-name">{name}</span>
                                                     {move || details.clone().map(|d| {

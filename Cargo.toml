@@ -11,10 +11,13 @@ description = "Biohacker tracking platform with local-first storage"
 [workspace.dependencies]
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-chrono = { version = "0.4", default-features = false, features = ["serde", "alloc", "now", "wasmbind"] }
+chrono = { version = "0.4", default-features = false, features = ["serde", "alloc", "now", "wasmbind", "clock"] }
 # Note: chrono trimmed but `wasmbind`+`now` are REQUIRED — without them
 # Utc::now() compiles to unreachable on wasm32 and every save silently panics.
-# (clock/local-timezone machinery stays off; that's the dead weight we cut.)
+# `clock` is REQUIRED for local-time display: `DateTime<Utc>` is the stored
+# representation everywhere, and without `clock` there is no `chrono::Local`
+# to convert it to the browser's wall-clock time. Every history entry was being
+# rendered in UTC, which reads as "an hour late" under British Summer Time.
 uuid = { version = "1.8", features = ["v4", "serde"] }
 thiserror = "1.0"
 anyhow = "1.0"

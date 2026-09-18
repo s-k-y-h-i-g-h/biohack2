@@ -99,7 +99,7 @@ pub fn NotesPage() -> impl IntoView {
                         notes.get().into_iter().map(move |note| {
                             let id = note.id;
                             let is_editing = editing == Some(id);
-                            let time = note.timestamp.format("%Y-%m-%d %H:%M").to_string();
+                            let time = note.timestamp.with_timezone(&chrono::Local).format("%Y-%m-%d %H:%M").to_string();
                             let content = note.content.clone();
 
                             if is_editing {

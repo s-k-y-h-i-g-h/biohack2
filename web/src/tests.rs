@@ -708,3 +708,96 @@ fn test_note_export_included_in_csv() {
     assert!(csv.contains("note,"));
     assert!(csv.contains("Export test note"));
 }
+
+// ── Local-time / relative-time display (spec 002) ───────────────────────────────
+//
+// Timestamps are stored as UTC. Rendering them without conversion shows UTC
+// wall time, which reads as an hour off under daylight saving. These tests pin
+// the conversion behaviour; they run in a browser so chrono::Local resolves to
+// the browser's real timezone.
+
+#[wasm_bindgen_test]
+fn test_local_time_converts_from_utc() {
+    use crate::pages::history_page::local_time;
+    use chrono::TimeZone;
+
+    // 2026-09-17T22:25:24Z — a UTC instant in the evening.
+    let ts = chrono::DateTime::parse_from_rfc3339("2026-09-17T22:25:24Z")
+        .unwrap()
+        .with_timezone(&chrono::Utc);
+
+    // Local rendering must differ from UTC by exactly the browser's UTC offset,
+    // and must preserve the minute.
+    let offset_secs: i64 = chrono::Local
+        .offset_from_utc_datetime(&ts.naive_utc())
+        .local_minus_utc() as i64;
+    let expected_hour = ((22 * 3600 + 25 * 60 + offset_secs).rem_euclid(24 * 3600)) / 3600;
+    let rendered = local_time(&ts);
+    assert_eq!(rendered, format!("{:02}:25", expected_hour));
+}
+
+#[wasm_bindgen_test]
+fn test_local_date_key_uses_local_calendar_day() {
+    use crate::pages::history_page::local_date_key;
+    use chrono::TimeZone;
+
+    // 23:30 UTC. In any timezone east of UTC (e.g. Europe/London under BST,
+    // UTC+1) this is the *next* calendar day locally — the date-group header
+    // must follow the local calendar day, not the UTC one.
+    let ts = chrono::DateTime::parse_from_rfc3339("2026-09-17T23:30:00Z")
+        .unwrap()
+        .with_timezone(&chrono::Utc);
+    let key = local_date_key(&ts);
+
+    let offset_secs: i64 = chrono::Local
+        .offset_from_utc_datetime(&ts.naive_utc())
+        .local_minus_utc() as i64;
+    let expected = if offset_secs > 0 {
+        "2026-09-18".to_string()
+    } else {
+        "2026-09-17".to_string()
+    };
+    assert_eq!(key, expected);
+}
+
+#[wasm_bindgen_test]
+fn test_relative_time_buckets() {
+    use crate::pages::history_page::relative_time;
+
+    let now = chrono::Local::now();
+
+    // Under a minute → "just now" (never "0 seconds ago")
+    let just_now = (now - chrono::Duration::seconds(10)).with_timezone(&chrono::Utc);
+    assert_eq!(relative_time(&just_now), "just now");
+
+    // Minutes
+    let mins = (now - chrono::Duration::minutes(5)).with_timezone(&chrono::Utc);
+    assert_eq!(relative_time(&mins), "5 minutes ago");
+
+    // Singular minute
+    let one_min = (now - chrono::Duration::minutes(1)).with_timezone(&chrono::Utc);
+    assert_eq!(relative_time(&one_min), "1 minute ago");
+
+    // Hours
+    let hrs = (now - chrono::Duration::hours(3)).with_timezone(&chrono::Utc);
+    assert_eq!(relative_time(&hrs), "3 hours ago");
+
+    // Days
+    let days = (now - chrono::Duration::days(2)).with_timezone(&chrono::Utc);
+    assert_eq!(relative_time(&days), "2 days ago");
+
+    // Weeks
+    let weeks = (now - chrono::Duration::days(10)).with_timezone(&chrono::Utc);
+    assert_eq!(relative_time(&weeks), "1 week ago");
+
+    // A future-dated entry (clock skew) must not render a negative duration:
+    // it clamps to "just now".
+    let future = (now + chrono::Duration::minutes(2)).with_timezone(&chrono::Utc);
+    assert_eq!(relative_time(&future), "just now");
+
+    // Over a month old → falls back to the absolute local date rather than an
+    // ever-growing day count.
+    let old = (now - chrono::Duration::days(90)).with_timezone(&chrono::Utc);
+    let rel = relative_time(&old);
+    assert!(rel.contains("2026"), "old entries should show the absolute date, got: {rel}");
+}
