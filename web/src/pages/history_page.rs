@@ -151,9 +151,8 @@ pub fn HistoryPage() -> impl IntoView {
     ];
 
     view! {
-        <div class="page">
-            <h2>"History"</h2>
-            <div class="filter-bar">
+            <div class="page">
+                <div class="filter-bar">
                 <input
                     type="text"
                     placeholder="Search... (names and notes)"

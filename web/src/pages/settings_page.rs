@@ -75,7 +75,6 @@ pub fn SettingsPage() -> impl IntoView {
 
     view! {
         <div class="page">
-            <h2>"Settings"</h2>
             <div class="settings-section">
                 <h3>"Theme"</h3>
                 <div class="toggle-row">

@@ -65,7 +65,6 @@ pub fn VitalsPage() -> impl IntoView {
 
     view! {
         <div class="page">
-            <h2>"Vitals"</h2>
             <div class="vitals-container">
                 <div class="vitals-form-section">
                     <VitalsForm on_save=Callback::new(handle_save) />

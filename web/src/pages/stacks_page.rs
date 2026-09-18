@@ -171,7 +171,6 @@ pub fn StacksPage() -> impl IntoView {
 
     view! {
         <div class="page">
-            <h2>"Stacks"</h2>
 
             <Show when=move || message.get().is_some()>
                 <div class="toast success" role="status">

@@ -63,10 +63,9 @@ pub fn LogPage() -> impl IntoView {
     };
 
     view! {
-        <div class="page log-page-layout">
-            <div class="log-page-main">
-                <h2>"Log Consumption"</h2>
-                <crate::components::LogForm
+            <div class="page log-page-layout">
+                <div class="log-page-main">
+                    <crate::components::LogForm
                     catalog=catalog
                     on_save=Callback::new(handle_save)
                 />

@@ -74,8 +74,6 @@ pub fn NotesPage() -> impl IntoView {
 
     view! {
         <div class="page">
-            <h2>"Notes"</h2>
-
             <Show when=move || message.get().is_some()>
                 <div class="toast success" role="status">
                     {move || message.get()}
