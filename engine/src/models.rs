@@ -385,3 +385,12 @@ impl SortableEntry for Note {
         self.timestamp
     }
 }
+
+impl SortableEntry for Stack {
+    fn sort_id(&self) -> Uuid {
+        self.id
+    }
+    fn sort_time(&self) -> chrono::DateTime<chrono::Utc> {
+        self.updated_at
+    }
+}

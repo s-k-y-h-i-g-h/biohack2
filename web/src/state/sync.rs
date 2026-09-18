@@ -284,14 +284,8 @@ fn merge_by_id<T: engine::models::SortableEntry>(mut local: Vec<T>, server: Vec<
 }
 
 /// Stacks merge by id; on collision keep the one with the newer updated_at.
-fn merge_stacks(mut local: Vec<Stack>, server: Vec<Stack>) -> Vec<Stack> {
-    let local_keys: std::collections::HashSet<uuid::Uuid> = local.iter().map(|s| s.id).collect();
-    for s in server {
-        if !local_keys.contains(&s.id) {
-            local.push(s);
-        }
-    }
-    local
+fn merge_stacks(local: Vec<Stack>, server: Vec<Stack>) -> Vec<Stack> {
+    merge_by_id(local, server)
 }
 
 fn already_synced() -> bool {
