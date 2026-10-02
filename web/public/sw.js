@@ -5,7 +5,7 @@
 // deadlock: the old SW serves stale JS, the new JS can't run until the SW updates,
 // and the SW won't update until the new JS runs. Static assets (icons, manifest,
 // styles) are cached instead — they're stable across builds.
-const CACHE_NAME = 'biohack2-v4';
+const CACHE_NAME = 'biohack2-v5';
 const urlsToCache = [
   '/',
   '/index.html',

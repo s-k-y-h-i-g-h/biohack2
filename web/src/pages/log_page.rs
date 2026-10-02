@@ -1,15 +1,25 @@
 use crate::state::db::{
-    create_log_entry, get_log_entries, get_notes, get_vitals_entries, search_catalog,
+    acknowledge_alert, create_alert, create_log_entry, get_log_entries, get_notes,
+    get_vitals_entries, search_catalog,
 };
 use crate::state::store::AppContext;
 use crate::types::HistoryEntry;
-use engine::models::LogEntry;
+use engine::models::{Alert, AlertSeverity, LogEntry};
 use engine::safety::SafetyEngine;
 use leptos::prelude::*;
 
 #[component]
 pub fn LogPage() -> impl IntoView {
-    let interaction_warning = RwSignal::new(None::<LogEntry>);
+    // Global data version — bumps update this page AND the Layout banner
+    let ctx = expect_context::<AppContext>();
+    let version = ctx.data_version;
+    let refresh = move || {
+        version.update(|v| *v += 1);
+    };
+
+    // Pending entry + the interaction alerts that blocked it (US5/AC-2)
+    let interaction_warning = RwSignal::new(None::<(LogEntry, Vec<Alert>)>);
+
     // Persisted catalog (localStorage) — stable IDs, seeded on first use.
     // seed_catalog() regenerates UUIDs per call; never use it for saved references.
     let catalog = search_catalog("").unwrap_or_default();
@@ -18,11 +28,18 @@ pub fn LogPage() -> impl IntoView {
         // Check for interactions before saving
         let engine = SafetyEngine::new();
         let existing_entries = get_log_entries().unwrap_or_default();
-        let warnings = engine.check_interactions(&entry, &existing_entries);
+        let alerts = engine.check_interactions(&entry, &existing_entries);
 
-        if !warnings.is_empty() {
-            // Store the entry for potential save after acknowledgment
-            interaction_warning.set(Some(entry));
+        if !alerts.is_empty() {
+            // Persist alerts so the Layout banner sees them (US5/AC-3), and hold
+            // the entry until the user acknowledges (US5/AC-2).
+            for alert in &alerts {
+                if let Err(e) = create_alert(alert) {
+                    web_sys::console::error_1(&format!("Failed to create alert: {}", e).into());
+                }
+            }
+            interaction_warning.set(Some((entry, alerts)));
+            refresh();
             return;
         }
 
@@ -30,22 +47,36 @@ pub fn LogPage() -> impl IntoView {
         if let Err(e) = create_log_entry(&entry) {
             eprintln!("Failed to save entry: {}", e);
         }
+        refresh();
     };
 
     let handle_acknowledge_and_save = move |_| {
-        if let Some(entry) = interaction_warning.get() {
-            // Save anyway after acknowledgment
+        if let Some((entry, alerts)) = interaction_warning.get() {
+            // Save anyway after acknowledgment; resolve the alerts so the
+            // banner stops nagging.
             if let Err(e) = create_log_entry(&entry) {
                 eprintln!("Failed to save entry: {}", e);
             }
+            for alert in &alerts {
+                let _ = acknowledge_alert(&alert.id);
+            }
         }
         interaction_warning.set(None);
+        refresh();
+    };
+
+    let handle_cancel = move |_| {
+        // Discard the entry; resolve the alerts (the user heard the warning).
+        if let Some((_, alerts)) = interaction_warning.get() {
+            for alert in &alerts {
+                let _ = acknowledge_alert(&alert.id);
+            }
+        }
+        interaction_warning.set(None);
+        refresh();
     };
 
     // ── Recent history sidebar ──────────────────────────────────────────────
-    let ctx = expect_context::<AppContext>();
-    let version = ctx.data_version;
-
     let recent_entries = move || {
         version.get(); // track
         let log_entries = get_log_entries().unwrap_or_default();
@@ -71,14 +102,42 @@ pub fn LogPage() -> impl IntoView {
                 />
 
                 <Show when=move || interaction_warning.get().is_some()>
-                    <div class="interaction-warning-container">
-                        <p>"Interaction warning detected. Please review before saving."</p>
+                    <div class="interaction-warning-container" role="alert">
+                        {move || {
+                            interaction_warning
+                                .get()
+                                .map(|(_, alerts)| {
+                                    alerts
+                                        .iter()
+                                        .map(|a| {
+                                            let sev = match a.severity {
+                                                AlertSeverity::Critical => "critical",
+                                                AlertSeverity::Warning => "warning",
+                                                AlertSeverity::Info => "info",
+                                            };
+                                            let rec = a.recommendation.clone().unwrap_or_default();
+                                            view! {
+                                                <div class=format!("interaction-alert interaction-alert--{sev}")>
+                                                    <p class="interaction-alert-message">{a.message.clone()}</p>
+                                                    <p class="interaction-alert-recommendation">{rec}</p>
+                                                </div>
+                                            }
+                                        })
+                                        .collect_view()
+                                })
+                        }}
                         <button
                             type="button"
                             class="acknowledge-btn"
                             on:click=handle_acknowledge_and_save
                             aria-label="Acknowledge and save anyway"
                         >"Acknowledge and Save Anyway"</button>
+                        <button
+                            type="button"
+                            class="cancel-btn"
+                            on:click=handle_cancel
+                            aria-label="Discard this entry"
+                        >"Discard"</button>
                     </div>
                 </Show>
             </div>
