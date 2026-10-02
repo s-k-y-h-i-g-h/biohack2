@@ -86,7 +86,7 @@ A biohacker creates a "Morning Protocol" stack that includes Vitamin D3, Magnesi
 
 ---
 
-> **Note**: User Stories 5 (Drug Interactions) and 6 (Insights) are handled by Hermes' own Semantica knowledge graph instance. They are not implemented in this codebase.
+> **Note**: User Stories 5 (Drug Interactions) and 6 (Insights) are **not** delegated to Hermes' Semantica knowledge graph. Per the 2026-09-13 decision (spec 002 removed), biohack2 has **no integration with Semantica** — the app is self-contained and must own its own safety features. US5 interaction detection lives in the engine (Phase 12: mechanism-class pair rules, FR-015); its UI wiring is open work. US6 (Insights) is deferred out of v1 scope. Semantica remains Hermes' private research KB with zero coupling to this codebase.
 
 ---
 
