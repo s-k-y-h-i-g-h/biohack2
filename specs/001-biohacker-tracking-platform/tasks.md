@@ -232,8 +232,8 @@
 - [X] T084 Create StackBuilder component for adding/removing items per US4/AC-1 (page exists as stub, builder component missing)
 - [X] T085 Wire StackBuilder to StacksPage with create/delete UI per US4/AC-1
 - [X] T086 Implement log_stack() to create individual LogEntries per US4/AC-2 (function exists in db.rs but not called from UI)
-- [ ] T087 Create InteractionWarning component for displaying drug interaction alerts per US5/AC-1 (IN SCOPE for this repo — no Semantica delegation; component file exists at web/src/components/interaction_warning.rs but is unwired)
-- [ ] T088 Integrate check_interactions() into LogForm save flow per US5/AC-2 (IN SCOPE for this repo — engine function is ready as of Phase 12; wiring is open work)
+- [X] T087 Create InteractionWarning component for displaying drug interaction alerts per US5/AC-1 (DONE 2026-10-02 commit 3121473 — alerts persist via create_alert(), Layout banner sees them; warning panel renders message + recommendation with severity classes; acknowledge + discard buttons wired in log_page.rs)
+- [X] T088 Integrate check_interactions() into LogForm save flow per US5/AC-2 (DONE 2026-10-02 commit 3121473 — save flow blocks on critical alerts, acknowledge-to-save path, data_version bumped on save so sidebar/banner refresh)
 - [ ] T089 Create InsightsPage with correlation display per US6/AC-1 (DEFERRED to v2 — not delegated to any external system)
 - [X] T090 Create note_input.rs component for inline note editing per US7/AC-1 (SUPERSEDED by T104-T114 — notes are standalone entries now; superseding implementation complete and verified)
 - [X] T091 Wire notes into HistoryView display per US7/AC-1 (SUPERSEDED by T109 — HistoryEntry::Note integrated with date grouping + Note chip; verified VS-011)
