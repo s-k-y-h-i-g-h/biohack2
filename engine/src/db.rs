@@ -61,6 +61,12 @@ pub async fn migrate(pool: &DbPool) -> anyhow::Result<()> {
     .execute(pool)
     .await?;
 
+    // mechanism_tags added 2026-10-02 (mechanism-class taxonomy). SQLite has no
+    // IF NOT EXISTS for ADD COLUMN, so tolerate the duplicate-column error.
+    let _ = sqlx::query("ALTER TABLE catalog_items ADD COLUMN mechanism_tags TEXT")
+        .execute(pool)
+        .await;
+
     sqlx::query("CREATE INDEX IF NOT EXISTS idx_catalog_category ON catalog_items(category)")
         .execute(pool)
         .await?;
@@ -283,8 +289,8 @@ pub async fn seed_catalog(pool: &DbPool, items: &[CatalogItem]) -> anyhow::Resul
         // every call, so a fresh seed run against an existing database must
         // match on name or it would duplicate every substance.
         let result = sqlx::query(
-            "INSERT OR IGNORE INTO catalog_items (id, name, category, dosage_range, half_life, contraindications, warnings, is_custom, source, version)
-             SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10
+            "INSERT OR IGNORE INTO catalog_items (id, name, category, dosage_range, half_life, contraindications, warnings, mechanism_tags, is_custom, source, version)
+             SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11
              WHERE NOT EXISTS (SELECT 1 FROM catalog_items WHERE name = ?2)"
         )
         .bind(item.id.to_string())
@@ -294,6 +300,7 @@ pub async fn seed_catalog(pool: &DbPool, items: &[CatalogItem]) -> anyhow::Resul
         .bind(item.half_life.as_deref())
         .bind(serde_json::to_string(&item.contraindications)?)
         .bind(serde_json::to_string(&item.warnings)?)
+        .bind(serde_json::to_string(&item.mechanism_tags)?)
         .bind(item.is_custom as i32)
         .bind(item.source.as_deref())
         .bind(item.version)
@@ -318,7 +325,7 @@ pub async fn seed_catalog(pool: &DbPool, items: &[CatalogItem]) -> anyhow::Resul
 
 pub async fn get_catalog_items(pool: &DbPool) -> anyhow::Result<Vec<CatalogItem>> {
     let rows = sqlx::query(
-        "SELECT id, name, category, dosage_range, half_life, contraindications, warnings, is_custom, source, version FROM catalog_items"
+        "SELECT id, name, category, dosage_range, half_life, contraindications, warnings, mechanism_tags, is_custom, source, version FROM catalog_items"
     )
     .fetch_all(pool)
     .await?;
@@ -327,7 +334,7 @@ pub async fn get_catalog_items(pool: &DbPool) -> anyhow::Result<Vec<CatalogItem>
 
 pub async fn search_catalog(pool: &DbPool, query: &str) -> anyhow::Result<Vec<CatalogItem>> {
     let rows = sqlx::query(
-        "SELECT id, name, category, dosage_range, half_life, contraindications, warnings, is_custom, source, version FROM catalog_items WHERE name LIKE ?1"
+        "SELECT id, name, category, dosage_range, half_life, contraindications, warnings, mechanism_tags, is_custom, source, version FROM catalog_items WHERE name LIKE ?1"
     )
     .bind(format!("%{}%", query))
     .fetch_all(pool)
@@ -702,6 +709,11 @@ fn row_to_catalog_item(row: SqliteRow) -> CatalogItem {
             .unwrap_or_default(),
         warnings: row
             .try_get::<Option<String>, _>("warnings")
+            .unwrap_or(None)
+            .and_then(|s| serde_json::from_str(&s).ok())
+            .unwrap_or_default(),
+        mechanism_tags: row
+            .try_get::<Option<String>, _>("mechanism_tags")
             .unwrap_or(None)
             .and_then(|s| serde_json::from_str(&s).ok())
             .unwrap_or_default(),

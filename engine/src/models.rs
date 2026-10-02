@@ -235,6 +235,12 @@ pub struct CatalogItem {
     pub half_life: Option<String>,
     pub contraindications: Vec<String>,
     pub warnings: Vec<String>,
+    /// Mechanism-class tags for interaction detection (see `mechanisms.rs`).
+    /// `serde(default)` so catalog entries persisted BEFORE this field existed
+    /// still deserialize from localStorage/SQLite — old rows get an empty tag
+    /// list and simply participate in no class-pair rules.
+    #[serde(default)]
+    pub mechanism_tags: Vec<crate::mechanisms::MechanismClass>,
     pub is_custom: bool,
     pub source: Option<String>,
     pub version: i32,

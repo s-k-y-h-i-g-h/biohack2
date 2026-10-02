@@ -107,7 +107,17 @@ impl SafetyEngine {
 
     /// Checks for dangerous drug/supplement interactions.
     ///
-    /// This handles Protocol 3: serotonin syndrome risk from multiple serotonergic agents.
+    /// Two layers, both deterministic:
+    /// 1. Protocol 3 — serotonin syndrome risk from multiple serotonergic agents
+    ///    (the original name-substring check, kept for custom entries).
+    /// 2. Mechanism-class pair rules (`mechanisms::pair_rules`) — catches
+    ///    additive antiplatelet load, CYP inhibition (inhibitor × substrate),
+    ///    additive stimulant/CNS/thyroid/hypoglycemic load. The name-substring
+    ///    lists structurally cannot see these.
+    ///
+    /// Tags are resolved from substance NAMES via `mechanisms::tag_for_name`
+    /// (canonical seed table + substring fallback), so this stays callable from
+    /// WASM with no catalog lookup and no network.
     pub fn check_interactions(
         &self,
         new_entry: &LogEntry,
@@ -137,6 +147,35 @@ impl SafetyEngine {
                 generated_at: Utc::now(),
                 resolved_at: None,
             });
+        }
+
+        // Mechanism-class pair rules against every entry in the 24h window.
+        let window_start = Utc::now() - Duration::hours(24);
+        let new_tags = crate::mechanisms::tag_for_name(&new_entry.name);
+        for entry in existing_entries {
+            if entry.timestamp < window_start {
+                continue;
+            }
+            let other_tags = crate::mechanisms::tag_for_name(&entry.name);
+            for hit in crate::mechanisms::pair_rules(&new_tags, &other_tags) {
+                // The serotonergic case is already covered by the protocol above
+                // with a richer message; don't double-alert on it.
+                if hit.code == "serotonergic_pair" {
+                    continue;
+                }
+                alerts.push(Alert {
+                    id: uuid::Uuid::new_v4(),
+                    user_id: new_entry.user_id.clone(),
+                    alert_type: AlertType::Interaction,
+                    severity: hit.severity.clone(),
+                    message: format!("{} + {}: {}", new_entry.name, entry.name, hit.message),
+                    recommendation: Some(hit.recommendation.to_string()),
+                    is_acknowledged: false,
+                    linked_entry_id: Some(new_entry.id),
+                    generated_at: Utc::now(),
+                    resolved_at: None,
+                });
+            }
         }
 
         alerts

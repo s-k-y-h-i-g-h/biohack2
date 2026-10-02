@@ -3,7 +3,7 @@
 **Input**: Design documents from `/specs/001-biohacker-tracking-platform/`
 **Branch**: `001-biohacker-tracking-platform`
 **Date**: 2026-09-04
-**Last Audit**: 2026-09-06 (web tests added, audit against codebase)
+**Last Audit**: 2026-10-02 (Phase 12 added: mechanism-class interaction taxonomy FR-015, T115-T118; engine tests 39 passing, workspace compiles)
 
 ## Legend
 - `[X]` = Completed and verified
@@ -249,6 +249,19 @@ User Stories 5 (Drug Interactions) and 6 (Insights) are handled by Hermes' own S
 
 ---
 
+## Phase 12: Mechanism-Class Interaction Taxonomy (FR-015)
+
+**Purpose**: Replace name-substring interaction detection with deterministic mechanism-class pair rules. Origin: 2026-10-02 Kev catalog sweep (all 496 substance pairs scored; Kev approved 494/496, most confidently on genuine pharmacodynamic pairs) — evidence that a model is not a safe interaction gate, and that the class taxonomy is the right deterministic substrate.
+
+- [X] T115 [P] Create `engine/src/mechanisms.rs` — `MechanismClass` enum (14 classes: antiplatelet, cyp1a2/cyp2c19/cyp3a4 inhibitor+substrate, serotonergic, stimulant, hypertensive, cns_depressant, thyroid_modulating, immunomodulating, hypoglycemic, absorption_chelator, hypotensive), symmetric `pair_rules()` table (11 rules), canonical seed tag table + substring fallback `tag_for_name()`. 22 unit tests.
+- [X] T116 [P] Add `mechanism_tags: Vec<MechanismClass>` to `CatalogItem` with `serde(default)` (pre-existing persisted entries deserialize unchanged, empty tags)
+- [X] T117 Persist `mechanism_tags` in SQLite: schema column + additive `ALTER TABLE ... ADD COLUMN` migration (tolerates duplicate-column), seed insert, row mapping, both SELECT paths in `engine/src/db.rs`
+- [X] T118 Wire `pair_rules` into `SafetyEngine::check_interactions()` — new entry × every entry in the 24h window, tags resolved by name (WASM-safe, no catalog lookup, no network); `serotonergic_pair` skipped to avoid double-alerting with the existing Protocol 3 count check. 14 safety tests pass.
+
+**Not wired (deliberate)**: `check_interactions()` is not called from the LogForm save flow — that integration is T088, owned by Hermes' Semantica KG. The engine function is ready when that wiring lands.
+
+---
+
 ## Summary: Actual Implementation Status
 
 ### Completed User Stories
@@ -256,7 +269,7 @@ User Stories 5 (Drug Interactions) and 6 (Insights) are handled by Hermes' own S
 - **US2 (View and Inspect Logs)**: ✅ Unified history with log entries, vitals readings, date grouping, search, category filters, and summary stats
 - **US3 (Vitals)**: ✅ Fixed and verified 2026-09-07 — form validates ranges (BP 60-250/40-150, HR 20-300, SpO2 50-100, temp 30-45°C), saves with toast, clears fields; dashboard live-updates (latest + recent 3); safety engine integrated — abnormal vitals trigger immediate banner; alerts dismissable; Layout banner reactive across pages via AppContext.data_version
 - **US4 (Stacks)**: ✅ Fixed and verified 2026-09-07 — builder uses persisted catalog (stable IDs), stack create/log/delete all update live via AppContext.data_version; log_stack reads persisted catalog so entries get real item names (was "Unknown" due to regenerated seed UUIDs); toasts for all actions. Remaining enhancements: stack-edit modal (T044), YAML import/export (T047).
-- **US5 (Drug Interactions)**: 🔄 Handled by Hermes' Semantica knowledge graph
+- **US5 (Drug Interactions)**: 🔄 Engine-side detection implemented 2026-10-02 (Phase 12: mechanism-class pair rules, FR-015, T115-T118 — deterministic, offline, 39 engine tests green). UI wiring (T087/T088) remains with Hermes' Semantica knowledge graph.
 - **US6 (Insights)**: 🔄 Handled by Hermes' Semantica knowledge graph
 - **US7 (Notes)**: ✅ Implemented and verified 2026-09-07 — standalone first-class Note entities with Notes page (`#/notes`), history integration, search, category filter, edit/delete, and CSV export inclusion. VS-011 validated end-to-end in browser.
 

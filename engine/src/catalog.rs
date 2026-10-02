@@ -442,6 +442,9 @@ fn make_item(
         half_life: Some(half_life.to_string()),
         contraindications: contraindications.iter().map(|s| s.to_string()).collect(),
         warnings: warnings.iter().map(|s| s.to_string()).collect(),
+        // Mechanism tags are DERIVED from the name via the canonical seed table
+        // in mechanisms.rs — one source of truth, no per-item tag lists to drift.
+        mechanism_tags: crate::mechanisms::tag_for_name(name),
         is_custom: false,
         source: Some("biohack CLI seed".to_string()),
         version: 1,

@@ -12,6 +12,7 @@
 //! (async fn) in WASM builds where `db` is absent.
 
 pub mod catalog;
+pub mod mechanisms;
 pub mod models;
 pub mod safety;
 
@@ -19,6 +20,7 @@ pub mod safety;
 pub mod db;
 
 pub use catalog::*;
+pub use mechanisms::*;
 pub use models::*;
 pub use safety::*;
 

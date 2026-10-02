@@ -46,6 +46,7 @@ Represents a supplement, medication, drug, food, or action in the system's datab
 | half_life | Option<String> | No | Duration of action (e.g., "4h", "24h") |
 | contraindications | Vec<String> | No | Known interactions (item IDs or categories) |
 | warnings | Vec<String> | No | General safety warnings |
+| mechanism_tags | Vec<MechanismClass> | No | Mechanism-class tags driving interaction pair rules (see `engine/src/mechanisms.rs`). `serde(default)` — pre-existing persisted entries deserialize with an empty tag list. Seed items derive tags from name via the canonical seed table; custom entries fall back to the engine's substring classification. |
 | is_custom | bool | No | true if user-created |
 | source | Option<String> | No | Original source |
 | version | i32 | No | Version for tracking updates |
