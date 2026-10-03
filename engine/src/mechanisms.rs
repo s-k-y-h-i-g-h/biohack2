@@ -60,6 +60,10 @@ pub enum MechanismClass {
     ThyroidModulating,
     /// Modulates immune function.
     Immunomodulating,
+    /// Vitamin-K–driven procoagulant activity (clotting-factor synthesis).
+    Procoagulant,
+    /// Modulates glutamate/NMDA signaling.
+    GlutamatergicModulating,
     /// Lowers blood glucose.
     Hypoglycemic,
     /// Chelates/binds co-ingested substances in the gut — timing separation needed.
@@ -83,6 +87,8 @@ impl MechanismClass {
             Self::CnsDepressant => "cns_depressant",
             Self::ThyroidModulating => "thyroid_modulating",
             Self::Immunomodulating => "immunomodulating",
+            Self::Procoagulant => "procoagulant",
+            Self::GlutamatergicModulating => "glutamatergic_modulating",
             Self::Hypoglycemic => "hypoglycemic",
             Self::AbsorptionChelator => "absorption_chelator",
         }
@@ -104,6 +110,8 @@ impl MechanismClass {
             "cns_depressant" => Some(Self::CnsDepressant),
             "thyroid_modulating" => Some(Self::ThyroidModulating),
             "immunomodulating" => Some(Self::Immunomodulating),
+            "procoagulant" => Some(Self::Procoagulant),
+            "glutamatergic_modulating" => Some(Self::GlutamatergicModulating),
             "hypoglycemic" => Some(Self::Hypoglycemic),
             "absorption_chelator" => Some(Self::AbsorptionChelator),
             _ => None,
@@ -229,6 +237,30 @@ const PAIR_RULES: &[(
         "Two chelating minerals compete for absorption in the gut",
         "Separate doses by 2+ hours, or take at meals on opposite sides of the day.",
     ),
+    (
+        MechanismClass::Antiplatelet,
+        MechanismClass::Procoagulant,
+        "antiplatelet_procoagulant",
+        AlertSeverity::Warning,
+        "Antiplatelet + vitamin-K procoagulant: opposing clotting pathways (bleeding-risk agents vs clotting-factor synthesis)",
+        "Effects can antagonize each other and shift unpredictably; if on warfarin/DOAC, disclose both and monitor INR/bleeding signs; disclose before procedures.",
+    ),
+    (
+        MechanismClass::Immunomodulating,
+        MechanismClass::Immunomodulating,
+        "additive_immunomodulation",
+        AlertSeverity::Info,
+        "Two immunomodulating agents in the same window: combined immune effect is not simply additive",
+        "Usually benign; if immunosuppressed, autoimmune, or pre-transplant, review the stack with a clinician.",
+    ),
+    (
+        MechanismClass::GlutamatergicModulating,
+        MechanismClass::GlutamatergicModulating,
+        "additive_glutamatergic_modulation",
+        AlertSeverity::Info,
+        "Two glutamatergic/NMDA-modulating agents: combined effect on glutamate signaling",
+        "Expect shifted NMDA tone (e.g. NAC + memantine); start low, note cognitive/emotional side effects, separate doses if jittery.",
+    ),
 ];
 
 /// Given two tag sets, return every rule that matches (both directions checked).
@@ -256,11 +288,12 @@ pub fn pair_rules(a: &[MechanismClass], b: &[MechanismClass]) -> Vec<RuleHit> {
 /// Each entry: (name-key, tags). Keys are matched with `contains` on the
 /// normalized name, so "Omega-3 Fish Oil" matches "omega-3".
 const SEED_TAGS: &[(&str, &[MechanismClass])] = &[
-    ("apigenin", &[MechanismClass::Antiplatelet, MechanismClass::Cyp1a2Inhibitor]),
+    ("apigenin", &[MechanismClass::Antiplatelet, MechanismClass::Cyp1a2Inhibitor, MechanismClass::Cyp3a4Substrate, MechanismClass::Cyp2c19Substrate]),
     ("ashwagandha", &[MechanismClass::ThyroidModulating, MechanismClass::Immunomodulating, MechanismClass::CnsDepressant]),
     ("berberine", &[MechanismClass::Cyp3a4Inhibitor, MechanismClass::Hypoglycemic]),
     ("cbd", &[MechanismClass::Cyp3a4Inhibitor, MechanismClass::Cyp2c19Inhibitor, MechanismClass::CnsDepressant]),
     ("caffeine", &[MechanismClass::Stimulant, MechanismClass::Hypertensive, MechanismClass::Cyp1a2Substrate]),
+    ("coq10", &[MechanismClass::Hypotensive]),
     ("curcumin", &[MechanismClass::Antiplatelet, MechanismClass::Cyp3a4Inhibitor]),
     ("cyclazodone", &[MechanismClass::Stimulant, MechanismClass::Hypertensive]),
     ("kratom", &[MechanismClass::Serotonergic, MechanismClass::Stimulant, MechanismClass::CnsDepressant, MechanismClass::Cyp3a4Substrate, MechanismClass::Cyp2c19Substrate]),
@@ -268,7 +301,8 @@ const SEED_TAGS: &[(&str, &[MechanismClass])] = &[
     ("l-tyrosine", &[MechanismClass::ThyroidModulating]),
     ("magnesium", &[MechanismClass::AbsorptionChelator, MechanismClass::Hypotensive]),
     ("melatonin", &[MechanismClass::CnsDepressant]),
-    ("memantine", &[MechanismClass::CnsDepressant]),
+    ("memantine", &[MechanismClass::CnsDepressant, MechanismClass::GlutamatergicModulating]),
+    ("nac", &[MechanismClass::GlutamatergicModulating]),
     ("omega-3", &[MechanismClass::Antiplatelet, MechanismClass::Hypotensive]),
     ("quercetin", &[MechanismClass::Antiplatelet, MechanismClass::Cyp3a4Inhibitor, MechanismClass::Immunomodulating]),
     ("reishi", &[MechanismClass::Antiplatelet, MechanismClass::Immunomodulating]),
@@ -276,6 +310,8 @@ const SEED_TAGS: &[(&str, &[MechanismClass])] = &[
     ("rhodiola", &[MechanismClass::Serotonergic, MechanismClass::Stimulant]),
     ("cordyceps", &[MechanismClass::Immunomodulating]),
     ("umcka", &[MechanismClass::Immunomodulating]),
+    ("vitamin d3", &[MechanismClass::Immunomodulating]),
+    ("vitamin k2", &[MechanismClass::Procoagulant]),
     ("zinc", &[MechanismClass::AbsorptionChelator]),
 ];
 
@@ -362,6 +398,57 @@ mod tests {
     #[test]
     fn unknown_name_gets_no_tags() {
         assert!(tag_for_name("Agaric Acid K2").is_empty());
+    }
+
+    #[test]
+    fn vitamin_k2_is_procoagulant_and_flags_with_antiplatelets() {
+        let t = tag_for_name("Vitamin K2");
+        assert!(t.contains(&MechanismClass::Procoagulant));
+        let a = tag_for_name("Curcumin");
+        let hits = pair_rules(&a, &t);
+        assert!(hits.iter().any(|h| h.code == "antiplatelet_procoagulant"));
+    }
+
+    #[test]
+    fn nac_memantine_get_glutamatergic_rule() {
+        let a = tag_for_name("NAC (N-Acetyl Cysteine)");
+        let b = tag_for_name("Memantine");
+        assert!(a.contains(&MechanismClass::GlutamatergicModulating));
+        let hits = pair_rules(&a, &b);
+        assert!(hits.iter().any(|h| h.code == "additive_glutamatergic_modulation"));
+    }
+
+    #[test]
+    fn ashwagandha_tyrosine_get_thyroid_rule() {
+        let a = tag_for_name("Ashwagandha");
+        let b = tag_for_name("L-Tyrosine");
+        let hits = pair_rules(&a, &b);
+        assert!(hits.iter().any(|h| h.code == "additive_thyroid_modulation"));
+    }
+
+    #[test]
+    fn cbd_apigenin_gets_cyp2c19_rule() {
+        // CBD inhibits 2C19; apigenin is now tagged as a 2C19/3A4 substrate.
+        let a = tag_for_name("CBD");
+        let b = tag_for_name("Apigenin");
+        let hits = pair_rules(&a, &b);
+        assert!(hits.iter().any(|h| h.code == "cyp2c19_inhibition"));
+        assert!(hits.iter().any(|h| h.code == "cyp3a4_inhibition"));
+    }
+
+    #[test]
+    fn vitamin_d3_reishi_get_immunomodulation_rule() {
+        let a = tag_for_name("Vitamin D3");
+        let b = tag_for_name("Reishi Mushroom");
+        let hits = pair_rules(&a, &b);
+        assert!(hits.iter().any(|h| h.code == "additive_immunomodulation"));
+    }
+
+    #[test]
+    fn benign_control_zinc_probiotic_gets_no_alert() {
+        let a = tag_for_name("Zinc");
+        let b = tag_for_name("Probiotic");
+        assert!(pair_rules(&a, &b).is_empty());
     }
 
     #[test]
