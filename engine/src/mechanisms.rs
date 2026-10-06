@@ -370,6 +370,17 @@ fn normalize(name: &str) -> String {
     cleaned.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
+/// True if the normalized name contains a standalone MAO token: `mao`, `maoi`,
+/// `mao-a`, `mao-b`, `mao-inhibitor`. Token-boundary matching is deliberate: a
+/// plain substring match fires on **"Maori Green Mussel"** (`mao`-ri), a false
+/// positive that raises a Critical serotonin-syndrome alert on a supplement.
+pub fn has_mao_token(name: &str) -> bool {
+    normalize(name).split_whitespace().any(|tok| {
+        matches!(tok, "mao" | "maoi" | "mao-a" | "mao-b" | "maoab" | "maoc")
+            || tok.starts_with("mao-")
+    })
+}
+
 /// Single source of truth for substance classification.
 ///
 /// 1. Canonical seed table (the 33 catalog items) — exact mechanism tags.
@@ -395,8 +406,9 @@ pub fn tag_for_name(name: &str) -> Vec<MechanismClass> {
         tags.push(MechanismClass::Serotonergic);
     }
     // Explicit MAO inhibitors named by a custom entry ("Phenelzine (MAOI)") join
-    // the MAO class, so the mao_* pair rules reach them too.
-    if n.contains("mao") && !tags.contains(&MechanismClass::MaoInhibitor) {
+    // the MAO class, so the mao_* pair rules reach them too. Token-boundary
+    // match — see has_mao_token for the false-positive this avoids.
+    if has_mao_token(name) && !tags.contains(&MechanismClass::MaoInhibitor) {
         tags.push(MechanismClass::MaoInhibitor);
     }
     if crate::safety::is_stimulant_name(name) {
@@ -518,6 +530,26 @@ mod tests {
             !hits.iter().any(|h| h.code.starts_with("mao_")),
             "benign pair must stay silent: {hits:?}"
         );
+    }
+
+    #[test]
+    fn mao_token_match_rejects_maori_mussel() {
+        // Regression: a plain substring match fired on "Maori" (mao-ri), which
+        // raised a Critical serotonin-syndrome alert on a green-lipped mussel.
+        assert!(!has_mao_token("Maori Green Mussel"));
+        assert!(!tag_for_name("Maori Green Mussel").contains(&MechanismClass::MaoInhibitor));
+        let hits = pair_rules(
+            &tag_for_name("Maori Green Mussel"),
+            &tag_for_name("Rhodiola Rosea"),
+        );
+        assert!(
+            !hits.iter().any(|h| h.code == "mao_serotonergic"),
+            "mussel must not inherit MAO class: {hits:?}"
+        );
+        // The real thing still fires.
+        assert!(has_mao_token("Phenelzine (MAOI)"));
+        assert!(has_mao_token("MAO-A inhibitor"));
+        assert!(has_mao_token("maoi"));
     }
 
     #[test]
