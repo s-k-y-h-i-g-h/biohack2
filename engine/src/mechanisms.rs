@@ -68,6 +68,9 @@ pub enum MechanismClass {
     Hypoglycemic,
     /// Chelates/binds co-ingested substances in the gut — timing separation needed.
     AbsorptionChelator,
+    /// Monoamine-oxidase inhibition — raises synaptic monoamines (serotonin,
+    /// dopamine, tyramine); the classic serotonin-syndrome / hypertensive-crisis axis.
+    MaoInhibitor,
 }
 
 impl MechanismClass {
@@ -91,6 +94,7 @@ impl MechanismClass {
             Self::GlutamatergicModulating => "glutamatergic_modulating",
             Self::Hypoglycemic => "hypoglycemic",
             Self::AbsorptionChelator => "absorption_chelator",
+            Self::MaoInhibitor => "mao_inhibitor",
         }
     }
 
@@ -114,6 +118,7 @@ impl MechanismClass {
             "glutamatergic_modulating" => Some(Self::GlutamatergicModulating),
             "hypoglycemic" => Some(Self::Hypoglycemic),
             "absorption_chelator" => Some(Self::AbsorptionChelator),
+            "mao_inhibitor" => Some(Self::MaoInhibitor),
             _ => None,
         }
     }
@@ -261,6 +266,38 @@ const PAIR_RULES: &[(
         "Two glutamatergic/NMDA-modulating agents: combined effect on glutamate signaling",
         "Expect shifted NMDA tone (e.g. NAC + memantine); start low, note cognitive/emotional side effects, separate doses if jittery.",
     ),
+    (
+        MechanismClass::MaoInhibitor,
+        MechanismClass::Serotonergic,
+        "mao_serotonergic",
+        AlertSeverity::Critical,
+        "MAO inhibition + serotonergic agent: classic serotonin-syndrome pairing — MAO-A blockade raises synaptic serotonin, the co-agent adds to it",
+        "Do not combine. Seek emergency care for clonus, hyperreflexia, hyperthermia, diaphoresis, agitation. Requires a washout period between the two (MAO inhibition outlasts the parent compound).",
+    ),
+    (
+        MechanismClass::MaoInhibitor,
+        MechanismClass::MaoInhibitor,
+        "stacked_mao_inhibition",
+        AlertSeverity::Critical,
+        "Two MAO-inhibiting agents in the same window: additive monoamine blockade, supratherapeutic by definition",
+        "Do not stack. Pick one MAO-active agent per window; monitor BP and for serotonin-syndrome symptoms.",
+    ),
+    (
+        MechanismClass::MaoInhibitor,
+        MechanismClass::Stimulant,
+        "mao_stimulant",
+        AlertSeverity::Warning,
+        "MAO inhibition + stimulant: monoamine blockade compounds the pressor load (tyramine and catecholamines are not cleared)",
+        "Expect a stronger-than-usual BP/HR response; start at a fraction of the usual stimulant dose, avoid tyramine-rich food, monitor BP.",
+    ),
+    (
+        MechanismClass::MaoInhibitor,
+        MechanismClass::Hypertensive,
+        "mao_hypertensive",
+        AlertSeverity::Warning,
+        "MAO inhibition + blood-pressure-raising agent: additive pressor effect with reduced tyramine/catecholamine clearance",
+        "Monitor BP; avoid aged/fermented (tyramine-rich) foods; reduce the pressor dose.",
+    ),
 ];
 
 /// Given two tag sets, return every rule that matches (both directions checked).
@@ -284,7 +321,7 @@ pub fn pair_rules(a: &[MechanismClass], b: &[MechanismClass]) -> Vec<RuleHit> {
 
 // ── Classification ────────────────────────────────────────────────────────────
 
-/// Canonical tags for the 32-item seed catalog, keyed by normalized name token.
+/// Canonical tags for the 33-item seed catalog, keyed by normalized name token.
 /// Each entry: (name-key, tags). Keys are matched with `contains` on the
 /// normalized name, so "Omega-3 Fish Oil" matches "omega-3".
 const SEED_TAGS: &[(&str, &[MechanismClass])] = &[
@@ -310,6 +347,7 @@ const SEED_TAGS: &[(&str, &[MechanismClass])] = &[
     ("rhodiola", &[MechanismClass::Serotonergic, MechanismClass::Stimulant]),
     ("cordyceps", &[MechanismClass::Immunomodulating]),
     ("umcka", &[MechanismClass::Immunomodulating]),
+    ("9-me-bc", &[MechanismClass::MaoInhibitor, MechanismClass::Serotonergic, MechanismClass::Stimulant, MechanismClass::Hypertensive]),
     ("vitamin d3", &[MechanismClass::Immunomodulating]),
     ("vitamin k2", &[MechanismClass::Procoagulant]),
     ("zinc", &[MechanismClass::AbsorptionChelator]),
@@ -334,7 +372,7 @@ fn normalize(name: &str) -> String {
 
 /// Single source of truth for substance classification.
 ///
-/// 1. Canonical seed table (the 32 catalog items) — exact mechanism tags.
+/// 1. Canonical seed table (the 33 catalog items) — exact mechanism tags.
 /// 2. Keyword fallback via the existing substring lists, so CUSTOM user entries
 ///    (e.g. "Adderall", "Fluoxetine") are still classified.
 ///
@@ -355,6 +393,11 @@ pub fn tag_for_name(name: &str) -> Vec<MechanismClass> {
     // Keyword fallback for custom entries (reuses the engine's existing lists).
     if crate::safety::is_serotonergic_name(name) && !tags.contains(&MechanismClass::Serotonergic) {
         tags.push(MechanismClass::Serotonergic);
+    }
+    // Explicit MAO inhibitors named by a custom entry ("Phenelzine (MAOI)") join
+    // the MAO class, so the mao_* pair rules reach them too.
+    if n.contains("mao") && !tags.contains(&MechanismClass::MaoInhibitor) {
+        tags.push(MechanismClass::MaoInhibitor);
     }
     if crate::safety::is_stimulant_name(name) {
         if !tags.contains(&MechanismClass::Stimulant) {
@@ -434,6 +477,47 @@ mod tests {
         let hits = pair_rules(&a, &b);
         assert!(hits.iter().any(|h| h.code == "cyp2c19_inhibition"));
         assert!(hits.iter().any(|h| h.code == "cyp3a4_inhibition"));
+    }
+
+    #[test]
+    fn nine_me_bc_is_mao_inhibitor_and_flags_serotonergic_pair() {
+        let a = tag_for_name("9-Me-BC");
+        assert!(a.contains(&MechanismClass::MaoInhibitor));
+        let b = tag_for_name("Rhodiola Rosea");
+        let hits = pair_rules(&a, &b);
+        let hit = hits
+            .iter()
+            .find(|h| h.code == "mao_serotonergic")
+            .expect("9-Me-BC + serotonergic must fire mao_serotonergic");
+        assert_eq!(hit.severity, AlertSeverity::Critical);
+    }
+
+    #[test]
+    fn nine_me_bc_caffeine_gets_mao_stimulant_and_pressor_rules() {
+        let a = tag_for_name("9-Me-BC");
+        let b = tag_for_name("Caffeine");
+        let hits = pair_rules(&a, &b);
+        assert!(hits.iter().any(|h| h.code == "mao_stimulant"));
+        assert!(hits.iter().any(|h| h.code == "mao_hypertensive"));
+    }
+
+    #[test]
+    fn custom_maoi_name_joins_mao_class() {
+        let t = tag_for_name("Phenelzine (MAOI)");
+        assert!(t.contains(&MechanismClass::MaoInhibitor));
+        let hits = pair_rules(&t, &tag_for_name("5-HTP"));
+        assert!(hits.iter().any(|h| h.code == "mao_serotonergic"));
+    }
+
+    #[test]
+    fn benign_control_nine_me_bc_zinc_gets_no_mao_alert() {
+        let a = tag_for_name("9-Me-BC");
+        let b = tag_for_name("Zinc");
+        let hits = pair_rules(&a, &b);
+        assert!(
+            !hits.iter().any(|h| h.code.starts_with("mao_")),
+            "benign pair must stay silent: {hits:?}"
+        );
     }
 
     #[test]

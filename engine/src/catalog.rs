@@ -1,10 +1,10 @@
-//! 32-substance seed database ported from the biohack CLI
-//! (27 original + Caffeine, Cyclazodone, CBD, Kratom, Memantine).
+//! 33-substance seed database ported from the biohack CLI
+//! (27 original + Caffeine, Cyclazodone, CBD, Kratom, Memantine, 9-Me-BC).
 
 use crate::models::{CatalogItem, DosageRange, ItemType};
 use uuid::Uuid;
 
-/// Returns the full 32-substance seed catalog.
+/// Returns the full 33-substance seed catalog.
 pub fn seed_catalog() -> Vec<CatalogItem> {
     vec![
         // Vitamins
@@ -408,6 +408,26 @@ pub fn seed_catalog() -> Vec<CatalogItem> {
         ),
         // Prescription / Nootropic
         make_item(
+            "9-Me-BC",
+            ItemType::Drug,
+            Some(DosageRange {
+                min: 5.0,
+                max: 15.0,
+                unit: "mg".to_string(),
+            }),
+            "unknown",
+            &[
+                "Do not combine with SSRIs/SNRIs, TCAs, trazodone, tramadol, dextromethorphan, 5-HTP, St. John's Wort, or any MAOI",
+                "Avoid tyramine-rich food (aged cheese, cured/fermented protein) while MAO-A is inhibited",
+            ],
+            &[
+                "Primary MAO-A inhibitor — serotonin-syndrome and hypertensive-crisis interaction axis",
+                "No human trials: dose range is community-derived, not evidence-based",
+                "β-carboline family includes potent neurotoxins; do not exceed the low-end range",
+                "Tolerance reported within 2-4 weeks — cycle (e.g. 5 days on / 2 off) rather than escalating",
+            ],
+        ),
+        make_item(
             "Memantine",
             ItemType::Medication,
             Some(DosageRange {
@@ -456,9 +476,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_seed_catalog_has_32_items() {
+    fn test_seed_catalog_has_33_items() {
         let catalog = seed_catalog();
-        assert_eq!(catalog.len(), 32);
+        assert_eq!(catalog.len(), 33);
     }
 
     #[test]
