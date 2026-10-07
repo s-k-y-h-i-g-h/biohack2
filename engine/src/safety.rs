@@ -10,7 +10,7 @@ use std::collections::HashSet;
 use chrono::{Duration, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::models::{Alert, AlertSeverity, AlertType, ItemType, LogEntry, VitalsEntry};
+use crate::models::{Alert, AlertSeverity, AlertType, CatalogItem, ItemType, LogEntry, VitalsEntry};
 
 /// Normalize a substance name for identity comparison: lowercase, punctuation
 /// → space, collapse whitespace. Same normalization as [`is_serotonergic_name`],
@@ -232,6 +232,74 @@ impl SafetyEngine {
     }
 
     // ── Protocol Implementations ──────────────────────────────────────────────
+
+    /// Checks a logged dose against the catalog's dosage range.
+    ///
+    /// Deterministic and conservative: fires only when the quantity exceeds the
+    /// catalog maximum *in matching units*. Items with no catalog entry, no
+    /// range, a zero max, or a unit mismatch stay silent — an unknown unit is
+    /// not a dose violation.
+    ///
+    /// Severity scales with the ratio to the catalog max: above 1.5x is a
+    /// warning, above 5x is critical. Note the limit of this rule: ratio alone
+    /// cannot see therapeutic index. 10x the catalog max on L-theanine (a
+    /// benign, wide-index compound) and 9x on a prescription medication are
+    /// not the same clinical event; the number is a prompt to confirm intent,
+    /// not a verdict on safety.
+    pub fn check_dose(&self, entry: &LogEntry, catalog: &[CatalogItem]) -> Vec<Alert> {
+        let Some(quantity) = entry.quantity else {
+            return Vec::new();
+        };
+        let key = normalize_substance(&entry.name);
+        let Some(item) = catalog.iter().find(|c| normalize_substance(&c.name) == key) else {
+            return Vec::new();
+        };
+        let Some(range) = item.dosage_range.as_ref() else {
+            return Vec::new();
+        };
+        if range.max <= 0.0 {
+            return Vec::new();
+        }
+        // A log entry with no unit is read in the catalog's unit; a *different*
+        // stated unit means we are comparing unlike quantities — stay silent.
+        let entry_unit = entry.unit.as_deref().unwrap_or(&range.unit);
+        if entry_unit != range.unit.as_str() {
+            return Vec::new();
+        }
+        if quantity <= range.max {
+            return Vec::new();
+        }
+        let ratio = quantity / range.max;
+        if ratio < 1.5 {
+            return Vec::new();
+        }
+        let severity = if ratio >= 5.0 {
+            AlertSeverity::Critical
+        } else {
+            AlertSeverity::Warning
+        };
+        vec![Alert {
+            id: uuid::Uuid::new_v4(),
+            user_id: entry.user_id.clone(),
+            alert_type: AlertType::Interaction,
+            severity,
+            message: format!(
+                "{}: {} {} is {:.1}x the catalog maximum ({} {})",
+                entry.name, quantity, range.unit, ratio, range.min, range.unit
+            ),
+            recommendation: Some(format!(
+                "Confirm this dose is intentional. Catalog range: {}-{} {}. \
+                 The catalog range reflects studied doses — exceeding it is a \
+                 deliberate choice, not a catalog error, and the ratio alone \
+                 does not account for therapeutic index.",
+                range.min, range.max, range.unit
+            )),
+            is_acknowledged: false,
+            linked_entry_id: Some(entry.id),
+            generated_at: Utc::now(),
+            resolved_at: None,
+        }]
+    }
 
     fn check_stimulant_tachycardia(
         &self,

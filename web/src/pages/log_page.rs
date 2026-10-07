@@ -23,12 +23,16 @@ pub fn LogPage() -> impl IntoView {
     // Persisted catalog (localStorage) — stable IDs, seeded on first use.
     // seed_catalog() regenerates UUIDs per call; never use it for saved references.
     let catalog = search_catalog("").unwrap_or_default();
+    // Clone for the save closure: the closure owns its capture, the component
+    // keeps the original for the form below.
+    let catalog_for_save = catalog.clone();
 
     let handle_save = move |entry: LogEntry| {
-        // Check for interactions before saving
+        // Check for interactions + dose violations before saving
         let engine = SafetyEngine::new();
         let existing_entries = get_log_entries().unwrap_or_default();
-        let alerts = engine.check_interactions(&entry, &existing_entries);
+        let mut alerts = engine.check_interactions(&entry, &existing_entries);
+        alerts.extend(engine.check_dose(&entry, &catalog_for_save));
 
         if !alerts.is_empty() {
             // Persist alerts so the Layout banner sees them (US5/AC-3), and hold

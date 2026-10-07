@@ -2,6 +2,7 @@
 //! plus stimulant/serotonergic classification and contextual advice (FR-009).
 
 use chrono::{Duration, Utc};
+use engine::catalog::seed_catalog;
 use engine::models::*;
 use engine::safety::{
     RecentSubstance, SafetyEngine, contextual_advice, is_serotonergic_name, is_stimulant_name,
@@ -52,6 +53,80 @@ fn make_log(name: &str, item_type: ItemType, hours_ago: i64) -> LogEntry {
         acknowledged_interaction: false,
         custom_fields: None,
     }
+}
+
+fn make_dosed_log(name: &str, qty: f64, unit: &str) -> LogEntry {
+    let mut e = make_log(name, ItemType::Supplement, 0);
+    e.quantity = Some(qty);
+    e.unit = Some(unit.to_string());
+    e
+}
+
+// ── Dose vs catalog range ────────────────────────────────────────────────────
+
+#[test]
+fn test_dose_over_catalog_max_fires() {
+    let engine = SafetyEngine::new();
+    let catalog = seed_catalog();
+    // L-theanine catalog max is 200 mg; 1000 mg is 5x -> critical
+    let entry = make_dosed_log("L-Theanine", 1000.0, "mg");
+    let alerts = engine.check_dose(&entry, &catalog);
+    assert_eq!(alerts.len(), 1, "1000mg L-theanine must alert: {alerts:?}");
+    assert_eq!(alerts[0].severity, AlertSeverity::Critical);
+    assert!(alerts[0].message.contains("5.0x"));
+}
+
+#[test]
+fn test_dose_mild_over_max_is_warning() {
+    let engine = SafetyEngine::new();
+    let catalog = seed_catalog();
+    // Kratom max 5 g; 8 g = 1.6x -> warning, not critical
+    let entry = make_dosed_log("Kratom", 8.0, "g");
+    let alerts = engine.check_dose(&entry, &catalog);
+    assert_eq!(alerts.len(), 1);
+    assert_eq!(alerts[0].severity, AlertSeverity::Warning);
+}
+
+#[test]
+fn test_dose_within_catalog_max_is_silent() {
+    let engine = SafetyEngine::new();
+    let catalog = seed_catalog();
+    let entry = make_dosed_log("L-Theanine", 200.0, "mg");
+    assert!(engine.check_dose(&entry, &catalog).is_empty());
+}
+
+#[test]
+fn test_dose_small_over_max_below_threshold_is_silent() {
+    // 1.2x max: over, but below the 1.5x floor — noise, stay silent.
+    let engine = SafetyEngine::new();
+    let catalog = seed_catalog();
+    let entry = make_dosed_log("Kratom", 6.0, "g");
+    assert!(engine.check_dose(&entry, &catalog).is_empty());
+}
+
+#[test]
+fn test_dose_unit_mismatch_is_silent() {
+    // 1000 "g" of L-theanine is a unit error, not a dose violation.
+    let engine = SafetyEngine::new();
+    let catalog = seed_catalog();
+    let entry = make_dosed_log("L-Theanine", 1000.0, "g");
+    assert!(engine.check_dose(&entry, &catalog).is_empty());
+}
+
+#[test]
+fn test_dose_unknown_substance_is_silent() {
+    let engine = SafetyEngine::new();
+    let catalog = seed_catalog();
+    let entry = make_dosed_log("Unobtainium", 5000.0, "mg");
+    assert!(engine.check_dose(&entry, &catalog).is_empty());
+}
+
+#[test]
+fn test_dose_missing_quantity_is_silent() {
+    let engine = SafetyEngine::new();
+    let catalog = seed_catalog();
+    let entry = make_log("L-Theanine", ItemType::Supplement, 0);
+    assert!(engine.check_dose(&entry, &catalog).is_empty());
 }
 
 // ── Protocol 1: stimulant tachycardia ────────────────────────────────────────
