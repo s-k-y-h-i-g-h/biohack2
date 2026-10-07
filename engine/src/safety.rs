@@ -5,10 +5,30 @@
 //! 2. Hypertensive urgency (SBP >= 180 or DBP >= 120)
 //! 3. Serotonin syndrome risk (multiple serotonergic agents)
 
+use std::collections::HashSet;
+
 use chrono::{Duration, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::models::{Alert, AlertSeverity, AlertType, ItemType, LogEntry, VitalsEntry};
+
+/// Normalize a substance name for identity comparison: lowercase, punctuation
+/// → space, collapse whitespace. Same normalization as [`is_serotonergic_name`],
+/// so "St. John's Wort" and "st john's wort" compare equal.
+pub fn normalize_substance(name: &str) -> String {
+    let cleaned: String = name
+        .to_lowercase()
+        .chars()
+        .map(|c| {
+            if c.is_alphanumeric() || c == ' ' || c == '-' {
+                c
+            } else {
+                ' '
+            }
+        })
+        .collect();
+    cleaned.split_whitespace().collect::<Vec<_>>().join(" ")
+}
 
 /// Represents a recent substance log for context-aware alerting.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -125,16 +145,21 @@ impl SafetyEngine {
     ) -> Vec<Alert> {
         let mut alerts = Vec::new();
 
-        // Check for serotonin syndrome risk
+        // Check for serotonin syndrome risk.
+        //
+        // Counts DISTINCT serotonergic substances, not log entries: four kratom
+        // doses in one window are one agent, not four. Repeated dosing is a dose
+        // question; this protocol is about combining *different* serotonergics.
         let serotonergic_count = self.count_serotonergic_agents(new_entry, existing_entries);
-        if serotonergic_count >= self.serotonergic_count_threshold {
+        let serotonin_protocol_fired = serotonergic_count >= self.serotonergic_count_threshold;
+        if serotonin_protocol_fired {
             alerts.push(Alert {
                 id: uuid::Uuid::new_v4(),
                 user_id: new_entry.user_id.clone(),
                 alert_type: AlertType::Interaction,
                 severity: AlertSeverity::Critical,
                 message: format!(
-                    "Serotonin syndrome risk: {} serotonergic agents detected",
+                    "Serotonin syndrome risk: {} distinct serotonergic agents detected",
                     serotonergic_count
                 ),
                 recommendation: Some(
@@ -150,18 +175,43 @@ impl SafetyEngine {
         }
 
         // Mechanism-class pair rules against every entry in the 24h window.
+        //
+        // Two guards keep the volume honest:
+        // * Self-pairs are skipped. A second dose of the same substance is a dose
+        //   question, not an interaction — "kratom + kratom: two stimulants in the
+        //   same window" is noise, and it dominated the alert stream.
+        // * Hits are deduplicated by (unordered substance pair, rule code), so a
+        //   standing stack fires each rule once per save, not once per log entry.
         let window_start = Utc::now() - Duration::hours(24);
         let new_tags = crate::mechanisms::tag_for_name(&new_entry.name);
+        let new_key = normalize_substance(&new_entry.name);
+        let mut seen: HashSet<(String, String, &'static str)> = HashSet::new();
         for entry in existing_entries {
             if entry.timestamp < window_start {
                 continue;
             }
+            let other_key = normalize_substance(&entry.name);
+            if other_key == new_key {
+                continue; // same substance: a dose question, not an interaction
+            }
             let other_tags = crate::mechanisms::tag_for_name(&entry.name);
             for hit in crate::mechanisms::pair_rules(&new_tags, &other_tags) {
-                // The serotonergic case is already covered by the protocol above
-                // with a richer message; don't double-alert on it.
-                if hit.code == "serotonergic_pair" {
+                // The serotonergic case is covered by the protocol above with a
+                // richer message — but only when that protocol actually fired.
+                // When it does not fire (fewer than two distinct serotonergic
+                // substances), the pair rule is the ONLY signal that reaches a
+                // tagged serotonergic combination (e.g. kratom + rhodiola, which
+                // the name-substring list cannot see), so it must not be dropped.
+                if hit.code == "serotonergic_pair" && serotonin_protocol_fired {
                     continue;
+                }
+                let pair_key = if new_key <= other_key {
+                    (new_key.clone(), other_key.clone(), hit.code)
+                } else {
+                    (other_key.clone(), new_key.clone(), hit.code)
+                };
+                if !seen.insert(pair_key) {
+                    continue; // this pair + rule already alerted this save
                 }
                 alerts.push(Alert {
                     id: uuid::Uuid::new_v4(),
@@ -258,21 +308,24 @@ impl SafetyEngine {
         })
     }
 
+    /// Counts DISTINCT serotonergic substances in the 24h window (including the
+    /// new entry). Repeated doses of one substance count once: the protocol is
+    /// about combining different serotonergics, not about how often one was taken.
     fn count_serotonergic_agents(&self, new_entry: &LogEntry, existing: &[LogEntry]) -> u32 {
         let window_start = Utc::now() - Duration::hours(24);
-        let mut count = 0u32;
+        let mut agents: HashSet<String> = HashSet::new();
 
         if is_serotonergic_item(new_entry) {
-            count += 1;
+            agents.insert(normalize_substance(&new_entry.name));
         }
 
         for entry in existing {
             if entry.timestamp >= window_start && is_serotonergic_item(entry) {
-                count += 1;
+                agents.insert(normalize_substance(&entry.name));
             }
         }
 
-        count
+        agents.len() as u32
     }
 }
 

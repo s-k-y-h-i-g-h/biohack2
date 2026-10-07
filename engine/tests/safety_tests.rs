@@ -149,6 +149,90 @@ fn test_no_serotonin_alert_for_non_serotonergic() {
     assert!(alerts.is_empty());
 }
 
+#[test]
+fn test_repeated_doses_count_as_one_serotonergic_agent() {
+    // Four kratom doses in the window are ONE agent: dosing frequency is not
+    // polypharmacy. The protocol must stay silent.
+    let engine = SafetyEngine::new();
+    let new_entry = make_log("Kratom", ItemType::Drug, 0);
+    let existing = vec![
+        make_log("Kratom", ItemType::Drug, 3),
+        make_log("Kratom", ItemType::Drug, 8),
+        make_log("Kratom", ItemType::Drug, 14),
+    ];
+    let alerts = engine.check_interactions(&new_entry, &existing);
+    assert!(
+        alerts.is_empty(),
+        "repeated doses of one substance must not alert: {alerts:?}"
+    );
+}
+
+#[test]
+fn test_tagged_serotonergic_pair_alerts_when_protocol_silent() {
+    // Kratom + rhodiola: both tagged Serotonergic, neither in the
+    // name-substring list. The protocol counts 1 agent (kratom) and stays
+    // silent, so the pair rule is the only signal that can reach this pair.
+    let engine = SafetyEngine::new();
+    let new_entry = make_log("Rhodiola Rosea", ItemType::Supplement, 0);
+    let existing = vec![make_log("Kratom", ItemType::Drug, 2)];
+    let alerts = engine.check_interactions(&new_entry, &existing);
+    let sero = alerts
+        .iter()
+        .filter(|a| a.message.contains("serotonin-syndrome"))
+        .count();
+    assert_eq!(sero, 1, "kratom + rhodiola must fire the serotonergic pair rule: {alerts:?}");
+    assert!(alerts.iter().any(|a| a.severity == AlertSeverity::Critical));
+}
+
+#[test]
+fn test_serotonin_protocol_suppresses_duplicate_pair_rule() {
+    // Two distinct serotonergics: the protocol fires with the richer message;
+    // the pair rule must not add a second serotonin alert for the same pair.
+    let engine = SafetyEngine::new();
+    let new_entry = make_log("Fluoxetine", ItemType::Medication, 0);
+    let existing = vec![make_log("Kratom", ItemType::Drug, 2)];
+    let alerts = engine.check_interactions(&new_entry, &existing);
+    let sero = alerts
+        .iter()
+        .filter(|a| a.message.contains("serotonergic agents"))
+        .count();
+    assert_eq!(sero, 1, "protocol fires exactly once: {alerts:?}");
+    assert!(
+        !alerts.iter().any(|a| a.message.contains("Two serotonergic agents")),
+        "pair rule must not double-alert when the protocol fired: {alerts:?}"
+    );
+}
+
+#[test]
+fn test_pair_rule_deduplicates_per_pair_and_rule() {
+    // CBD logged twice in the window: each CYP rule fires once, not twice.
+    let engine = SafetyEngine::new();
+    let new_entry = make_log("Kratom", ItemType::Drug, 0);
+    let existing = vec![
+        make_log("CBD", ItemType::Supplement, 2),
+        make_log("CBD", ItemType::Supplement, 5),
+    ];
+    let alerts = engine.check_interactions(&new_entry, &existing);
+    let cyp3a4 = alerts
+        .iter()
+        .filter(|a| a.message.contains("CYP3A4 inhibition"))
+        .count();
+    assert_eq!(cyp3a4, 1, "one CBD+kratom CYP3A4 alert per save: {alerts:?}");
+}
+
+#[test]
+fn test_name_variants_deduplicate_as_one_substance() {
+    // "CBD Oil" and "cbd oil " are the same substance: one dedup key.
+    assert_eq!(
+        engine::safety::normalize_substance("CBD Oil"),
+        engine::safety::normalize_substance("cbd oil ")
+    );
+    assert_eq!(
+        engine::safety::normalize_substance("St. John's Wort"),
+        engine::safety::normalize_substance("st john's wort")
+    );
+}
+
 // ── Name classification ──────────────────────────────────────────────────────
 
 #[test]
