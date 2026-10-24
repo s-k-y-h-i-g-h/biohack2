@@ -1,10 +1,10 @@
-//! 33-substance seed database ported from the biohack CLI
+//! 35-substance seed database ported from the biohack CLI
 //! (27 original + Caffeine, Cyclazodone, CBD, Kratom, Memantine, 9-Me-BC).
 
 use crate::models::{CatalogItem, DosageRange, ItemType};
 use uuid::Uuid;
 
-/// Returns the full 33-substance seed catalog.
+/// Returns the full 35-substance seed catalog.
 pub fn seed_catalog() -> Vec<CatalogItem> {
     vec![
         // Vitamins
@@ -143,7 +143,23 @@ pub fn seed_catalog() -> Vec<CatalogItem> {
             &[],
             &["May interact with thyroid medication"],
         ),
-        // Adaptogens / Herbs
+        
+        // Nootropics / Cognitive (continued)
+        make_item(
+            "Piracetam",
+            ItemType::Drug,
+            Some(DosageRange {
+                min: 1000.0,
+                max: 3000.0,
+                unit: "mg".to_string(),
+            }),
+            "5h",
+            &[],
+            &[
+                "Generally well-tolerated; may cause headache, insomnia, or gastrointestinal discomfort at high doses",
+                "Effects may accumulate with continuous use",
+            ],
+        ),// Adaptogens / Herbs
         make_item(
             "Ashwagandha",
             ItemType::Supplement,
@@ -373,7 +389,24 @@ pub fn seed_catalog() -> Vec<CatalogItem> {
                 "Strong stimulant — risk of tachycardia and hypertension at high doses",
             ],
         ),
-        // Cannabinoids
+        
+        // Stimulants / Wakefulness (continued)
+        make_item(
+            "N-Methyl-Cyclazodone",
+            ItemType::Drug,
+            Some(DosageRange {
+                min: 10.0,
+                max: 40.0,
+                unit: "mg".to_string(),
+            }),
+            "12h",
+            &[],
+            &[
+                "Research chemical — limited human safety data",
+                "Pemoline analog: potential hepatotoxicity, monitor liver enzymes",
+                "Strong stimulant — risk of tachycardia and hypertension at high doses",
+            ],
+        ),// Cannabinoids
         make_item(
             "CBD",
             ItemType::Supplement,
@@ -476,9 +509,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_seed_catalog_has_33_items() {
+    fn test_seed_catalog_has_35_items() {
         let catalog = seed_catalog();
-        assert_eq!(catalog.len(), 33);
+        assert_eq!(catalog.len(), 35);
     }
 
     #[test]
