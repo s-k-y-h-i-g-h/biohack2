@@ -47,7 +47,11 @@ pub struct SubstanceModel {
 impl SubstanceModel {
     /// An explicitly-unmodelled substance: `none` class with a logged reason.
     /// This is what parse failures become (T204) — visible, not silent.
-    pub fn unmodelled(substance: impl Into<String>, reason: impl Into<String>, catalog_version: i32) -> Self {
+    pub fn unmodelled(
+        substance: impl Into<String>,
+        reason: impl Into<String>,
+        catalog_version: i32,
+    ) -> Self {
         SubstanceModel {
             substance: substance.into(),
             model_class: ModelClass::None,
@@ -95,7 +99,8 @@ mod tests {
         assert_eq!(m, back);
 
         // Old/partial rows: params, optionals absent entirely.
-        let sparse = r#"{"substance":"X","model_class":"none","provenance":"test","catalog_version":1}"#;
+        let sparse =
+            r#"{"substance":"X","model_class":"none","provenance":"test","catalog_version":1}"#;
         let back: SubstanceModel = serde_json::from_str(sparse).unwrap();
         assert_eq!(back.model_class, ModelClass::None);
         assert!(back.params.is_null());

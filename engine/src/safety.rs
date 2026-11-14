@@ -10,7 +10,9 @@ use std::collections::HashSet;
 use chrono::{Duration, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::models::{Alert, AlertSeverity, AlertType, CatalogItem, ItemType, LogEntry, VitalsEntry};
+use crate::models::{
+    Alert, AlertSeverity, AlertType, CatalogItem, ItemType, LogEntry, VitalsEntry,
+};
 
 /// Normalize a substance name for identity comparison: lowercase, punctuation
 /// → space, collapse whitespace. Same normalization as [`is_serotonergic_name`],
@@ -298,69 +300,69 @@ impl SafetyEngine {
             linked_entry_id: Some(entry.id),
             generated_at: Utc::now(),
             resolved_at: None,
-                    }]
-                }
+        }]
+    }
 
-                /// Substances where dose instability is itself the hazard: drops risk
-                /// withdrawal/rebound, increases re-escalate. Encoded from the Nov 2026
-                /// withdrawal playcard (freeze-don't-retreat taper framework).
-                pub const TAPER_WATCHLIST: &'static [&'static str] = &["memantine", "kratom"];
+    /// Substances where dose instability is itself the hazard: drops risk
+    /// withdrawal/rebound, increases re-escalate. Encoded from the Nov 2026
+    /// withdrawal playcard (freeze-don't-retreat taper framework).
+    pub const TAPER_WATCHLIST: &'static [&'static str] = &["memantine", "kratom"];
 
-                /// Flags dose *changes* on taper-watchlist substances that break the
-                /// agreed framework: >25% down within 48h (a retreat, not a taper step)
-                /// or >25% up within 48h (going back up, which the framework forbids).
-                /// Plan-paced steps (days apart, <=25%) and first-ever logs stay silent.
-                pub fn check_taper(&self, entry: &LogEntry, existing: &[LogEntry]) -> Vec<Alert> {
-                    let key = normalize_substance(&entry.name);
-                    if !Self::TAPER_WATCHLIST.contains(&key.as_str()) {
-                        return Vec::new();
-                    }
-                    let Some(new_qty) = entry.quantity else {
-                        return Vec::new();
-                    };
-                    // Most recent prior log of the same substance, compatible units.
-                    let Some(prev) = existing
-                        .iter()
-                        .filter(|e| e.id != entry.id && normalize_substance(&e.name) == key)
-                        .filter(|e| e.unit == entry.unit)
-                        .filter(|e| e.timestamp < entry.timestamp)
-                        .max_by_key(|e| e.timestamp)
-                    else {
-                        return Vec::new();
-                    };
-                    let Some(prev_qty) = prev.quantity else {
-                        return Vec::new();
-                    };
-                    if prev_qty <= 0.0 {
-                        return Vec::new();
-                    }
-                    let age_h = (entry.timestamp - prev.timestamp).num_minutes() as f64 / 60.0;
-                    if age_h > 48.0 {
-                        return Vec::new();
-                    }
-                    let change = (new_qty - prev_qty) / prev_qty;
-                    if change.abs() <= 0.25 {
-                        return Vec::new();
-                    }
-                    let unit = entry.unit.as_deref().unwrap_or("");
-                    let (message, recommendation) = if change < 0.0 {
-                        (
-                            format!(
-                                "{} down {:.0}% ({} → {} {}) within {:.0}h — faster than the taper plan allows",
-                                entry.name,
-                                change.abs() * 100.0,
-                                prev_qty,
-                                new_qty,
-                                unit,
-                                age_h
-                            ),
-                            "Playcard rule: freeze, don't retreat. Step changes belong on the plan's \
+    /// Flags dose *changes* on taper-watchlist substances that break the
+    /// agreed framework: >25% down within 48h (a retreat, not a taper step)
+    /// or >25% up within 48h (going back up, which the framework forbids).
+    /// Plan-paced steps (days apart, <=25%) and first-ever logs stay silent.
+    pub fn check_taper(&self, entry: &LogEntry, existing: &[LogEntry]) -> Vec<Alert> {
+        let key = normalize_substance(&entry.name);
+        if !Self::TAPER_WATCHLIST.contains(&key.as_str()) {
+            return Vec::new();
+        }
+        let Some(new_qty) = entry.quantity else {
+            return Vec::new();
+        };
+        // Most recent prior log of the same substance, compatible units.
+        let Some(prev) = existing
+            .iter()
+            .filter(|e| e.id != entry.id && normalize_substance(&e.name) == key)
+            .filter(|e| e.unit == entry.unit)
+            .filter(|e| e.timestamp < entry.timestamp)
+            .max_by_key(|e| e.timestamp)
+        else {
+            return Vec::new();
+        };
+        let Some(prev_qty) = prev.quantity else {
+            return Vec::new();
+        };
+        if prev_qty <= 0.0 {
+            return Vec::new();
+        }
+        let age_h = (entry.timestamp - prev.timestamp).num_minutes() as f64 / 60.0;
+        if age_h > 48.0 {
+            return Vec::new();
+        }
+        let change = (new_qty - prev_qty) / prev_qty;
+        if change.abs() <= 0.25 {
+            return Vec::new();
+        }
+        let unit = entry.unit.as_deref().unwrap_or("");
+        let (message, recommendation) = if change < 0.0 {
+            (
+                format!(
+                    "{} down {:.0}% ({} → {} {}) within {:.0}h — faster than the taper plan allows",
+                    entry.name,
+                    change.abs() * 100.0,
+                    prev_qty,
+                    new_qty,
+                    unit,
+                    age_h
+                ),
+                "Playcard rule: freeze, don't retreat. Step changes belong on the plan's \
                              schedule (days per step); a >25% drop in 48h is a retreat and invites \
                              rebound. Holding the current dose on a bad day is always allowed."
-                                .to_string(),
-                        )
-                    } else {
-                        (
+                    .to_string(),
+            )
+        } else {
+            (
                             format!(
                                 "{} up {:.0}% ({} → {} {}) within {:.0}h — the taper framework says never go back up",
                                 entry.name,
@@ -375,22 +377,22 @@ impl SafetyEngine {
                              conversation, not a dose."
                                 .to_string(),
                         )
-                    };
-                    vec![Alert {
-                        id: uuid::Uuid::new_v4(),
-                        user_id: entry.user_id.clone(),
-                        alert_type: AlertType::Warning,
-                        severity: AlertSeverity::Warning,
-                        message,
-                        recommendation: Some(recommendation),
-                        is_acknowledged: false,
-                        linked_entry_id: Some(entry.id),
-                        generated_at: Utc::now(),
-                        resolved_at: None,
-                    }]
-                }
+        };
+        vec![Alert {
+            id: uuid::Uuid::new_v4(),
+            user_id: entry.user_id.clone(),
+            alert_type: AlertType::Warning,
+            severity: AlertSeverity::Warning,
+            message,
+            recommendation: Some(recommendation),
+            is_acknowledged: false,
+            linked_entry_id: Some(entry.id),
+            generated_at: Utc::now(),
+            resolved_at: None,
+        }]
+    }
 
-                fn check_stimulant_tachycardia(
+    fn check_stimulant_tachycardia(
         &self,
         entry: &VitalsEntry,
         recent_substances: &[RecentSubstance],

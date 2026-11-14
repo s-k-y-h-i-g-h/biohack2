@@ -77,7 +77,10 @@ fn parse_filter(q: &EntriesQuery) -> Result<LogEntryFilter, Response> {
     }
     if let Some(ref cat) = q.category {
         let cat = cat.to_lowercase();
-        f.category = Some(ItemType::from_str(&cat).ok_or_else(|| bad_request(&format!("unknown category: {cat}")))?);
+        f.category = Some(
+            ItemType::from_str(&cat)
+                .ok_or_else(|| bad_request(&format!("unknown category: {cat}")))?,
+        );
     }
     Ok(f)
 }

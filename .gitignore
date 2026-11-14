@@ -36,3 +36,4 @@ Thumbs.db
 # App database (durable store — lives on the machine, not in git)
 biohack.db
 biohack.db-*
+target-verify/

@@ -64,7 +64,11 @@ async fn substance_models_round_trip_and_are_idempotent(pool: DbPool) -> anyhow:
     let models = db::get_substance_models(&pool).await?;
     assert_eq!(models.len(), n);
     for m in &models {
-        assert!(!m.provenance.trim().is_empty(), "{} provenance", m.substance);
+        assert!(
+            !m.provenance.trim().is_empty(),
+            "{} provenance",
+            m.substance
+        );
         if m.model_class != ModelClass::Decay {
             assert!(
                 m.rationale.as_deref().unwrap_or("").trim().len() > 0,

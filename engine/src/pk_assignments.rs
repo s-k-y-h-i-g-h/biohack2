@@ -26,10 +26,16 @@ use crate::pk_params::SubstanceModel;
 /// (exact catalog name, class, rationale — `""` allowed only for `decay`)
 const SEED_MODEL_CLASSES: &[(&str, ModelClass, &str)] = &[
     // ── Vitamins & minerals ──────────────────────────────────────────────
-    ("Vitamin D3", ModelClass::Accumulation,
-     "Fat-soluble; sequestered in adipose and re-released — serum 25(OH)D reaches steady state over ~6-8 weeks of daily dosing, so a 24h plasma figure massively understates persistence."),
-    ("Vitamin K2", ModelClass::Accumulation,
-     "Fat-soluble menaquinone; hepatic and extrahepatic tissue storage with slow clearance (days), steady state over weeks."),
+    (
+        "Vitamin D3",
+        ModelClass::Accumulation,
+        "Fat-soluble; sequestered in adipose and re-released — serum 25(OH)D reaches steady state over ~6-8 weeks of daily dosing, so a 24h plasma figure massively understates persistence.",
+    ),
+    (
+        "Vitamin K2",
+        ModelClass::Accumulation,
+        "Fat-soluble menaquinone; hepatic and extrahepatic tissue storage with slow clearance (days), steady state over weeks.",
+    ),
     ("B-Complex", ModelClass::Decay, ""),
     ("Magnesium Glycinate", ModelClass::Decay, ""),
     ("Zinc", ModelClass::Decay, ""),
@@ -38,14 +44,23 @@ const SEED_MODEL_CLASSES: &[(&str, ModelClass, &str)] = &[
     ("L-Theanine", ModelClass::Decay, ""),
     ("L-Tyrosine", ModelClass::Decay, ""),
     // ── Lipids & membrane actives ────────────────────────────────────────
-    ("Omega-3 Fish Oil", ModelClass::Accumulation,
-     "EPA/DHA incorporate into membrane phospholipids over weeks (RBC omega-3 index turnover ~120 days); the effect curve tracks tissue enrichment, not the plasma clearance of a single dose."),
+    (
+        "Omega-3 Fish Oil",
+        ModelClass::Accumulation,
+        "EPA/DHA incorporate into membrane phospholipids over weeks (RBC omega-3 index turnover ~120 days); the effect curve tracks tissue enrichment, not the plasma clearance of a single dose.",
+    ),
     ("Phosphatidylserine", ModelClass::Decay, ""),
-    ("CoQ10", ModelClass::Accumulation,
-     "Plasma half-life ~24-33h but tissue/mitochondrial saturation builds over 2-4 weeks of daily dosing; single-dose decay understates the steady-state rise."),
+    (
+        "CoQ10",
+        ModelClass::Accumulation,
+        "Plasma half-life ~24-33h but tissue/mitochondrial saturation builds over 2-4 weeks of daily dosing; single-dose decay understates the steady-state rise.",
+    ),
     // ── Creatine ─────────────────────────────────────────────────────────
-    ("Creatine Monohydrate", ModelClass::Plateau,
-     " Muscle creatine pool saturates via the SAT1 transporter (total pool ~160 mmol/kg dry mass); above saturation, additional dose is oxidised to creatinine and excreted — more dose ≠ more active."),
+    (
+        "Creatine Monohydrate",
+        ModelClass::Plateau,
+        " Muscle creatine pool saturates via the SAT1 transporter (total pool ~160 mmol/kg dry mass); above saturation, additional dose is oxidised to creatinine and excreted — more dose ≠ more active.",
+    ),
     // ── Botanicals & adaptogens (linear kinetics) ────────────────────────
     ("Lion's Mane", ModelClass::Decay, ""),
     ("Ashwagandha", ModelClass::Decay, ""),
@@ -63,25 +78,36 @@ const SEED_MODEL_CLASSES: &[(&str, ModelClass, &str)] = &[
     // ── Proteins ─────────────────────────────────────────────────────────
     ("Collagen Peptides", ModelClass::Decay, ""),
     // ── Live organisms ───────────────────────────────────────────────────
-    ("Probiotic", ModelClass::None,
-     "Not a chemical dose curve: effect comes from transient colonisation and immune signalling, not a circulating compound. A one-compartment model would be fake precision."),
+    (
+        "Probiotic",
+        ModelClass::None,
+        "Not a chemical dose curve: effect comes from transient colonisation and immune signalling, not a circulating compound. A one-compartment model would be fake precision.",
+    ),
     // ── Hormones & neuropeptides ─────────────────────────────────────────
     ("Melatonin", ModelClass::Decay, ""),
-    ("Estradiol Enanthate", ModelClass::Decay,
-     ""), // depot release-rate-limited but approximately first-order over the ~8d window; decay is the honest v1 model
+    ("Estradiol Enanthate", ModelClass::Decay, ""), // depot release-rate-limited but approximately first-order over the ~8d window; decay is the honest v1 model
     // ── Stimulants ───────────────────────────────────────────────────────
     ("Caffeine", ModelClass::Decay, ""),
     // ── Designer / research compounds ────────────────────────────────────
     ("Cyclazodone", ModelClass::Decay, ""),
     ("N-Methyl-Cyclazodone", ModelClass::Decay, ""),
-    ("9-Me-BC", ModelClass::None,
-     "No reliable half-life in the catalog ('unknown') and thin human PK data — refuse to model rather than invent a curve."),
+    (
+        "9-Me-BC",
+        ModelClass::None,
+        "No reliable half-life in the catalog ('unknown') and thin human PK data — refuse to model rather than invent a curve.",
+    ),
     // ── Cannabinoids ─────────────────────────────────────────────────────
-    ("CBD", ModelClass::Accumulation,
-     "Highly lipophilic with substantial tissue redistribution; chronic dosing shows multi-day apparent half-life and rising steady-state plasma levels — single-dose decay understates persistence."),
+    (
+        "CBD",
+        ModelClass::Accumulation,
+        "Highly lipophilic with substantial tissue redistribution; chronic dosing shows multi-day apparent half-life and rising steady-state plasma levels — single-dose decay understates persistence.",
+    ),
     // ── Depressants ──────────────────────────────────────────────────────
-    ("Alcohol", ModelClass::None,
-     "Zero-order elimination (~7 g/h, capacity-limited ADH) — a first-order decay curve would be wrong exactly where it matters (the descending limb). Linear-elimination model is a separate Phase 2 decision, not a decay-with-parameters hack."),
+    (
+        "Alcohol",
+        ModelClass::None,
+        "Zero-order elimination (~7 g/h, capacity-limited ADH) — a first-order decay curve would be wrong exactly where it matters (the descending limb). Linear-elimination model is a separate Phase 2 decision, not a decay-with-parameters hack.",
+    ),
     // ── Opioid-receptor botanical ────────────────────────────────────────
     ("Kratom", ModelClass::Decay, ""),
     // ── Prescription ─────────────────────────────────────────────────────
@@ -151,20 +177,32 @@ mod tests {
             .filter(|i| !table_names.contains(i.name.as_str()))
             .map(|i| i.name.as_str())
             .collect();
-        assert!(missing.is_empty(), "catalog items with no ModelClass assignment: {missing:?}");
+        assert!(
+            missing.is_empty(),
+            "catalog items with no ModelClass assignment: {missing:?}"
+        );
 
         // Stale table keys (name changed in catalog) are drift too.
         let catalog_names: std::collections::HashSet<&str> =
             catalog.iter().map(|i| i.name.as_str()).collect();
-        let stale: Vec<&&str> = table_names.iter().filter(|n| !catalog_names.contains(**n)).collect();
-        assert!(stale.is_empty(), "SEED_MODEL_CLASSES keys not in catalog: {stale:?}");
+        let stale: Vec<&&str> = table_names
+            .iter()
+            .filter(|n| !catalog_names.contains(**n))
+            .collect();
+        assert!(
+            stale.is_empty(),
+            "SEED_MODEL_CLASSES keys not in catalog: {stale:?}"
+        );
     }
 
     #[test]
     fn non_decay_assignments_carry_rationale() {
         for (name, class, rationale) in SEED_MODEL_CLASSES {
             if *class != ModelClass::Decay {
-                assert!(!rationale.is_empty(), "'{name}' is {class:?} but has no rationale (T205 requires one)");
+                assert!(
+                    !rationale.is_empty(),
+                    "'{name}' is {class:?} but has no rationale (T205 requires one)"
+                );
             }
         }
     }
@@ -181,20 +219,43 @@ mod tests {
     #[test]
     fn spot_checks_match_pharmacology() {
         // Spec 003's own examples plus the judgment calls.
-        assert_eq!(assignment_for_name("Creatine Monohydrate").unwrap().0, ModelClass::Plateau);
-        assert_eq!(assignment_for_name("Vitamin D3").unwrap().0, ModelClass::Accumulation);
-        assert_eq!(assignment_for_name("CBD").unwrap().0, ModelClass::Accumulation);
+        assert_eq!(
+            assignment_for_name("Creatine Monohydrate").unwrap().0,
+            ModelClass::Plateau
+        );
+        assert_eq!(
+            assignment_for_name("Vitamin D3").unwrap().0,
+            ModelClass::Accumulation
+        );
+        assert_eq!(
+            assignment_for_name("CBD").unwrap().0,
+            ModelClass::Accumulation
+        );
         assert_eq!(assignment_for_name("Alcohol").unwrap().0, ModelClass::None);
-        assert_eq!(assignment_for_name("Probiotic").unwrap().0, ModelClass::None);
-        assert_eq!(assignment_for_name("Caffeine").unwrap().0, ModelClass::Decay);
+        assert_eq!(
+            assignment_for_name("Probiotic").unwrap().0,
+            ModelClass::None
+        );
+        assert_eq!(
+            assignment_for_name("Caffeine").unwrap().0,
+            ModelClass::Decay
+        );
     }
 
     #[test]
     fn build_models_is_total_and_carries_parsed_numbers() {
         let models = build_models(&seed_catalog());
-        assert_eq!(models.len(), seed_catalog().len(), "one row per item, total audit");
+        assert_eq!(
+            models.len(),
+            seed_catalog().len(),
+            "one row per item, total audit"
+        );
         for m in &models {
-            assert!(!m.provenance.is_empty(), "{:?} missing provenance", m.substance);
+            assert!(
+                !m.provenance.is_empty(),
+                "{:?} missing provenance",
+                m.substance
+            );
         }
         let caffeine = models.iter().find(|m| m.substance == "Caffeine").unwrap();
         assert_eq!(caffeine.half_life_hours, Some(5.0));

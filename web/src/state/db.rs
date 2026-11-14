@@ -108,9 +108,9 @@ pub fn seed_substance_models(items: &[CatalogItem]) -> Result<(), String> {
 /// Read persisted PK models; if the store predates T206 (or was cleared),
 /// bootstrap from the current persisted catalog and store the result.
 pub fn get_substance_models() -> Vec<engine::pk_params::SubstanceModel> {
-    if let Ok(models) = LocalStorage::get::<Vec<engine::pk_params::SubstanceModel>>(
-        STORAGE_KEY_SUBSTANCE_MODELS,
-    ) {
+    if let Ok(models) =
+        LocalStorage::get::<Vec<engine::pk_params::SubstanceModel>>(STORAGE_KEY_SUBSTANCE_MODELS)
+    {
         return models;
     }
     let catalog: Vec<CatalogItem> =

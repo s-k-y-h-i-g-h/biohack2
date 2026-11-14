@@ -143,7 +143,6 @@ pub fn seed_catalog() -> Vec<CatalogItem> {
             &[],
             &["May interact with thyroid medication"],
         ),
-        
         // Nootropics / Cognitive (continued)
         make_item(
             "Piracetam",
@@ -159,7 +158,7 @@ pub fn seed_catalog() -> Vec<CatalogItem> {
                 "Generally well-tolerated; may cause headache, insomnia, or gastrointestinal discomfort at high doses",
                 "Effects may accumulate with continuous use",
             ],
-        ),// Adaptogens / Herbs
+        ), // Adaptogens / Herbs
         make_item(
             "Ashwagandha",
             ItemType::Supplement,
@@ -389,7 +388,6 @@ pub fn seed_catalog() -> Vec<CatalogItem> {
                 "Strong stimulant — risk of tachycardia and hypertension at high doses",
             ],
         ),
-        
         // Stimulants / Wakefulness (continued)
         make_item(
             "N-Methyl-Cyclazodone",
@@ -406,7 +404,7 @@ pub fn seed_catalog() -> Vec<CatalogItem> {
                 "Pemoline analog: potential hepatotoxicity, monitor liver enzymes",
                 "Strong stimulant — risk of tachycardia and hypertension at high doses",
             ],
-        ),// Cannabinoids
+        ), // Cannabinoids
         make_item(
             "CBD",
             ItemType::Supplement,
@@ -496,7 +494,6 @@ pub fn seed_catalog() -> Vec<CatalogItem> {
                 "May cause dizziness, confusion, headache",
             ],
         ),
-
         // Hormones / Endocrine
         make_item(
             "Estradiol Enanthate",
@@ -573,8 +570,8 @@ mod tests {
             "CBD",
             "Kratom",
             "Alcohol",
-                        "Memantine",
-                        "Estradiol Enanthate",
+            "Memantine",
+            "Estradiol Enanthate",
             "L-Theanine",
         ] {
             assert!(

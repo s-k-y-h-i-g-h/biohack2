@@ -41,19 +41,19 @@
 
 **Purpose**: The math. Deterministic, offline, unit-tested, identical across targets.
 
-- [ ] T209 Record the library decision in `research.md`: adopt `pharmsol` or hand-roll. **Licence verified before code.** Record the decision and the verification date.
-- [ ] T210 Implement `DoseEvent` derivation from `LogEntry` in `engine/src/pharmacokinetics.rs` (substance, amount, unit, timestamp, entry id)
-- [ ] T211 Implement unit validation: dose unit must match the model's expected unit; mismatch blocks the model and surfaces the mismatch (no silent conversion)
-- [ ] T212 Implement `decay` model (one-compartment, first-order) — analytic, no ODE solver needed
+- [x] T209 Record the library decision in `research.md`: adopt `pharmsol` or hand-roll. **Licence verified before code.** Record the decision and the verification date. → **hand-roll**; decision recorded before any sim code; zero new dependencies, so no third-party licence gate applies (pharmsol licence unverifiable while offline — noted in research.md)
+- [x] T210 Implement `DoseEvent` derivation from `LogEntry` in `engine/src/pharmacokinetics.rs` (substance, amount, unit, timestamp, entry id) — missing quantity/unit is rejected, never defaulted
+- [x] T211 Implement unit validation: dose unit must match the model's expected unit; mismatch blocks the model and surfaces the mismatch (no silent conversion) — plus one-unit consistency across all doses
+- [x] T212 Implement `decay` model (one-compartment, first-order) — analytic, no ODE solver needed
 - [ ] T213 Implement `oral_absorption` model (lag/absorption phase + decay)
 - [ ] T214 Implement `plateau` model (saturation ceiling)
 - [ ] T215 Implement `accumulation` model (multi-day rise toward steady state)
-- [ ] T216 Implement multi-dose superposition (summed contributions at time t)
-- [ ] T217 Implement band computation: evaluate at range endpoints → `low` / `expected` / `high` (FR-033). No midpoint-only output
-- [ ] T218 Implement the documented default variability factor for single-value half-lives, and mark the output as assumption-derived (FR-033, A5/AC-2)
-- [ ] T219 Implement per-substance render windowing so long half-lives do not blow up the window (edge case)
-- [ ] T220 Implement `sample_series(substance, start, end, step) -> Vec<ActiveDosePoint>` as the public API
-- [ ] T221 Unit tests: known analytic cases (single dose, half-life check at t=half_life; two doses sum; plateau saturates; accumulation rises)
+- [x] T216 Implement multi-dose superposition (summed contributions at time t) — causal: future doses contribute nothing
+- [x] T217 Implement band computation: evaluate at range endpoints → `low` / `expected` / `high` (FR-033). No midpoint-only output
+- [x] T218 Implement the documented default variability factor for single-value half-lives, and mark the output as assumption-derived (FR-033, A5/AC-2) → `DEFAULT_VARIABILITY = 0.25`, documented in research.md; points carry `band_is_assumption`
+- [ ] T219 Implement per-substance render windowing so long half-lives do not blow up the window (edge case) — partial: `MAX_SERIES_POINTS` fuse in place; windowing logic pending
+- [ ] T220 Implement `sample_series(substance, start, end, step) -> Vec<ActiveDosePoint>` as the public API — decay path exists; dispatch over all model classes pending T213–T215
+- [ ] T221 Unit tests: known analytic cases (single dose, half-life check at t=half_life; two doses sum; plateau saturates; accumulation rises) — decay cases done (11 new tests); plateau/accumulation pending their classes
 - [ ] T222 Create a shared **test vector** file (fixture: log + params → expected series) used by native and WASM tests
 - [ ] T223 WASM test: same fixture produces the same series on `wasm32` within documented tolerance (FR-038, SC-033)
 - [ ] T224 Test: local-time rendering of UTC-stored doses is correct across a DST boundary (chrono `wasmbind`/`now`/`clock` features must stay enabled — see the 2026-09-09 incident)

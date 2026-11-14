@@ -325,32 +325,133 @@ pub fn pair_rules(a: &[MechanismClass], b: &[MechanismClass]) -> Vec<RuleHit> {
 /// Each entry: (name-key, tags). Keys are matched with `contains` on the
 /// normalized name, so "Omega-3 Fish Oil" matches "omega-3".
 const SEED_TAGS: &[(&str, &[MechanismClass])] = &[
-    ("apigenin", &[MechanismClass::Antiplatelet, MechanismClass::Cyp1a2Inhibitor, MechanismClass::Cyp3a4Substrate, MechanismClass::Cyp2c19Substrate]),
+    (
+        "apigenin",
+        &[
+            MechanismClass::Antiplatelet,
+            MechanismClass::Cyp1a2Inhibitor,
+            MechanismClass::Cyp3a4Substrate,
+            MechanismClass::Cyp2c19Substrate,
+        ],
+    ),
     ("alcohol", &[MechanismClass::CnsDepressant]),
-    ("ashwagandha", &[MechanismClass::ThyroidModulating, MechanismClass::Immunomodulating, MechanismClass::CnsDepressant]),
-    ("berberine", &[MechanismClass::Cyp3a4Inhibitor, MechanismClass::Hypoglycemic]),
-    ("cbd", &[MechanismClass::Cyp3a4Inhibitor, MechanismClass::Cyp2c19Inhibitor, MechanismClass::CnsDepressant]),
-    ("caffeine", &[MechanismClass::Stimulant, MechanismClass::Hypertensive, MechanismClass::Cyp1a2Substrate]),
+    (
+        "ashwagandha",
+        &[
+            MechanismClass::ThyroidModulating,
+            MechanismClass::Immunomodulating,
+            MechanismClass::CnsDepressant,
+        ],
+    ),
+    (
+        "berberine",
+        &[
+            MechanismClass::Cyp3a4Inhibitor,
+            MechanismClass::Hypoglycemic,
+        ],
+    ),
+    (
+        "cbd",
+        &[
+            MechanismClass::Cyp3a4Inhibitor,
+            MechanismClass::Cyp2c19Inhibitor,
+            MechanismClass::CnsDepressant,
+        ],
+    ),
+    (
+        "caffeine",
+        &[
+            MechanismClass::Stimulant,
+            MechanismClass::Hypertensive,
+            MechanismClass::Cyp1a2Substrate,
+        ],
+    ),
     ("coq10", &[MechanismClass::Hypotensive]),
-    ("curcumin", &[MechanismClass::Antiplatelet, MechanismClass::Cyp3a4Inhibitor]),
-    ("cyclazodone", &[MechanismClass::Stimulant, MechanismClass::Hypertensive]),
-    ("kratom", &[MechanismClass::Serotonergic, MechanismClass::Stimulant, MechanismClass::CnsDepressant, MechanismClass::Cyp3a4Substrate, MechanismClass::Cyp2c19Substrate]),
+    (
+        "curcumin",
+        &[
+            MechanismClass::Antiplatelet,
+            MechanismClass::Cyp3a4Inhibitor,
+        ],
+    ),
+    (
+        "cyclazodone",
+        &[MechanismClass::Stimulant, MechanismClass::Hypertensive],
+    ),
+    (
+        "kratom",
+        &[
+            MechanismClass::Serotonergic,
+            MechanismClass::Stimulant,
+            MechanismClass::CnsDepressant,
+            MechanismClass::Cyp3a4Substrate,
+            MechanismClass::Cyp2c19Substrate,
+        ],
+    ),
     ("l-theanine", &[MechanismClass::CnsDepressant]),
     ("l-tyrosine", &[MechanismClass::ThyroidModulating]),
-    ("magnesium", &[MechanismClass::AbsorptionChelator, MechanismClass::Hypotensive]),
+    (
+        "magnesium",
+        &[
+            MechanismClass::AbsorptionChelator,
+            MechanismClass::Hypotensive,
+        ],
+    ),
     ("melatonin", &[MechanismClass::CnsDepressant]),
-    ("memantine", &[MechanismClass::CnsDepressant, MechanismClass::GlutamatergicModulating]),
-    ("n-methyl-cyclazodone", &[MechanismClass::Stimulant, MechanismClass::Hypertensive]),
+    (
+        "memantine",
+        &[
+            MechanismClass::CnsDepressant,
+            MechanismClass::GlutamatergicModulating,
+        ],
+    ),
+    (
+        "n-methyl-cyclazodone",
+        &[MechanismClass::Stimulant, MechanismClass::Hypertensive],
+    ),
     ("nac", &[MechanismClass::GlutamatergicModulating]),
-    ("omega-3", &[MechanismClass::Antiplatelet, MechanismClass::Hypotensive]),
+    (
+        "omega-3",
+        &[MechanismClass::Antiplatelet, MechanismClass::Hypotensive],
+    ),
     ("piracetam", &[MechanismClass::GlutamatergicModulating]),
-    ("quercetin", &[MechanismClass::Antiplatelet, MechanismClass::Cyp3a4Inhibitor, MechanismClass::Immunomodulating]),
-    ("reishi", &[MechanismClass::Antiplatelet, MechanismClass::Immunomodulating]),
-    ("resveratrol", &[MechanismClass::Antiplatelet, MechanismClass::Immunomodulating]),
-    ("rhodiola", &[MechanismClass::Serotonergic, MechanismClass::Stimulant]),
+    (
+        "quercetin",
+        &[
+            MechanismClass::Antiplatelet,
+            MechanismClass::Cyp3a4Inhibitor,
+            MechanismClass::Immunomodulating,
+        ],
+    ),
+    (
+        "reishi",
+        &[
+            MechanismClass::Antiplatelet,
+            MechanismClass::Immunomodulating,
+        ],
+    ),
+    (
+        "resveratrol",
+        &[
+            MechanismClass::Antiplatelet,
+            MechanismClass::Immunomodulating,
+        ],
+    ),
+    (
+        "rhodiola",
+        &[MechanismClass::Serotonergic, MechanismClass::Stimulant],
+    ),
     ("cordyceps", &[MechanismClass::Immunomodulating]),
     ("umcka", &[MechanismClass::Immunomodulating]),
-    ("9-me-bc", &[MechanismClass::MaoInhibitor, MechanismClass::Serotonergic, MechanismClass::Stimulant, MechanismClass::Hypertensive]),
+    (
+        "9-me-bc",
+        &[
+            MechanismClass::MaoInhibitor,
+            MechanismClass::Serotonergic,
+            MechanismClass::Stimulant,
+            MechanismClass::Hypertensive,
+        ],
+    ),
     ("vitamin d3", &[MechanismClass::Immunomodulating]),
     ("vitamin k2", &[MechanismClass::Procoagulant]),
     ("zinc", &[MechanismClass::AbsorptionChelator]),
@@ -473,7 +574,10 @@ mod tests {
         let b = tag_for_name("Memantine");
         assert!(a.contains(&MechanismClass::GlutamatergicModulating));
         let hits = pair_rules(&a, &b);
-        assert!(hits.iter().any(|h| h.code == "additive_glutamatergic_modulation"));
+        assert!(
+            hits.iter()
+                .any(|h| h.code == "additive_glutamatergic_modulation")
+        );
     }
 
     #[test]

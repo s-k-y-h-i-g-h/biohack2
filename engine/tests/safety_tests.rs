@@ -114,7 +114,9 @@ fn test_alcohol_plus_kratom_fires_additive_cns_depression() {
     assert!(!alerts.is_empty(), "alcohol + kratom must alert");
     assert_eq!(alerts[0].alert_type, AlertType::Interaction);
     assert!(
-        alerts.iter().any(|a| a.message.contains("Additive CNS depression")),
+        alerts
+            .iter()
+            .any(|a| a.message.contains("Additive CNS depression")),
         "expected additive CNS depression alert: {alerts:?}"
     );
 }
@@ -128,7 +130,9 @@ fn test_alcohol_plus_memantine_fires_additive_cns_depression() {
     let alerts = engine.check_interactions(&new_entry, &existing);
     assert!(!alerts.is_empty(), "memantine + alcohol must alert");
     assert!(
-        alerts.iter().any(|a| a.message.contains("Additive CNS depression")),
+        alerts
+            .iter()
+            .any(|a| a.message.contains("Additive CNS depression")),
         "expected additive CNS depression alert: {alerts:?}"
     );
 }
@@ -141,7 +145,10 @@ fn test_alcohol_plus_caffeine_stays_silent() {
     let new_entry = make_log("Alcohol", ItemType::Drug, 0);
     let existing = vec![make_log("Caffeine", ItemType::Supplement, 1)];
     let alerts = engine.check_interactions(&new_entry, &existing);
-    assert!(alerts.is_empty(), "alcohol + caffeine should stay silent: {alerts:?}");
+    assert!(
+        alerts.is_empty(),
+        "alcohol + caffeine should stay silent: {alerts:?}"
+    );
 }
 
 #[test]
@@ -177,11 +184,13 @@ fn test_taper_retreat_33pct_in_20h_fires() {
     assert_eq!(alerts.len(), 1, "33% retreat in 20h must alert: {alerts:?}");
     assert_eq!(alerts[0].severity, AlertSeverity::Warning);
     assert!(alerts[0].message.contains("down 33%"));
-    assert!(alerts[0]
-        .recommendation
-        .as_deref()
-        .unwrap()
-        .contains("freeze, don't retreat"));
+    assert!(
+        alerts[0]
+            .recommendation
+            .as_deref()
+            .unwrap()
+            .contains("freeze, don't retreat")
+    );
 }
 
 #[test]
@@ -189,14 +198,18 @@ fn test_taper_plan_pace_and_small_steps_stay_silent() {
     let engine = SafetyEngine::new();
     // Same 33% drop but 4 days apart: plan-paced, not a retreat.
     let slow = dosed_at("Memantine", 80.0, "mg", 0);
-    assert!(engine
-        .check_taper(&slow, &[dosed_at("Memantine", 120.0, "mg", 96)])
-        .is_empty());
+    assert!(
+        engine
+            .check_taper(&slow, &[dosed_at("Memantine", 120.0, "mg", 96)])
+            .is_empty()
+    );
     // 20% drop within the window: at-or-under the 25% allowance.
     let small = dosed_at("Memantine", 64.0, "mg", 0);
-    assert!(engine
-        .check_taper(&small, &[dosed_at("Memantine", 80.0, "mg", 10)])
-        .is_empty());
+    assert!(
+        engine
+            .check_taper(&small, &[dosed_at("Memantine", 80.0, "mg", 10)])
+            .is_empty()
+    );
     // First-ever log: nothing to compare against.
     let first = dosed_at("Memantine", 80.0, "mg", 0);
     assert!(engine.check_taper(&first, &[]).is_empty());
@@ -395,7 +408,10 @@ fn test_tagged_serotonergic_pair_alerts_when_protocol_silent() {
         .iter()
         .filter(|a| a.message.contains("serotonin-syndrome"))
         .count();
-    assert_eq!(sero, 1, "kratom + rhodiola must fire the serotonergic pair rule: {alerts:?}");
+    assert_eq!(
+        sero, 1,
+        "kratom + rhodiola must fire the serotonergic pair rule: {alerts:?}"
+    );
     assert!(alerts.iter().any(|a| a.severity == AlertSeverity::Critical));
 }
 
@@ -413,7 +429,9 @@ fn test_serotonin_protocol_suppresses_duplicate_pair_rule() {
         .count();
     assert_eq!(sero, 1, "protocol fires exactly once: {alerts:?}");
     assert!(
-        !alerts.iter().any(|a| a.message.contains("Two serotonergic agents")),
+        !alerts
+            .iter()
+            .any(|a| a.message.contains("Two serotonergic agents")),
         "pair rule must not double-alert when the protocol fired: {alerts:?}"
     );
 }
@@ -432,7 +450,10 @@ fn test_pair_rule_deduplicates_per_pair_and_rule() {
         .iter()
         .filter(|a| a.message.contains("CYP3A4 inhibition"))
         .count();
-    assert_eq!(cyp3a4, 1, "one CBD+kratom CYP3A4 alert per save: {alerts:?}");
+    assert_eq!(
+        cyp3a4, 1,
+        "one CBD+kratom CYP3A4 alert per save: {alerts:?}"
+    );
 }
 
 #[test]

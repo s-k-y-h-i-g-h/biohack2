@@ -35,8 +35,10 @@ pub fn main() {
             // Guard with js_sys::Reflect so a browser/context where navigator.serviceWorker
             // is unavailable doesn't throw during init and block the whole app from mounting.
             {
-                let navigator = web_sys::js_sys::Reflect::get(&win, &"navigator".into()).unwrap_or(JsValue::UNDEFINED);
-                let sw = web_sys::js_sys::Reflect::get(&navigator, &"service_worker".into()).unwrap_or(JsValue::UNDEFINED);
+                let navigator = web_sys::js_sys::Reflect::get(&win, &"navigator".into())
+                    .unwrap_or(JsValue::UNDEFINED);
+                let sw = web_sys::js_sys::Reflect::get(&navigator, &"service_worker".into())
+                    .unwrap_or(JsValue::UNDEFINED);
                 if !sw.is_undefined()
                     && let Ok(register) = web_sys::js_sys::Reflect::get(&sw, &"register".into())
                     && let Some(reg_fn) = register.dyn_ref::<web_sys::js_sys::Function>()

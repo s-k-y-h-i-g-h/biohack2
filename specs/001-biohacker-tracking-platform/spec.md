@@ -88,6 +88,8 @@ A biohacker creates a "Morning Protocol" stack that includes Vitamin D3, Magnesi
 
 > **Note**: User Stories 5 (Drug Interactions) and 6 (Insights) are **not** delegated to Hermes' Semantica knowledge graph. Per the 2026-09-13 decision (spec 002 removed), biohack2 has **no integration with Semantica** — the app is self-contained and must own its own safety features. US5 interaction detection lives in the engine (Phase 12: mechanism-class pair rules, FR-015); its UI wiring is open work. US6 (Insights) is deferred out of v1 scope. Semantica remains Hermes' private research KB with zero coupling to this codebase.
 
+> **Roadmap note (2026-10-11)**: US6 (Insights) now has a successor specification — [006-insights-loop](../006-insights-loop/spec.md) — which defines its shape and its honesty constraints. Three further specifications extend this one: [003-substance-core-pharmacokinetics](../003-substance-core-pharmacokinetics/spec.md) (active-dose simulation from the existing dose log), [004-wearable-health-ingest](../004-wearable-health-ingest/spec.md) (continuous vitals from wearables), [005-dual-frontend-terminal-web](../005-dual-frontend-terminal-web/spec.md) (terminal dashboard + in-browser dashboard sharing one widget codebase and one palette). None of them change v1 scope of this spec; they are the v2 surface.
+
 ---
 
 ### User Story 7 - Log Notes and Realizations (Priority: P7)

@@ -63,7 +63,9 @@ biohack2/
 
 ## Development
 
-The application is local-first — all data is stored in SQLite via WASM in the browser. No account required, no cloud dependency for v1.
+The application is local-first. The WASM frontend persists to **localStorage via `gloo-storage`**; SQLite via sqlx is the native/server path (`engine/src/db.rs`, `server/`). OPFS + SQLite-WASM is **not implemented** — see the drift table in `specs/README.md`. No account required, no cloud dependency for v1.
+
+See `specs/README.md` for the full feature map across specs 001 and 003–006.
 
 ### Safety Protocols
 

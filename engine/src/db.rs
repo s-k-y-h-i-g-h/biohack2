@@ -90,7 +90,7 @@ pub async fn migrate(pool: &DbPool) -> anyhow::Result<()> {
             provenance TEXT NOT NULL,
             catalog_version INTEGER NOT NULL DEFAULT 1,
             rationale TEXT
-        )"
+        )",
     )
     .execute(pool)
     .await?;
@@ -382,7 +382,9 @@ pub async fn upsert_substance_models(
     models: &[crate::pk_params::SubstanceModel],
 ) -> anyhow::Result<()> {
     for m in models {
-        let class_str = serde_json::to_string(&m.model_class)?.trim_matches('"').to_string();
+        let class_str = serde_json::to_string(&m.model_class)?
+            .trim_matches('"')
+            .to_string();
         let range_str = m
             .half_life_range
             .map(|(lo, hi)| serde_json::to_string(&[lo, hi]))
@@ -406,7 +408,9 @@ pub async fn upsert_substance_models(
     Ok(())
 }
 
-pub async fn get_substance_models(pool: &DbPool) -> anyhow::Result<Vec<crate::pk_params::SubstanceModel>> {
+pub async fn get_substance_models(
+    pool: &DbPool,
+) -> anyhow::Result<Vec<crate::pk_params::SubstanceModel>> {
     let rows = sqlx::query(
         "SELECT substance, model_class, half_life_hours, half_life_range, params, provenance, catalog_version, rationale FROM substance_models",
     )
@@ -427,7 +431,9 @@ pub async fn get_substance_models(pool: &DbPool) -> anyhow::Result<Vec<crate::pk
         out.push(crate::pk_params::SubstanceModel {
             substance: row.try_get("substance")?,
             model_class,
-            half_life_hours: row.try_get::<Option<f64>, _>("half_life_hours").unwrap_or(None),
+            half_life_hours: row
+                .try_get::<Option<f64>, _>("half_life_hours")
+                .unwrap_or(None),
             half_life_range,
             params: row
                 .try_get::<String, _>("params")
@@ -823,8 +829,10 @@ fn row_to_catalog_item(row: SqliteRow) -> CatalogItem {
             .unwrap_or(None)
             .or(derived.0),
         half_life_range: match (
-            row.try_get::<Option<f64>, _>("half_life_range_lo").unwrap_or(None),
-            row.try_get::<Option<f64>, _>("half_life_range_hi").unwrap_or(None),
+            row.try_get::<Option<f64>, _>("half_life_range_lo")
+                .unwrap_or(None),
+            row.try_get::<Option<f64>, _>("half_life_range_hi")
+                .unwrap_or(None),
         ) {
             (Some(lo), Some(hi)) => Some((lo, hi)),
             _ => derived.1,
@@ -888,8 +896,10 @@ fn row_to_alert(row: SqliteRow) -> Alert {
         user_id: row.try_get::<String, _>("user_id").unwrap_or_default(),
         alert_type: AlertType::from_str(&row.try_get::<String, _>("type").unwrap_or_default())
             .unwrap_or_default(),
-        severity: AlertSeverity::from_str(&row.try_get::<String, _>("severity").unwrap_or_default())
-            .unwrap_or_default(),
+        severity: AlertSeverity::from_str(
+            &row.try_get::<String, _>("severity").unwrap_or_default(),
+        )
+        .unwrap_or_default(),
         message: row.try_get::<String, _>("message").unwrap_or_default(),
         recommendation: row
             .try_get::<Option<String>, _>("recommendation")

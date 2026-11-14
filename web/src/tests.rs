@@ -799,5 +799,8 @@ fn test_relative_time_buckets() {
     // ever-growing day count.
     let old = (now - chrono::Duration::days(90)).with_timezone(&chrono::Utc);
     let rel = relative_time(&old);
-    assert!(rel.contains("2026"), "old entries should show the absolute date, got: {rel}");
+    assert!(
+        rel.contains("2026"),
+        "old entries should show the absolute date, got: {rel}"
+    );
 }
