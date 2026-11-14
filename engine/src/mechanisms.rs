@@ -321,11 +321,12 @@ pub fn pair_rules(a: &[MechanismClass], b: &[MechanismClass]) -> Vec<RuleHit> {
 
 // ── Classification ────────────────────────────────────────────────────────────
 
-/// Canonical tags for the 33-item seed catalog, keyed by normalized name token.
+/// Canonical tags for the 37-item seed catalog, keyed by normalized name token.
 /// Each entry: (name-key, tags). Keys are matched with `contains` on the
 /// normalized name, so "Omega-3 Fish Oil" matches "omega-3".
 const SEED_TAGS: &[(&str, &[MechanismClass])] = &[
     ("apigenin", &[MechanismClass::Antiplatelet, MechanismClass::Cyp1a2Inhibitor, MechanismClass::Cyp3a4Substrate, MechanismClass::Cyp2c19Substrate]),
+    ("alcohol", &[MechanismClass::CnsDepressant]),
     ("ashwagandha", &[MechanismClass::ThyroidModulating, MechanismClass::Immunomodulating, MechanismClass::CnsDepressant]),
     ("berberine", &[MechanismClass::Cyp3a4Inhibitor, MechanismClass::Hypoglycemic]),
     ("cbd", &[MechanismClass::Cyp3a4Inhibitor, MechanismClass::Cyp2c19Inhibitor, MechanismClass::CnsDepressant]),

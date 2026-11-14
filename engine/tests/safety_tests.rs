@@ -103,6 +103,61 @@ fn test_memantine_160mg_self_taper_is_critical() {
     assert!(engine.check_dose(&ok, &catalog).is_empty());
 }
 
+// ── Alcohol coverage (added after the 2026-11 kratom-withdrawal case) ────────
+
+#[test]
+fn test_alcohol_plus_kratom_fires_additive_cns_depression() {
+    let engine = SafetyEngine::new();
+    let new_entry = make_log("Alcohol", ItemType::Drug, 0);
+    let existing = vec![make_log("Kratom", ItemType::Drug, 2)];
+    let alerts = engine.check_interactions(&new_entry, &existing);
+    assert!(!alerts.is_empty(), "alcohol + kratom must alert");
+    assert_eq!(alerts[0].alert_type, AlertType::Interaction);
+    assert!(
+        alerts.iter().any(|a| a.message.contains("Additive CNS depression")),
+        "expected additive CNS depression alert: {alerts:?}"
+    );
+}
+
+#[test]
+fn test_alcohol_plus_memantine_fires_additive_cns_depression() {
+    // This week's dangerous axis: high-dose memantine + alcohol/withdrawal.
+    let engine = SafetyEngine::new();
+    let new_entry = make_log("Memantine", ItemType::Medication, 0);
+    let existing = vec![make_log("Alcohol", ItemType::Drug, 3)];
+    let alerts = engine.check_interactions(&new_entry, &existing);
+    assert!(!alerts.is_empty(), "memantine + alcohol must alert");
+    assert!(
+        alerts.iter().any(|a| a.message.contains("Additive CNS depression")),
+        "expected additive CNS depression alert: {alerts:?}"
+    );
+}
+
+#[test]
+fn test_alcohol_plus_caffeine_stays_silent() {
+    // Benign control: no depressant x stimulant class rule exists; a lone
+    // nightcap with espresso must not spam the alert stream.
+    let engine = SafetyEngine::new();
+    let new_entry = make_log("Alcohol", ItemType::Drug, 0);
+    let existing = vec![make_log("Caffeine", ItemType::Supplement, 1)];
+    let alerts = engine.check_interactions(&new_entry, &existing);
+    assert!(alerts.is_empty(), "alcohol + caffeine should stay silent: {alerts:?}");
+}
+
+#[test]
+fn test_alcohol_70g_is_critical_five_x_tripwire() {
+    // ~5 standard drinks in one session: 70 g / 14 g = 5.0x -> Critical.
+    let engine = SafetyEngine::new();
+    let catalog = seed_catalog();
+    let entry = make_dosed_log("Alcohol", 70.0, "g");
+    let alerts = engine.check_dose(&entry, &catalog);
+    assert_eq!(alerts.len(), 1, "alcohol 70 g must alert: {alerts:?}");
+    assert_eq!(alerts[0].severity, AlertSeverity::Critical);
+    assert!(alerts[0].message.contains("5.0x"));
+    let ok = make_dosed_log("Alcohol", 14.0, "g");
+    assert!(engine.check_dose(&ok, &catalog).is_empty());
+}
+
 #[test]
 fn test_dose_within_catalog_max_is_silent() {
     let engine = SafetyEngine::new();

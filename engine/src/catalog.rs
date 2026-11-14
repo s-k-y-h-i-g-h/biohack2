@@ -1,10 +1,10 @@
-//! 35-substance seed database ported from the biohack CLI
+//! 37-substance seed database ported from the biohack CLI
 //! (27 original + Caffeine, Cyclazodone, CBD, Kratom, Memantine, 9-Me-BC).
 
 use crate::models::{CatalogItem, DosageRange, ItemType};
 use uuid::Uuid;
 
-/// Returns the full 35-substance seed catalog.
+/// Returns the full 37-substance seed catalog.
 pub fn seed_catalog() -> Vec<CatalogItem> {
     vec![
         // Vitamins
@@ -422,6 +422,26 @@ pub fn seed_catalog() -> Vec<CatalogItem> {
                 "May cause drowsiness at higher doses",
             ],
         ),
+        // Recreational
+        make_item(
+            "Alcohol",
+            ItemType::Drug,
+            Some(DosageRange {
+                min: 10.0,
+                max: 14.0,
+                unit: "g".to_string(),
+            }),
+            "~4-6h (zero-order ~7 g/h)",
+            &[
+                "Other CNS depressants — additive sedation and respiratory depression",
+                "Kratom and other opioids — additive CNS/respiratory depression",
+                "Seizure-threshold-lowering agents (e.g. high-dose memantine) — compounded seizure risk, worst during withdrawal",
+            ],
+            &[
+                "Max of 14 g is ONE standard drink per logged session — a withdrawal-program tripwire, not a health guideline",
+                "Disrupts sleep architecture and rehydration during withdrawal",
+            ],
+        ),
         // Botanicals
         make_item(
             "Kratom",
@@ -476,6 +496,31 @@ pub fn seed_catalog() -> Vec<CatalogItem> {
                 "May cause dizziness, confusion, headache",
             ],
         ),
+
+        // Hormones / Endocrine
+        make_item(
+            "Estradiol Enanthate",
+            ItemType::Medication,
+            Some(DosageRange {
+                min: 5.0,
+                max: 10.0,
+                unit: "mg".to_string(),
+            }),
+            "~8d",
+            &[
+                "Contraindicated with history of venous thromboembolism (DVT/PE), known thrombophilia, or estrogen-sensitive malignancy (breast, prostate)",
+                "Avoid in active liver disease, pregnancy, or unexplained genital bleeding",
+                "Smokers over 35 and those with cardiovascular disease face elevated thrombotic risk",
+                "Lowers lamotrigine levels via glucuronidation induction — seizure-control risk if co-administered",
+                "CYP3A4 inducers (rifampicin, carbamazepine, St John's Wort) reduce estradiol levels",
+            ],
+            &[
+                "Prescription injectable estradiol ester (oil-based, IM) — use under medical supervision with estradiol monitoring",
+                "Published feminizing-HRT protocols use ~5 mg IM every ~2 weeks; treat dosing as the prescribing clinician's domain",
+                "Seek urgent care for calf swelling/pain, chest pain, sudden breathlessness, or vision/speech changes (embolic red flags)",
+                "Can raise blood pressure and triglycerides; in men it suppresses testosterone and may cause erythrocytosis — monitor",
+            ],
+        ),
     ]
 }
 
@@ -509,9 +554,9 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_seed_catalog_has_35_items() {
+    fn test_seed_catalog_has_37_items() {
         let catalog = seed_catalog();
-        assert_eq!(catalog.len(), 35);
+        assert_eq!(catalog.len(), 37);
     }
 
     #[test]
@@ -522,7 +567,9 @@ mod tests {
             "Cyclazodone",
             "CBD",
             "Kratom",
-            "Memantine",
+            "Alcohol",
+                        "Memantine",
+                        "Estradiol Enanthate",
             "L-Theanine",
         ] {
             assert!(
