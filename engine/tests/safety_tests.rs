@@ -88,6 +88,22 @@ fn test_dose_mild_over_max_is_warning() {
 }
 
 #[test]
+fn test_memantine_160mg_self_taper_is_critical() {
+    // Real case, 2026-11-14: memantine 160 mg/day during kratom withdrawal —
+    // 8x the 20 mg label ceiling. Must alert Critical on the save path,
+    // with the label dose as a benign control.
+    let engine = SafetyEngine::new();
+    let catalog = seed_catalog();
+    let entry = make_dosed_log("Memantine", 160.0, "mg");
+    let alerts = engine.check_dose(&entry, &catalog);
+    assert_eq!(alerts.len(), 1, "memantine 160 mg must alert: {alerts:?}");
+    assert_eq!(alerts[0].severity, AlertSeverity::Critical);
+    assert!(alerts[0].message.contains("8.0x"));
+    let ok = make_dosed_log("Memantine", 20.0, "mg");
+    assert!(engine.check_dose(&ok, &catalog).is_empty());
+}
+
+#[test]
 fn test_dose_within_catalog_max_is_silent() {
     let engine = SafetyEngine::new();
     let catalog = seed_catalog();
