@@ -1,0 +1,152 @@
+# Tasks: Substance Core — Active Dose & Redose Windows
+
+**Input**: Design documents from `/specs/003-substance-core-pharmacokinetics/`
+**Branch**: `003-substance-core-pharmacokinetics`
+**Date**: 2026-10-11
+**Status**: Proposed — not started. Task numbering starts at T200 to avoid collision with spec 001 (T001–T118).
+
+## Legend
+- `[X]` = Completed and verified
+- `[~]` = Partially implemented
+- `[ ]` = Not implemented
+
+## Scope
+
+**v1**: numeric half-life migration, model classes, deterministic PK simulation, active-dose band rendering, redose alerts, cumulative-load guardrails.
+**v2 (deferred)**: drug–drug pharmacokinetic interactions, individual PK fitting, non-oral routes.
+
+**Gate before Phase 2**: library decision recorded in `research.md` with licence verified. Do not write simulation code against an unverified licence.
+
+---
+
+## Phase 1: Data Foundation (Parameters & Model Classes)
+
+**Purpose**: Make the parameters machine-readable. Nothing downstream works until half-life is a number and every modelled substance has a class.
+
+- [X] T200 Add `half_life_hours: Option<f64>` and `half_life_range: Option<(f64, f64)>` to `CatalogItem` in `engine/src/models.rs` with `serde(default)` (pre-existing persisted rows must deserialize unchanged — same pattern as `mechanism_tags`, T116) — DONE (5f0178d: fields added with serde(default); engine+integration suites green)
+- [X] T201 [P] Create `engine/src/pharmacokinetics.rs` module skeleton + `ModelClass` enum (`decay`, `oral_absorption`, `plateau`, `accumulation`, `none`) in `engine/src/models.rs` — DONE (5f0178d: pharmacokinetics.rs + ModelClass enum in models.rs)
+- [X] T202 Create `engine/src/pk_params.rs` — `SubstanceModel` struct (model class, half-life, range, `params: serde_json::Value`, provenance, catalog version) — DONE (5f0178d: pk_params::SubstanceModel with mandatory provenance + rationale)
+- [X] T203 Write the string→numeric parser for existing `half_life` values (`"5-6 hours"`, `"24h"`, `"1.5 days"`, `"N/A"`) with an explicit failure list — no silent defaults — DONE (5f0178d: parse_half_life — explicit failure reasons, no silent defaults)
+- [X] T204 Run the parser over the full catalog (32 seed items) and record the failure list; every failure becomes a `none` class with a logged reason — DONE (5f0178d: audit test pins failure list = ['9-Me-BC'] ('unknown'); all other 36 items parse)
+- [ ] T205 Assign `ModelClass` to every catalog item; document the rationale for each non-`decay` assignment (creatine → plateau, fat-soluble vitamins → accumulation, SSRIs → accumulation, etc.)
+- [ ] T206 Persist `SubstanceModel` in SQLite: schema table + additive `ALTER TABLE`/`CREATE TABLE` migration tolerating re-run (pattern from T117)
+- [ ] T207 Add `model_class` and numeric half-life to the catalog seed insert path and both SELECT paths in `engine/src/db.rs`
+- [X] T208 Unit tests: parser accepts known formats, rejects unknown formats into the failure list, range endpoints preserved — DONE (5f0178d: parser tests accept known forms, reject unknown with raw-quoted reasons, range endpoints preserved)
+
+**Checkpoint**: Every catalog item has a model class and, where modelled, a numeric half-life. Parser failures are enumerated, not hidden. `cargo test -p engine` green.
+
+---
+
+## Phase 2: Simulation Engine (Deterministic PK)
+
+**Purpose**: The math. Deterministic, offline, unit-tested, identical across targets.
+
+- [ ] T209 Record the library decision in `research.md`: adopt `pharmsol` or hand-roll. **Licence verified before code.** Record the decision and the verification date.
+- [ ] T210 Implement `DoseEvent` derivation from `LogEntry` in `engine/src/pharmacokinetics.rs` (substance, amount, unit, timestamp, entry id)
+- [ ] T211 Implement unit validation: dose unit must match the model's expected unit; mismatch blocks the model and surfaces the mismatch (no silent conversion)
+- [ ] T212 Implement `decay` model (one-compartment, first-order) — analytic, no ODE solver needed
+- [ ] T213 Implement `oral_absorption` model (lag/absorption phase + decay)
+- [ ] T214 Implement `plateau` model (saturation ceiling)
+- [ ] T215 Implement `accumulation` model (multi-day rise toward steady state)
+- [ ] T216 Implement multi-dose superposition (summed contributions at time t)
+- [ ] T217 Implement band computation: evaluate at range endpoints → `low` / `expected` / `high` (FR-033). No midpoint-only output
+- [ ] T218 Implement the documented default variability factor for single-value half-lives, and mark the output as assumption-derived (FR-033, A5/AC-2)
+- [ ] T219 Implement per-substance render windowing so long half-lives do not blow up the window (edge case)
+- [ ] T220 Implement `sample_series(substance, start, end, step) -> Vec<ActiveDosePoint>` as the public API
+- [ ] T221 Unit tests: known analytic cases (single dose, half-life check at t=half_life; two doses sum; plateau saturates; accumulation rises)
+- [ ] T222 Create a shared **test vector** file (fixture: log + params → expected series) used by native and WASM tests
+- [ ] T223 WASM test: same fixture produces the same series on `wasm32` within documented tolerance (FR-038, SC-033)
+- [ ] T224 Test: local-time rendering of UTC-stored doses is correct across a DST boundary (chrono `wasmbind`/`now`/`clock` features must stay enabled — see the 2026-09-09 incident)
+
+**Checkpoint**: A dose log produces a reproducible band series on both targets. No simulation path can produce a single line without a band.
+
+---
+
+## Phase 3: Redose Windows & Cumulative Load (Alerts)
+
+**Purpose**: Make the curve speak, through the existing alert path.
+
+- [ ] T225 Add `TargetBand` entity to `engine/src/models.rs` (substance, low, high, window_hours, updated_at)
+- [ ] T226 Persist target bands (SQLite + WASM storage paths)
+- [ ] T227 Implement band-crossing detection: simulated band crosses below target low → crossing time + redose window
+- [ ] T228 Extend `AlertType` with `Redose` and `CumulativeLoad` in `engine/src/models.rs` (existing `Alert` carries type/severity/message/recommendation — reuse, do not fork the alert path)
+- [ ] T229 Implement redose alert generation in the engine (offline, from stored data only)
+- [ ] T230 Implement rolling-24 h cumulative dose per substance against catalog max daily amount (FR-035)
+- [ ] T231 Implement cumulative-load alert generation, distinct from pairwise interaction alerts (FR-015 stays as-is)
+- [ ] T232 Alert resolution: redose alert resolves when a logged dose restores the band (A2/AC-2)
+- [ ] T233 Wire redose + cumulative alerts into the existing save flow so they appear in the current alert banner (spec 001 T087/T088 pattern)
+- [ ] T234 Unit tests: crossing fires, restore resolves, no-target produces no alert, rolling window excludes out-of-window doses
+- [ ] T235 Test: alerts fire with no network and no catalog fetch
+
+**Checkpoint**: Redose and cumulative-load alerts fire from the log alone, through the existing alert system.
+
+---
+
+## Phase 4: Provenance & Honesty Surface
+
+**Purpose**: The user can audit every number, and is told what the number is not.
+
+- [ ] T236 Attach provenance (catalog default / catalog version / user override + timestamp) to every parameter used in a simulation (FR-036)
+- [ ] T237 Implement `explain(substance)` returning model class, parameters, provenance, and the dose events used (FR-037)
+- [ ] T238 Implement the limitations text generator (inputs named, "estimate not measurement" stated) (FR-039, A5)
+- [ ] T239 Implement `none`-class surfacing: panel shows "no model" with the recorded reason (A1/AC-3, FR-040)
+- [ ] T240 Unit tests: every rendered point is reproducible from `explain()` output (SC-032); no modelled substance lacks provenance
+
+**Checkpoint**: Any displayed number can be reproduced by hand from displayed inputs.
+
+---
+
+## Phase 5: Frontend Surfaces (depends on spec 005 panel crate)
+
+**Purpose**: Render it. Panel code lives in the shared dashboard crate (spec 005) so terminal and web share it.
+
+- [ ] T241 Create `ActiveDosePanel` in the shared dashboard crate (gauge + band + sparkline + substance label + model class badge)
+- [ ] T242 Render the band (low/expected/high) in the panel — band, not line (FR-033)
+- [ ] T243 Render "now" marker and the 24 h back / 12 h forward window
+- [ ] T244 Render target band edges on the same axis
+- [ ] T245 Wire redose alerts into the alert panel
+- [ ] T246 Implement the web dashboard page embedding the panel (spec 005 Phase 3)
+- [ ] T247 Implement target-band editing UI in the web app (form, not panel — spec 005 FR-079)
+- [ ] T248 Implement the provenance/limitations disclosure view (one interaction from any panel, SC-034)
+- [ ] T249 Performance test: 30-day series × 10 substances under 500 ms desktop / 2 s phone (SC-030)
+- [ ] T250 WASM tests for panel data derivation
+
+**Checkpoint**: Active-dose bands visible in terminal and web from one panel implementation.
+
+---
+
+## Phase 6: Catalog Parameter Build-Out
+
+**Purpose**: Coverage. A model that only covers 4 substances is a demo.
+
+- [ ] T251 Research and record reference parameters for the stimulant class (caffeine, theobromine, tyrosine, etc.) with source cited per value
+- [ ] T252 [P] Research and record parameters for minerals/electrolytes (magnesium, creatine plateau, etc.)
+- [ ] T253 [P] Research and record parameters for fat-soluble vitamins and accumulation cases
+- [ ] T254 [P] Research and record parameters for the serotonergic/nootropic classes
+- [ ] T255 Mark every item without a defensible parameter set as `none` (FR-040) — absence is a deliverable, not a gap
+- [ ] T256 Record parameter sources in the catalog with citation strings (FR-036 provenance)
+- [ ] T257 Add a catalog-release version bump path for parameter updates (FR-006 consistency)
+
+**Checkpoint**: Every catalog item is either modelled with cited parameters or explicitly `none`.
+
+---
+
+## Sequencing & Dependencies
+
+```
+Phase 1 (params/classes) ──┬──> Phase 2 (simulation) ──┬──> Phase 3 (alerts)
+                           │                            └──> Phase 4 (provenance) ──> Phase 5 (UI)
+                           └──> Phase 6 (coverage, parallel)
+```
+
+- Phase 5 depends on spec 005 Phase 1–2 (shared panel crate exists).
+- Phase 3's alert surfacing reuses spec 001's alert path — do not build a second alert system.
+- Phase 6 runs in parallel with 2–4 and is the long pole; ship with partial coverage and explicit `none` states.
+
+## Critical Constraints (do not violate)
+
+1. **No model inference in the result path.** Deterministic only (FR-032). Same rationale as FR-015.
+2. **No single line.** Band always (FR-033). A line implies a precision the data cannot support.
+3. **No silent defaults.** Parse failure → `none` + recorded reason (FR-030, FR-040).
+4. **Licence before code** for any adopted PK library (T209).
+5. **WASM/native parity is tested, not assumed** (T222/T223). The 2026-09-09 chrono incident is the precedent for "works natively, panics in browser".
