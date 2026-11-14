@@ -702,6 +702,16 @@ fn row_to_catalog_item(row: SqliteRow) -> CatalogItem {
         half_life: row
             .try_get::<Option<String>, _>("half_life")
             .unwrap_or(None),
+        // Same derivation as the seed path (pharmacokinetics::half_life_fields)
+        // so round-tripped items compare equal; numeric columns land in T207.
+        half_life_hours: crate::pharmacokinetics::half_life_fields(
+            row.try_get::<Option<String>, _>("half_life").unwrap_or(None).as_deref(),
+        )
+        .0,
+        half_life_range: crate::pharmacokinetics::half_life_fields(
+            row.try_get::<Option<String>, _>("half_life").unwrap_or(None).as_deref(),
+        )
+        .1,
         contraindications: row
             .try_get::<Option<String>, _>("contraindications")
             .unwrap_or(None)

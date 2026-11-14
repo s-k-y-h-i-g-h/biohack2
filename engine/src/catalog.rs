@@ -538,6 +538,11 @@ fn make_item(
         category,
         dosage_range,
         half_life: Some(half_life.to_string()),
+        // Numeric half-life derived from the seed string by the single
+        // canonical parser (spec 003 T200/T203); unparsed strings leave
+        // both fields None and surface in the T204 audit failure list.
+        half_life_hours: crate::pharmacokinetics::half_life_fields(Some(half_life)).0,
+        half_life_range: crate::pharmacokinetics::half_life_fields(Some(half_life)).1,
         contraindications: contraindications.iter().map(|s| s.to_string()).collect(),
         warnings: warnings.iter().map(|s| s.to_string()).collect(),
         // Mechanism tags are DERIVED from the name via the canonical seed table

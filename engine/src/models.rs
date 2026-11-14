@@ -207,6 +207,26 @@ pub struct DosageRange {
     pub unit: String,
 }
 
+// ── Pharmacokinetics (spec 003) ───────────────────────────────────────────────
+
+/// How a substance's active-dose curve is modelled (spec 003, FR-030).
+/// `none` is explicit, not a silent default: every catalog item must be
+/// assigned a class, and unmodelled ones carry a logged reason.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ModelClass {
+    /// One-compartment first-order decay.
+    Decay,
+    /// Absorption (lag/rise) phase followed by decay.
+    OralAbsorption,
+    /// Saturating uptake with a ceiling (e.g. creatine).
+    Plateau,
+    /// Multi-day rise toward steady state (e.g. SSRIs, fat-soluble vitamins).
+    Accumulation,
+    /// Not modelled — no numeric curve is produced.
+    None,
+}
+
 // ── Entities ──────────────────────────────────────────────────────────────────
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -241,6 +261,17 @@ pub struct CatalogItem {
     /// list and simply participate in no class-pair rules.
     #[serde(default)]
     pub mechanism_tags: Vec<crate::mechanisms::MechanismClass>,
+    /// Numeric half-life in hours, single-value form (spec 003 T200).
+    /// `serde(default)` so pre-existing persisted rows deserialize unchanged.
+    /// Populated from `half_life` by `pharmacokinetics::parse_half_life`;
+    /// never invented — unparsed strings leave this `None`.
+    #[serde(default)]
+    pub half_life_hours: Option<f64>,
+    /// Numeric half-life in hours, range form (low, high) (spec 003 T200).
+    /// A range does NOT collapse to a midpoint: bands are computed from
+    /// endpoints downstream (FR-033).
+    #[serde(default)]
+    pub half_life_range: Option<(f64, f64)>,
     pub is_custom: bool,
     pub source: Option<String>,
     pub version: i32,
