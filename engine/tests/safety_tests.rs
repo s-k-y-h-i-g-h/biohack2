@@ -158,6 +158,75 @@ fn test_alcohol_70g_is_critical_five_x_tripwire() {
     assert!(engine.check_dose(&ok, &catalog).is_empty());
 }
 
+// ── Taper discipline checks (freeze-don't-retreat, Nov 2026 playcard) ────────
+
+fn dosed_at(name: &str, qty: f64, unit: &str, hours_ago: i64) -> LogEntry {
+    let mut e = make_log(name, ItemType::Medication, hours_ago);
+    e.quantity = Some(qty);
+    e.unit = Some(unit.to_string());
+    e
+}
+
+#[test]
+fn test_taper_retreat_33pct_in_20h_fires() {
+    // 120 -> 80 within 20h: 33% drop, faster than any plan step.
+    let engine = SafetyEngine::new();
+    let new_entry = dosed_at("Memantine", 80.0, "mg", 0);
+    let existing = vec![dosed_at("Memantine", 120.0, "mg", 20)];
+    let alerts = engine.check_taper(&new_entry, &existing);
+    assert_eq!(alerts.len(), 1, "33% retreat in 20h must alert: {alerts:?}");
+    assert_eq!(alerts[0].severity, AlertSeverity::Warning);
+    assert!(alerts[0].message.contains("down 33%"));
+    assert!(alerts[0]
+        .recommendation
+        .as_deref()
+        .unwrap()
+        .contains("freeze, don't retreat"));
+}
+
+#[test]
+fn test_taper_plan_pace_and_small_steps_stay_silent() {
+    let engine = SafetyEngine::new();
+    // Same 33% drop but 4 days apart: plan-paced, not a retreat.
+    let slow = dosed_at("Memantine", 80.0, "mg", 0);
+    assert!(engine
+        .check_taper(&slow, &[dosed_at("Memantine", 120.0, "mg", 96)])
+        .is_empty());
+    // 20% drop within the window: at-or-under the 25% allowance.
+    let small = dosed_at("Memantine", 64.0, "mg", 0);
+    assert!(engine
+        .check_taper(&small, &[dosed_at("Memantine", 80.0, "mg", 10)])
+        .is_empty());
+    // First-ever log: nothing to compare against.
+    let first = dosed_at("Memantine", 80.0, "mg", 0);
+    assert!(engine.check_taper(&first, &[]).is_empty());
+}
+
+#[test]
+fn test_taper_re_escalation_fires() {
+    // 40 -> 80 within a day: the framework's "never go back up" rule.
+    let engine = SafetyEngine::new();
+    let new_entry = dosed_at("Memantine", 80.0, "mg", 0);
+    let existing = vec![dosed_at("Memantine", 40.0, "mg", 24)];
+    let alerts = engine.check_taper(&new_entry, &existing);
+    assert_eq!(alerts.len(), 1, "100% re-escalation must alert: {alerts:?}");
+    assert!(alerts[0].message.contains("up 100%"));
+    assert!(alerts[0].message.contains("never go back up"));
+}
+
+#[test]
+fn test_taper_watchlist_scoped_to_dependent_substances() {
+    let engine = SafetyEngine::new();
+    // Creatine swinging 2x in a day is noise, not withdrawal risk.
+    let new_entry = dosed_at("Creatine Monohydrate", 10.0, "g", 0);
+    let existing = vec![dosed_at("Creatine Monohydrate", 5.0, "g", 6)];
+    assert!(engine.check_taper(&new_entry, &existing).is_empty());
+    // Kratom drop of the same size DOES fire.
+    let drop = dosed_at("Kratom", 2.0, "g", 0);
+    let alerts = engine.check_taper(&drop, &[dosed_at("Kratom", 4.5, "g", 12)]);
+    assert_eq!(alerts.len(), 1, "kratom 56% drop must alert: {alerts:?}");
+}
+
 #[test]
 fn test_dose_within_catalog_max_is_silent() {
     let engine = SafetyEngine::new();

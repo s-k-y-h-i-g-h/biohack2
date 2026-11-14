@@ -33,6 +33,7 @@ pub fn LogPage() -> impl IntoView {
         let existing_entries = get_log_entries().unwrap_or_default();
         let mut alerts = engine.check_interactions(&entry, &existing_entries);
         alerts.extend(engine.check_dose(&entry, &catalog_for_save));
+        alerts.extend(engine.check_taper(&entry, &existing_entries));
 
         if !alerts.is_empty() {
             // Persist alerts so the Layout banner sees them (US5/AC-3), and hold
