@@ -15,6 +15,7 @@ pub mod catalog;
 pub mod mechanisms;
 pub mod models;
 pub mod pharmacokinetics;
+pub mod pk_assignments;
 pub mod pk_params;
 pub mod safety;
 
