@@ -67,6 +67,34 @@ pub async fn migrate(pool: &DbPool) -> anyhow::Result<()> {
         .execute(pool)
         .await;
 
+    // Numeric half-life columns added 2026-11-14 (spec 003 T207). Same
+    // additive pattern: tolerate the duplicate-column error on re-run.
+    for ddl in [
+        "ALTER TABLE catalog_items ADD COLUMN half_life_hours REAL",
+        "ALTER TABLE catalog_items ADD COLUMN half_life_range_lo REAL",
+        "ALTER TABLE catalog_items ADD COLUMN half_life_range_hi REAL",
+    ] {
+        let _ = sqlx::query(ddl).execute(pool).await;
+    }
+
+    // SubstanceModel persistence (spec 003 T206). Keyed by NAME for the same
+    // reason seed_catalog is name-idempotent: catalog UUIDs regenerate on
+    // every seed run.
+    sqlx::query(
+        "CREATE TABLE IF NOT EXISTS substance_models (
+            substance TEXT PRIMARY KEY,
+            model_class TEXT NOT NULL,
+            half_life_hours REAL,
+            half_life_range TEXT,
+            params TEXT NOT NULL DEFAULT 'null',
+            provenance TEXT NOT NULL,
+            catalog_version INTEGER NOT NULL DEFAULT 1,
+            rationale TEXT
+        )"
+    )
+    .execute(pool)
+    .await?;
+
     sqlx::query("CREATE INDEX IF NOT EXISTS idx_catalog_category ON catalog_items(category)")
         .execute(pool)
         .await?;
@@ -289,8 +317,8 @@ pub async fn seed_catalog(pool: &DbPool, items: &[CatalogItem]) -> anyhow::Resul
         // every call, so a fresh seed run against an existing database must
         // match on name or it would duplicate every substance.
         let result = sqlx::query(
-            "INSERT OR IGNORE INTO catalog_items (id, name, category, dosage_range, half_life, contraindications, warnings, mechanism_tags, is_custom, source, version)
-             SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11
+            "INSERT OR IGNORE INTO catalog_items (id, name, category, dosage_range, half_life, contraindications, warnings, mechanism_tags, is_custom, source, version, half_life_hours, half_life_range_lo, half_life_range_hi)
+             SELECT ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14
              WHERE NOT EXISTS (SELECT 1 FROM catalog_items WHERE name = ?2)"
         )
         .bind(item.id.to_string())
@@ -304,6 +332,9 @@ pub async fn seed_catalog(pool: &DbPool, items: &[CatalogItem]) -> anyhow::Resul
         .bind(item.is_custom as i32)
         .bind(item.source.as_deref())
         .bind(item.version)
+        .bind(item.half_life_hours)
+        .bind(item.half_life_range.map(|(lo, _)| lo))
+        .bind(item.half_life_range.map(|(_, hi)| hi))
         .execute(pool)
         .await;
 
@@ -325,7 +356,7 @@ pub async fn seed_catalog(pool: &DbPool, items: &[CatalogItem]) -> anyhow::Resul
 
 pub async fn get_catalog_items(pool: &DbPool) -> anyhow::Result<Vec<CatalogItem>> {
     let rows = sqlx::query(
-        "SELECT id, name, category, dosage_range, half_life, contraindications, warnings, mechanism_tags, is_custom, source, version FROM catalog_items"
+        "SELECT id, name, category, dosage_range, half_life, contraindications, warnings, mechanism_tags, is_custom, source, version, half_life_hours, half_life_range_lo, half_life_range_hi FROM catalog_items"
     )
     .fetch_all(pool)
     .await?;
@@ -334,7 +365,7 @@ pub async fn get_catalog_items(pool: &DbPool) -> anyhow::Result<Vec<CatalogItem>
 
 pub async fn search_catalog(pool: &DbPool, query: &str) -> anyhow::Result<Vec<CatalogItem>> {
     let rows = sqlx::query(
-        "SELECT id, name, category, dosage_range, half_life, contraindications, warnings, mechanism_tags, is_custom, source, version FROM catalog_items WHERE name LIKE ?1"
+        "SELECT id, name, category, dosage_range, half_life, contraindications, warnings, mechanism_tags, is_custom, source, version, half_life_hours, half_life_range_lo, half_life_range_hi FROM catalog_items WHERE name LIKE ?1"
     )
     .bind(format!("%{}%", query))
     .fetch_all(pool)
@@ -342,7 +373,87 @@ pub async fn search_catalog(pool: &DbPool, query: &str) -> anyhow::Result<Vec<Ca
     Ok(rows.into_iter().map(row_to_catalog_item).collect())
 }
 
-// ── Stack CRUD ────────────────────────────────────────────────────────────────
+// ── SubstanceModel persistence (spec 003 T206/T207) ──────────────────────────
+
+/// Upsert PK model rows, keyed by substance NAME. Re-running with the same
+/// assignments is a no-op-equivalent replace — seed is idempotent.
+pub async fn upsert_substance_models(
+    pool: &DbPool,
+    models: &[crate::pk_params::SubstanceModel],
+) -> anyhow::Result<()> {
+    for m in models {
+        let class_str = serde_json::to_string(&m.model_class)?.trim_matches('"').to_string();
+        let range_str = m
+            .half_life_range
+            .map(|(lo, hi)| serde_json::to_string(&[lo, hi]))
+            .transpose()?;
+        sqlx::query(
+            "INSERT OR REPLACE INTO substance_models
+             (substance, model_class, half_life_hours, half_life_range, params, provenance, catalog_version, rationale)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+        )
+        .bind(&m.substance)
+        .bind(&class_str)
+        .bind(m.half_life_hours)
+        .bind(&range_str)
+        .bind(serde_json::to_string(&m.params)?)
+        .bind(&m.provenance)
+        .bind(m.catalog_version)
+        .bind(m.rationale.as_deref())
+        .execute(pool)
+        .await?;
+    }
+    Ok(())
+}
+
+pub async fn get_substance_models(pool: &DbPool) -> anyhow::Result<Vec<crate::pk_params::SubstanceModel>> {
+    let rows = sqlx::query(
+        "SELECT substance, model_class, half_life_hours, half_life_range, params, provenance, catalog_version, rationale FROM substance_models",
+    )
+    .fetch_all(pool)
+    .await?;
+    let mut out = Vec::with_capacity(rows.len());
+    for row in rows {
+        let class_str: String = row.try_get("model_class")?;
+        let model_class: crate::models::ModelClass =
+            serde_json::from_value(serde_json::Value::String(class_str))?;
+        let range_str: Option<String> = row
+            .try_get::<Option<String>, _>("half_life_range")
+            .unwrap_or(None);
+        let half_life_range = range_str
+            .as_deref()
+            .and_then(|s| serde_json::from_str::<[f64; 2]>(s).ok())
+            .map(|[lo, hi]| (lo, hi));
+        out.push(crate::pk_params::SubstanceModel {
+            substance: row.try_get("substance")?,
+            model_class,
+            half_life_hours: row.try_get::<Option<f64>, _>("half_life_hours").unwrap_or(None),
+            half_life_range,
+            params: row
+                .try_get::<String, _>("params")
+                .ok()
+                .and_then(|s| serde_json::from_str(&s).ok())
+                .unwrap_or(serde_json::Value::Null),
+            provenance: row.try_get("provenance")?,
+            catalog_version: row.try_get::<i32, _>("catalog_version").unwrap_or(1),
+            rationale: row
+                .try_get::<Option<String>, _>("rationale")
+                .unwrap_or(None),
+        });
+    }
+    Ok(out)
+}
+
+/// Rebuild the `SubstanceModel` set from the PERSISTED catalog and upsert it.
+/// Called after catalog seeding so the model table always reflects the
+/// catalog actually in the database, not the one compiled into the binary.
+pub async fn ensure_substance_models(pool: &DbPool) -> anyhow::Result<usize> {
+    let catalog = get_catalog_items(pool).await?;
+    let models = crate::pk_assignments::build_models(&catalog);
+    let n = models.len();
+    upsert_substance_models(pool, &models).await?;
+    Ok(n)
+}
 
 pub async fn create_stack(pool: &DbPool, stack: &Stack) -> anyhow::Result<()> {
     sqlx::query(
@@ -689,6 +800,13 @@ fn row_to_log_entry(row: SqliteRow) -> LogEntry {
 }
 
 fn row_to_catalog_item(row: SqliteRow) -> CatalogItem {
+    let half_life_str: Option<String> = row
+        .try_get::<Option<String>, _>("half_life")
+        .unwrap_or(None);
+    // Stored numerics take precedence; rows written BEFORE the T207 columns
+    // (or written with NULL numerics) fall back to the same canonical
+    // derivation the seed path uses — one parser, no drift.
+    let derived = crate::pharmacokinetics::half_life_fields(half_life_str.as_deref());
     CatalogItem {
         id: Uuid::parse_str(&row.try_get::<String, _>("id").unwrap_or_default())
             .unwrap_or_default(),
@@ -699,19 +817,18 @@ fn row_to_catalog_item(row: SqliteRow) -> CatalogItem {
             .try_get::<Option<String>, _>("dosage_range")
             .unwrap_or(None)
             .and_then(|s| serde_json::from_str(&s).ok()),
-        half_life: row
-            .try_get::<Option<String>, _>("half_life")
-            .unwrap_or(None),
-        // Same derivation as the seed path (pharmacokinetics::half_life_fields)
-        // so round-tripped items compare equal; numeric columns land in T207.
-        half_life_hours: crate::pharmacokinetics::half_life_fields(
-            row.try_get::<Option<String>, _>("half_life").unwrap_or(None).as_deref(),
-        )
-        .0,
-        half_life_range: crate::pharmacokinetics::half_life_fields(
-            row.try_get::<Option<String>, _>("half_life").unwrap_or(None).as_deref(),
-        )
-        .1,
+        half_life: half_life_str,
+        half_life_hours: row
+            .try_get::<Option<f64>, _>("half_life_hours")
+            .unwrap_or(None)
+            .or(derived.0),
+        half_life_range: match (
+            row.try_get::<Option<f64>, _>("half_life_range_lo").unwrap_or(None),
+            row.try_get::<Option<f64>, _>("half_life_range_hi").unwrap_or(None),
+        ) {
+            (Some(lo), Some(hi)) => Some((lo, hi)),
+            _ => derived.1,
+        },
         contraindications: row
             .try_get::<Option<String>, _>("contraindications")
             .unwrap_or(None)

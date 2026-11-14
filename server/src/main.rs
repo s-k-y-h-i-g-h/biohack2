@@ -26,6 +26,9 @@ async fn main() -> anyhow::Result<()> {
     let items = engine::catalog::seed_catalog();
     engine::db::seed_catalog(&pool, &items).await?;
     println!("Catalog ensured: {} seed substances available", items.len());
+    // Spec 003 T206: keep the persisted PK model table in step with the catalog.
+    let model_count = engine::db::ensure_substance_models(&pool).await?;
+    println!("Substance models ensured: {} PK model rows", model_count);
 
     // Bind 0.0.0.0 so the server is reachable from other devices on the LAN.
     // 127.0.0.1 would only accept connections from this machine.

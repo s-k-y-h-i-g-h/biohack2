@@ -65,6 +65,9 @@ pub fn seed_catalog(items: &[CatalogItem]) -> Result<(), String> {
         .map_err(|e| format!("Failed to seed catalog: {:?}", e))?;
     LocalStorage::set(STORAGE_KEY_CATALOG_SEEDED, true)
         .map_err(|e| format!("Failed to mark catalog seeded: {:?}", e))?;
+    // Spec 003 T206 (WASM path): the PK model table is refreshed alongside
+    // the catalog so the two stores never disagree.
+    seed_substance_models(items)?;
     Ok(())
 }
 
@@ -87,6 +90,34 @@ fn filter_catalog(items: &[CatalogItem], query: &str) -> Vec<CatalogItem> {
         .filter(|item| item.name.to_lowercase().contains(&q))
         .cloned()
         .collect()
+}
+
+// ── SubstanceModel persistence (spec 003 T206, WASM path) ───────────────────
+
+const STORAGE_KEY_SUBSTANCE_MODELS: &str = "biohack2_substance_models";
+
+/// Persist the PK model set derived from `items` (called on every catalog
+/// seed so the two localStorage stores never disagree).
+pub fn seed_substance_models(items: &[CatalogItem]) -> Result<(), String> {
+    let models = engine::pk_assignments::build_models(items);
+    LocalStorage::set(STORAGE_KEY_SUBSTANCE_MODELS, &models)
+        .map_err(|e| format!("Failed to seed substance models: {:?}", e))?;
+    Ok(())
+}
+
+/// Read persisted PK models; if the store predates T206 (or was cleared),
+/// bootstrap from the current persisted catalog and store the result.
+pub fn get_substance_models() -> Vec<engine::pk_params::SubstanceModel> {
+    if let Ok(models) = LocalStorage::get::<Vec<engine::pk_params::SubstanceModel>>(
+        STORAGE_KEY_SUBSTANCE_MODELS,
+    ) {
+        return models;
+    }
+    let catalog: Vec<CatalogItem> =
+        LocalStorage::get(STORAGE_KEY_CATALOG_ITEMS).unwrap_or_default();
+    let models = engine::pk_assignments::build_models(&catalog);
+    let _ = LocalStorage::set(STORAGE_KEY_SUBSTANCE_MODELS, &models);
+    models
 }
 
 // ── VitalsEntry CRUD ──────────────────────────────────────────────────────────

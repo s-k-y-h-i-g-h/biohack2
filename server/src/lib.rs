@@ -429,6 +429,11 @@ async fn sync_push(
             .filter_map(|c| serde_json::from_value(c.clone()).ok())
             .collect();
         if db::seed_catalog(&state.pool, &items).await.is_ok() {
+            // Spec 003 T206: refresh persisted PK models whenever the catalog
+            // changes; a model-refresh failure must not fail the ingest.
+            if let Err(e) = db::ensure_substance_models(&state.pool).await {
+                eprintln!("substance model refresh failed after catalog ingest: {e}");
+            }
             counts.insert("catalog".into(), items.len().into());
         }
     }

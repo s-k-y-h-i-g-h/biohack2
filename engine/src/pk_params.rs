@@ -5,8 +5,8 @@
 //! came from". Provenance is mandatory: a parameter without a source is a
 //! guess wearing a lab coat.
 //!
-//! Persistence (SQLite/WASM storage) is T206/T207 — this module defines the
-//! shape and validation only.
+//! Persistence (T206/T207) is wired: SQLite via `db::upsert_substance_models`
+//! / `db::get_substance_models`, WASM via `web::state::db::get_substance_models`.
 
 use crate::models::ModelClass;
 use serde::{Deserialize, Serialize};
