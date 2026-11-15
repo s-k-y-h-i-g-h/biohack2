@@ -100,11 +100,11 @@
 
 **Purpose**: Render it. Panel code lives in the shared dashboard crate (spec 005) so terminal and web share it.
 
-- [ ] T241 Create `ActiveDosePanel` in the shared dashboard crate (gauge + band + sparkline + substance label + model class badge)
-- [ ] T242 Render the band (low/expected/high) in the panel — band, not line (FR-033)
-- [ ] T243 Render "now" marker and the 24 h back / 12 h forward window
-- [ ] T244 Render target band edges on the same axis
-- [ ] T245 Wire redose alerts into the alert panel
+- [X] T241 Create `ActiveDosePanel` in the shared dashboard crate (gauge + band + sparkline + substance label + model class badge) — DONE (derivation in `engine::dashboard`, web-free by construction per FR-081; spec-005 mandates crate extraction only after the first working panel — the panel is now that consumer; component `web/src/components/active_dose_panel.rs`)
+- [X] T242 Render the band (low/expected/high) in the panel — band, not line (FR-033) — DONE (shaded low→high polygon is the primary mark; expected line rides inside it)
+- [X] T243 Render "now" marker and the 24 h back / 12 h forward window — DONE (window + now_index derived in panel_view, asserted by tests; vertical rule at index 24)
+- [X] T244 Render target band edges on the same axis — DONE (dashed rules at target low/high share the sparkline y-axis)
+- [X] T245 Wire redose alerts into the alert panel — DONE via T233 (refresh_pharmacokinetic_alerts feeds Redose/CumulativeLoad into the shared alert state the banner renders)
 - [ ] T246 Implement the web dashboard page embedding the panel (spec 005 Phase 3)
 - [ ] T247 Implement target-band editing UI in the web app (form, not panel — spec 005 FR-079)
 - [ ] T248 Implement the provenance/limitations disclosure view (one interaction from any panel, SC-034)

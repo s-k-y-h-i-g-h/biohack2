@@ -1,3 +1,4 @@
+pub mod active_dose_panel;
 pub mod alert_banner;
 pub mod layout;
 pub mod log_form;

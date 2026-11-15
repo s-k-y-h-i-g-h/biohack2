@@ -12,6 +12,7 @@
 //! (async fn) in WASM builds where `db` is absent.
 
 pub mod catalog;
+pub mod dashboard;
 pub mod explain;
 pub mod mechanisms;
 pub mod models;

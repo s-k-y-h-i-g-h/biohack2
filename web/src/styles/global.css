@@ -1031,3 +1031,25 @@ nav::-webkit-scrollbar {
     transition-duration: 0.01ms !important;
   }
 }
+/* ── ActiveDosePanel (spec-003 T241–T244) ───────────────────────────── */
+.pk-panel { border: 1px solid var(--border, #2a2f3a); border-radius: 10px; padding: 12px 14px; display: grid; gap: 8px; }
+.pk-panel-head { display: flex; align-items: center; justify-content: space-between; }
+.pk-panel-head h4 { margin: 0; font-size: 1rem; }
+.badge { font-size: .7rem; text-transform: uppercase; letter-spacing: .05em; padding: 2px 8px; border-radius: 999px; background: rgba(96,165,250,.15); color: #93c5fd; }
+.badge-none { background: rgba(156,163,175,.15); color: #9ca3af; }
+.badge-low { background: rgba(248,113,113,.18); color: #fca5a5; }
+.pk-gauge { display: flex; align-items: baseline; gap: 6px; font-variant-numeric: tabular-nums; }
+.pk-gauge-value { font-size: 1.6rem; font-weight: 650; }
+.pk-gauge.below .pk-gauge-value { color: #f87171; }
+.pk-gauge-unit { color: #9ca3af; font-size: .85rem; }
+.pk-gauge-band { color: #9ca3af; font-size: .85rem; }
+.pk-gauge-flag { margin-left: auto; color: #f87171; font-size: .8rem; }
+.pk-spark svg { width: 100%; height: 80px; display: block; }
+.pk-band { fill: rgba(96,165,250,.22); stroke: none; }
+.pk-expected { stroke: #60a5fa; stroke-width: 1.5; }
+.pk-target-edge { stroke: #34d399; stroke-width: 1; stroke-dasharray: 4 3; opacity: .8; }
+.pk-now { stroke: #e5e7eb; stroke-width: 1; opacity: .55; }
+.pk-assumption-note, .pk-nomodel { color: #9ca3af; font-size: .8rem; margin-top: 4px; }
+.pk-nomodel { padding: 8px 0; }
+.pk-provenance { font-size: .8rem; color: #9ca3af; }
+.pk-provenance summary { cursor: pointer; }
