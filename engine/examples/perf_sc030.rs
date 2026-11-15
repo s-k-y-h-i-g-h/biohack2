@@ -14,7 +14,7 @@ use chrono::{Duration, Utc};
 use engine::catalog::seed_catalog;
 use engine::dashboard::panel_view;
 use engine::models::{ItemType, LogEntry};
-use engine::pharmacokinetics::{sample_series, DoseEvent};
+use engine::pharmacokinetics::{DoseEvent, sample_series};
 use engine::pk_assignments::build_models;
 use std::time::Instant;
 use uuid::Uuid;
@@ -30,7 +30,11 @@ fn main() {
         .take(10)
         .cloned()
         .collect();
-    assert_eq!(sim.len(), 10, "catalog must yield 10 decay-modelled substances");
+    assert_eq!(
+        sim.len(),
+        10,
+        "catalog must yield 10 decay-modelled substances"
+    );
 
     let now = Utc::now();
     // 90 days of history would be richer, but SC-030 names 30 days:
@@ -79,8 +83,7 @@ fn main() {
             .filter(|d| d.substance.eq_ignore_ascii_case(&m.substance))
             .cloned()
             .collect();
-        let series =
-            sample_series(m, &doses, now - Duration::days(30), now, 1.0).expect("series");
+        let series = sample_series(m, &doses, now - Duration::days(30), now, 1.0).expect("series");
         assert!(!series.is_empty());
         points += series.len();
     }
@@ -89,12 +92,26 @@ fn main() {
 
     println!(
         "panel_view × 10 (dashboard path): {dash:?}  → SC-030 budget 500 ms: {}",
-        if dash.as_millis() < 500 { "PASS" } else { "FAIL" }
+        if dash.as_millis() < 500 {
+            "PASS"
+        } else {
+            "FAIL"
+        }
     );
     println!(
         "sample_series 30 d × 10 (SC-030 worst case): {worst:?}  → {}",
-        if worst.as_millis() < 500 { "PASS" } else { "FAIL" }
+        if worst.as_millis() < 500 {
+            "PASS"
+        } else {
+            "FAIL"
+        }
     );
-    assert!(dash.as_millis() < 500 && worst.as_millis() < 500, "SC-030 desktop budget");
-    println!("SC-030 desktop: PASS ({} derivation points total)", points + 370);
+    assert!(
+        dash.as_millis() < 500 && worst.as_millis() < 500,
+        "SC-030 desktop budget"
+    );
+    println!(
+        "SC-030 desktop: PASS ({} derivation points total)",
+        points + 370
+    );
 }

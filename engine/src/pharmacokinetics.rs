@@ -558,9 +558,10 @@ fn curve_at(
         }
     }
     if matches!(class, ModelClass::Plateau)
-        && let Some(c) = shape.ceiling {
-            total = total.min(c);
-        }
+        && let Some(c) = shape.ceiling
+    {
+        total = total.min(c);
+    }
     total
 }
 
@@ -644,12 +645,13 @@ pub fn sample_series(
     }
     if let Some(declared) = model.params.get("expected_unit").and_then(|v| v.as_str())
         && let Some(u) = &dose_unit
-            && unit_key(declared) != unit_key(u) {
-                return Err(format!(
-                    "{}: dose unit '{u}' does not match model unit '{declared}' — blocked, no conversion (T211)",
-                    model.substance
-                ));
-            }
+        && unit_key(declared) != unit_key(u)
+    {
+        return Err(format!(
+            "{}: dose unit '{u}' does not match model unit '{declared}' — blocked, no conversion (T211)",
+            model.substance
+        ));
+    }
     let unit = dose_unit.unwrap_or_else(|| "dose".into());
 
     let step_ms = (step_hours * 3_600_000.0).round() as i64;

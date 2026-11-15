@@ -12,7 +12,7 @@
 
 use crate::explain::limitations_text;
 use crate::models::{LogEntry, ModelClass, TargetBand};
-use crate::pharmacokinetics::{sample_series, ActiveDosePoint, DoseEvent};
+use crate::pharmacokinetics::{ActiveDosePoint, DoseEvent, sample_series};
 use crate::pk_params::SubstanceModel;
 use crate::redose;
 use chrono::{DateTime, Utc};
@@ -230,29 +230,45 @@ pub fn check_panel_vectors(json: &str) -> Vec<String> {
         };
         if v.expect_empty {
             if !view.series.is_empty() {
-                failures.push(format!("{}: expected empty series, got {}", v.name, view.series.len()));
+                failures.push(format!(
+                    "{}: expected empty series, got {}",
+                    v.name,
+                    view.series.len()
+                ));
             }
             if let Some(prefix) = &v.note_prefix
-                && !view.note.starts_with(prefix.as_str()) {
-                    failures.push(format!("{}: note {:?} lacks prefix {prefix:?}", v.name, view.note));
-                }
+                && !view.note.starts_with(prefix.as_str())
+            {
+                failures.push(format!(
+                    "{}: note {:?} lacks prefix {prefix:?}",
+                    v.name, view.note
+                ));
+            }
             continue;
         }
         let want_len = (LOOKBACK_HOURS + LOOKFORWARD_HOURS) as usize + 1;
         if view.series.len() != want_len {
-            failures.push(format!("{}: series len {}, want {want_len}", v.name, view.series.len()));
+            failures.push(format!(
+                "{}: series len {}, want {want_len}",
+                v.name,
+                view.series.len()
+            ));
             continue;
         }
         if view.now_index != LOOKBACK_HOURS as usize {
-            failures.push(format!("{}: now_index {}, want {LOOKBACK_HOURS}", v.name, view.now_index));
+            failures.push(format!(
+                "{}: now_index {}, want {LOOKBACK_HOURS}",
+                v.name, view.now_index
+            ));
         }
         if let Some(flag) = v.band_is_assumption
-            && view.series[0].band_is_assumption != flag {
-                failures.push(format!(
-                    "{}: band_is_assumption {}, want {flag}",
-                    v.name, view.series[0].band_is_assumption
-                ));
-            }
+            && view.series[0].band_is_assumption != flag
+        {
+            failures.push(format!(
+                "{}: band_is_assumption {}, want {flag}",
+                v.name, view.series[0].band_is_assumption
+            ));
+        }
         for c in &v.checks {
             let Some(pt) = view.series.get(c.index) else {
                 failures.push(format!("{}: no sample at index {}", v.name, c.index));
@@ -330,7 +346,10 @@ mod tests {
         let entries = vec![dose(2, 200.0, now), dose(8, 100.0, now)];
         let v = panel_view(&model(), &entries, Some(&band(50.0, 150.0, now)), now).unwrap();
         // 24 back + 12 forward, hourly, inclusive endpoints.
-        assert_eq!(v.series.len(), (LOOKBACK_HOURS + LOOKFORWARD_HOURS + 1) as usize);
+        assert_eq!(
+            v.series.len(),
+            (LOOKBACK_HOURS + LOOKFORWARD_HOURS + 1) as usize
+        );
         assert_eq!(v.now_index, LOOKBACK_HOURS as usize);
         // Series must actually bracket now at the marker.
         let marker = &v.series[v.now_index];
@@ -360,7 +379,10 @@ mod tests {
         let m = SubstanceModel::unmodelled("Weird Stuff", "no published PK", 3);
         let v = panel_view(&m, &[], None, now).expect("not an error");
         assert!(v.series.is_empty());
-        assert!(v.now_reading.is_none(), "no model must not render a zero level");
+        assert!(
+            v.now_reading.is_none(),
+            "no model must not render a zero level"
+        );
         assert!(v.note.starts_with("No model — "), "{}", v.note);
         assert!(v.note.contains("no published PK"));
     }
@@ -374,7 +396,10 @@ mod tests {
         mg.name = "Magnesium".into();
         let v = panel_view(&model(), &[mg], None, now).unwrap();
         // Same window, but every point is zero: no caffeine events.
-        assert_eq!(v.series.len(), (LOOKBACK_HOURS + LOOKFORWARD_HOURS + 1) as usize);
+        assert_eq!(
+            v.series.len(),
+            (LOOKBACK_HOURS + LOOKFORWARD_HOURS + 1) as usize
+        );
         let r = v.now_reading.expect("gauge exists even at zero");
         assert_eq!(r.expected, 0.0);
     }
@@ -403,9 +428,7 @@ mod tests {
             catalog_version: 1,
             rationale: None,
         };
-        let now = chrono::Utc
-            .with_ymd_and_hms(2026, 1, 3, 0, 0, 0)
-            .unwrap();
+        let now = chrono::Utc.with_ymd_and_hms(2026, 1, 3, 0, 0, 0).unwrap();
         let e = LogEntry {
             id: uuid::Uuid::nil(),
             user_id: "test".into(),
