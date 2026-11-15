@@ -2,6 +2,7 @@ use crate::state::db::{
     acknowledge_alert, create_alert, create_log_entry, get_log_entries, get_notes,
     get_vitals_entries, search_catalog,
 };
+use crate::state::pk_alerts::refresh_pharmacokinetic_alerts;
 use crate::state::store::AppContext;
 use crate::types::HistoryEntry;
 use engine::models::{Alert, AlertSeverity, LogEntry};
@@ -51,6 +52,12 @@ pub fn LogPage() -> impl IntoView {
         // No warnings, save the entry
         if let Err(e) = create_log_entry(&entry) {
             eprintln!("Failed to save entry: {}", e);
+        } else {
+            // T233: PK alerts derive from the new dose history — regenerate
+            // after every successful save (never blocks the save itself).
+            if let Err(e) = refresh_pharmacokinetic_alerts(chrono::Utc::now()) {
+                web_sys::console::error_1(&format!("PK alert refresh failed: {}", e).into());
+            }
         }
         refresh();
     };
@@ -61,6 +68,8 @@ pub fn LogPage() -> impl IntoView {
             // banner stops nagging.
             if let Err(e) = create_log_entry(&entry) {
                 eprintln!("Failed to save entry: {}", e);
+            } else if let Err(e) = refresh_pharmacokinetic_alerts(chrono::Utc::now()) {
+                web_sys::console::error_1(&format!("PK alert refresh failed: {}", e).into());
             }
             for alert in &alerts {
                 let _ = acknowledge_alert(&alert.id);

@@ -826,3 +826,95 @@ mod pk_parity {
         );
     }
 }
+
+// ── PK alert refresh (spec-003 T233) ─────────────────────────────────────────
+
+#[wasm_bindgen_test]
+fn test_refresh_supersedes_stale_pk_alert() {
+    clear_test_storage();
+    use crate::state::db::{create_alert, get_alerts};
+    use crate::state::pk_alerts::refresh_pharmacokinetic_alerts;
+    use engine::models::{AlertFilter, AlertSeverity, AlertType};
+
+    // A redose alert left over from an earlier session, now stale.
+    let stale = Alert {
+        id: Uuid::new_v4(),
+        user_id: "local-device".to_string(),
+        alert_type: AlertType::Redose,
+        severity: AlertSeverity::Warning,
+        message: "stale redose".to_string(),
+        recommendation: None,
+        is_acknowledged: false,
+        linked_entry_id: None,
+        generated_at: Utc::now() - chrono::Duration::hours(3),
+        resolved_at: None,
+    };
+    create_alert(&stale).expect("seed stale alert");
+
+    let created =
+        refresh_pharmacokinetic_alerts(Utc::now()).expect("refresh runs without storage errors");
+    assert_eq!(created, 0, "no doses, no bands — nothing new");
+
+    // Gone from the banner query (unacknowledged AND unresolved)...
+    let open = get_alerts(&AlertFilter {
+        user_id: Some("local-device".to_string()),
+        acknowledged: Some(false),
+    })
+    .expect("read open alerts");
+    assert!(open.is_empty(), "resolved alert must not nag: {:?}", open);
+
+    // ...but still on record, resolved without user acknowledgement (T232).
+    let all = get_alerts(&Default::default()).expect("read all alerts");
+    let s = all.iter().find(|a| a.id == stale.id).expect("row kept");
+    assert!(s.resolved_at.is_some() && !s.is_acknowledged);
+}
+
+#[wasm_bindgen_test]
+fn test_refresh_fires_redose_alert_for_decaying_band() {
+    clear_test_storage();
+    use crate::state::db::{create_log_entry, get_alerts, search_catalog, upsert_target_band};
+    use crate::state::pk_alerts::refresh_pharmacokinetic_alerts;
+    use engine::models::{AlertFilter, AlertType, ItemType, ModelClass};
+
+    search_catalog("").expect("catalog auto-seeds");
+    let models = crate::state::db::get_substance_models();
+    let model = models
+        .iter()
+        .find(|m| m.model_class == ModelClass::Decay && m.has_numeric_half_life())
+        .expect("seed catalog has at least one decay substance");
+
+    // Band set unreachable after a 30 h-old dose: the level is long below it.
+    let band = TargetBand {
+        substance: model.substance.clone(),
+        low: 1000.0,
+        high: 2000.0,
+        window_hours: 24.0,
+        updated_at: Utc::now(),
+    };
+    upsert_target_band(&band).expect("band stored");
+    let entry = LogEntry {
+        id: Uuid::new_v4(),
+        user_id: "local-device".to_string(),
+        item_type: ItemType::Supplement,
+        item_id: None,
+        name: model.substance.clone(),
+        quantity: Some(10.0), // far below any daily max — no cumulative noise
+        unit: Some("mg".to_string()),
+        route: None,
+        timestamp: Utc::now() - chrono::Duration::hours(30),
+        stack_id: None,
+        notes: None,
+        acknowledged_interaction: false,
+        custom_fields: None,
+    };
+    create_log_entry(&entry).expect("log dose");
+
+    let created = refresh_pharmacokinetic_alerts(Utc::now()).expect("refresh runs");
+    assert!(created >= 1, "band crossing must surface: {created}");
+    let open = get_alerts(&AlertFilter {
+        user_id: Some("local-device".to_string()),
+        acknowledged: Some(false),
+    })
+    .expect("read open alerts");
+    assert!(open.iter().any(|a| a.alert_type == AlertType::Redose));
+}

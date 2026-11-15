@@ -170,10 +170,29 @@ pub fn get_alerts(filter: &AlertFilter) -> Result<Vec<Alert>, String> {
     }
     if let Some(ack) = filter.acknowledged {
         filtered.retain(|a| a.is_acknowledged == ack);
+        if !ack {
+            // Un-acknowledged AND unresolved = still actionable. A resolved
+            // alert (e.g. a superseded PK alert) must not resurface in the
+            // banner even though the user never acknowledged it.
+            filtered.retain(|a| a.resolved_at.is_none());
+        }
     }
 
     filtered.sort_by_key(|a| std::cmp::Reverse(a.generated_at));
     Ok(filtered)
+}
+
+/// Resolve without acknowledging (mirrors engine::db::resolve_alert): the
+/// system retired this alert (superseded / condition cleared), the user
+/// never saw-and-accepted it. Local-only — no sync push, the server
+/// resolves its own SQLite rows via the API.
+pub fn resolve_alert(id: &Uuid) -> Result<(), String> {
+    let mut alerts = get_alerts(&Default::default())?;
+    if let Some(alert) = alerts.iter_mut().find(|a| a.id == *id) {
+        alert.resolved_at = Some(chrono::Utc::now());
+    }
+    LocalStorage::set(STORAGE_KEY_ALERTS, &alerts)
+        .map_err(|e| format!("Failed to resolve alert: {:?}", e))
 }
 
 pub fn acknowledge_alert(id: &Uuid) -> Result<(), String> {

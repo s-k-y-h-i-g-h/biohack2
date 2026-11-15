@@ -1,4 +1,5 @@
 pub mod db;
+pub mod pk_alerts;
 pub mod store;
 pub mod sync;
 
