@@ -282,6 +282,7 @@ use crate::models::LogEntry;
 use crate::pk_params::SubstanceModel;
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
+use std::f64::consts::LN_2 as LN2;
 
 /// Documented default variability for SINGLE-VALUE half-lives (T218, FR-033
 /// / A5): the band is evaluated at t½ × (1 ± 0.25) and the output is marked
@@ -419,6 +420,159 @@ fn band_half_lives(model: &SubstanceModel) -> Result<(f64, f64, f64, bool), Stri
 /// model's `params` carry an `expected_unit` string it must match too.
 /// Mismatches block the whole series with the mismatch in the message; no
 /// silent conversion happens anywhere.
+/// Shape parameters resolved once per series from `model.params`. Shape
+/// parameters that the math genuinely needs (absorption rate, rise time)
+/// must exist in the catalog — they are REFUSED when absent, never invented.
+/// Documented optional defaults: `lag_hours = 0` (lag is a modifier, the
+/// Bateman maths is identical at zero lag).
+struct SimShape {
+    lag_hours: f64,
+    /// `oral_absorption`: absorption-rate half-life → k_a = ln2 / this.
+    absorption_half_life_hours: Option<f64>,
+    /// `plateau`: time for one dose's contribution to approach its own
+    /// plateau. Required for that class.
+    rise_time_hours: Option<f64>,
+    /// `plateau`: optional total body-pool ceiling (FR-031 saturation).
+    ceiling: Option<f64>,
+}
+
+fn param_f64(params: &serde_json::Value, key: &str) -> Option<f64> {
+    params.get(key).and_then(|v| v.as_f64())
+}
+
+impl SimShape {
+    fn resolve(model: &SubstanceModel) -> Result<Self, String> {
+        use crate::models::ModelClass;
+        let p = &model.params;
+        match model.model_class {
+            ModelClass::Decay | ModelClass::Accumulation => Ok(SimShape {
+                lag_hours: 0.0,
+                absorption_half_life_hours: None,
+                rise_time_hours: None,
+                ceiling: param_f64(p, "ceiling").filter(|c| *c > 0.0),
+            }),
+            ModelClass::OralAbsorption => {
+                let abs_hl = param_f64(p, "absorption_half_life_hours").or_else(|| {
+                    param_f64(p, "ka_per_hour").map(|ka| if ka > 0.0 { LN2 / ka } else { -1.0 })
+                });
+                let abs_hl = abs_hl
+                    .filter(|v| *v > 0.0 && v.is_finite())
+                    .ok_or_else(|| {
+                        format!(
+                            "{}: oral_absorption needs an explicit absorption parameter \
+                             (absorption_half_life_hours or ka_per_hour) in catalog params — \
+                             refusing rather than guessing an absorption rate",
+                            model.substance
+                        )
+                    })?;
+                let lag = param_f64(p, "lag_hours").unwrap_or(0.0);
+                if !lag.is_finite() || lag < 0.0 {
+                    return Err(format!("{}: lag_hours {lag} is invalid", model.substance));
+                }
+                Ok(SimShape {
+                    lag_hours: lag,
+                    absorption_half_life_hours: Some(abs_hl),
+                    rise_time_hours: None,
+                    ceiling: None,
+                })
+            }
+            ModelClass::Plateau => {
+                let rise = param_f64(p, "rise_time_hours")
+                    .filter(|v| *v > 0.0 && v.is_finite())
+                    .ok_or_else(|| {
+                        format!(
+                            "{}: plateau needs an explicit rise_time_hours in catalog params \
+                             — refusing rather than guessing a saturation rate",
+                            model.substance
+                        )
+                    })?;
+                Ok(SimShape {
+                    lag_hours: 0.0,
+                    absorption_half_life_hours: None,
+                    rise_time_hours: Some(rise),
+                    ceiling: param_f64(p, "ceiling").filter(|c| *c > 0.0),
+                })
+            }
+            ModelClass::None => Err(format!(
+                "{}: model class None is explicitly not modelled — no simulation (not implemented by design)",
+                model.substance
+            )),
+        }
+    }
+}
+
+/// Value at `t` of the class-specific closed form, superposed causally over
+/// all doses at or before `t` (T216 for every class, not just decay).
+/// `half_life_hours` drives decay/absorption/accumulation; `rise_hours`
+/// drives the plateau band. Each is evaluated at its band edge.
+fn curve_at(
+    doses: &[DoseEvent],
+    class: &crate::models::ModelClass,
+    half_life_hours: f64,
+    rise_hours: f64,
+    shape: &SimShape,
+    t: DateTime<Utc>,
+) -> f64 {
+    use crate::models::ModelClass;
+    let mut total = 0.0;
+    for d in doses {
+        if d.timestamp > t {
+            continue; // causality: the future contributes nothing
+        }
+        let dt = (t - d.timestamp).num_milliseconds() as f64 / 3_600_000.0;
+        match class {
+            ModelClass::Decay => {
+                total += d.amount * 0.5f64.powf(dt / half_life_hours);
+            }
+            ModelClass::OralAbsorption => {
+                let dt = (dt - shape.lag_hours).max(0.0);
+                if dt == 0.0 {
+                    continue;
+                }
+                // Bateman function: rises, peaks near the absorption time,
+                // then the elimination half-life dominates the tail.
+                let ke = LN2 / half_life_hours;
+                let ka = LN2 / shape.absorption_half_life_hours.unwrap_or(1.0);
+                let frac = if (ka - ke).abs() < 1e-9 {
+                    // k_a ≈ k_e limit of the Bateman difference quotient
+                    ka * dt * (-ke * dt).exp()
+                } else {
+                    (ka / (ka - ke)) * ((-ke * dt).exp() - (-ka * dt).exp())
+                };
+                total += d.amount * frac;
+            }
+            ModelClass::Plateau => {
+                // v1 simplification (documented): each dose rises toward its
+                // own amount and does not decay; the total is capped at the
+                // body-pool ceiling when declared. Saturates, never returns
+                // to baseline between doses (A1/AC-1).
+                total += d.amount * (1.0 - 0.5f64.powf(dt / rise_hours));
+            }
+            ModelClass::Accumulation => {
+                // Uptake into a slow pool: each dose rises toward its amount
+                // at the elimination rate; repeated dosing trends toward a
+                // steady state (A3/AC-2).
+                total += d.amount * (1.0 - 0.5f64.powf(dt / half_life_hours));
+            }
+            ModelClass::None => unreachable!("None is refused in SimShape::resolve"),
+        }
+    }
+    if matches!(class, ModelClass::Plateau) {
+        if let Some(c) = shape.ceiling {
+            total = total.min(c);
+        }
+    }
+    total
+}
+
+/// Public sampling API (T220): dispatches over every implemented model
+/// class. Band always (FR-033): the three lines are the curve evaluated at
+/// the band's edge parameters; nothing here emits a lone line.
+///
+/// Units (T211): every dose must share one case-folded unit, and if the
+/// model's `params` carry an `expected_unit` string it must match too.
+/// Mismatches block the whole series with the mismatch in the message; no
+/// silent conversion happens anywhere.
 pub fn sample_series(
     model: &SubstanceModel,
     doses: &[DoseEvent],
@@ -426,12 +580,8 @@ pub fn sample_series(
     end: DateTime<Utc>,
     step_hours: f64,
 ) -> Result<Vec<ActiveDosePoint>, String> {
-    if model.model_class != crate::models::ModelClass::Decay {
-        return Err(format!(
-            "{}: model class {:?} simulation not implemented yet (T213–T215)",
-            model.substance, model.model_class
-        ));
-    }
+    use crate::models::ModelClass;
+    let shape = SimShape::resolve(model)?;
     if end < start {
         return Err("series window end precedes start".into());
     }
@@ -440,7 +590,34 @@ pub fn sample_series(
             "step_hours {step_hours} is not a positive finite number"
         ));
     }
-    let (hl_low, hl_expected, hl_high, band_is_assumption) = band_half_lives(model)?;
+    // Band edges: half-life-driven classes use the catalog t½ band;
+    // plateau is insensitive to t½, so its band rides on rise_time
+    // (catalog range `rise_time_range: [lo, hi]` when present, else the
+    // documented DEFAULT_VARIABILITY, flagged as an assumption).
+    let (band_a, band_b, band_c, band_is_assumption) =
+        if matches!(model.model_class, ModelClass::Plateau) {
+            let rise = shape.rise_time_hours.unwrap_or(1.0);
+            let range = model
+                .params
+                .get("rise_time_range")
+                .and_then(|v| v.as_array())
+                .filter(|a| a.len() == 2)
+                .and_then(|a| Some((a[0].as_f64()?, a[1].as_f64()?)))
+                .filter(|(lo, hi)| *lo > 0.0 && *hi >= *lo);
+            match range {
+                Some((lo, hi)) => (lo, rise, hi, false),
+                None => (
+                    rise * (1.0 - DEFAULT_VARIABILITY),
+                    rise,
+                    rise * (1.0 + DEFAULT_VARIABILITY),
+                    true,
+                ),
+            }
+        } else {
+            band_half_lives(model)?
+        };
+    let plateau = matches!(model.model_class, ModelClass::Plateau);
+    let rise_unused = shape.rise_time_hours.unwrap_or(1.0);
 
     // ── unit validation (T211): one unit across doses, model unit if declared
     let mut dose_unit: Option<String> = None;
@@ -479,11 +656,35 @@ pub fn sample_series(
     let mut out = Vec::with_capacity(n);
     for i in 0..n {
         let t = start + Duration::milliseconds(step_ms * i as i64);
+        let a = curve_at(
+            doses,
+            &model.model_class,
+            band_a,
+            if plateau { band_a } else { rise_unused },
+            &shape,
+            t,
+        );
+        let b = curve_at(
+            doses,
+            &model.model_class,
+            band_b,
+            rise_unused.max(0.0),
+            &shape,
+            t,
+        );
+        let c = curve_at(
+            doses,
+            &model.model_class,
+            band_c,
+            if plateau { band_c } else { rise_unused },
+            &shape,
+            t,
+        );
         out.push(ActiveDosePoint {
             t,
-            low: onboard_at(doses, hl_low, t).min(onboard_at(doses, hl_high, t)),
-            expected: onboard_at(doses, hl_expected, t),
-            high: onboard_at(doses, hl_low, t).max(onboard_at(doses, hl_high, t)),
+            low: a.min(c),
+            expected: b,
+            high: a.max(c),
             unit: unit.clone(),
             band_is_assumption,
         });
@@ -690,5 +891,122 @@ mod sim_tests {
         let m = model(Some(6.0), None);
         assert!(sample_series(&m, &doses, t0(), t0() - Duration::hours(1), 1.0).is_err());
         assert!(sample_series(&m, &doses, t0(), t0() + Duration::hours(1), 0.0).is_err());
+    }
+
+    #[test]
+    fn oral_absorption_peaks_then_halves_every_half_life() {
+        // A3/AC caffeine shape: peak near absorption time, tail halves per t½.
+        let mut m = model(Some(5.0), None);
+        m.model_class = ModelClass::OralAbsorption;
+        m.params = serde_json::json!({ "absorption_half_life_hours": 1.0 });
+        let doses = vec![DoseEvent {
+            substance: "Caf".into(),
+            amount: 200.0,
+            unit: "mg".into(),
+            timestamp: t0(),
+            entry_id: "e".into(),
+        }];
+        let series =
+            sample_series(&m, &doses, t0(), t0() + Duration::hours(30), 0.5).expect("series");
+        assert!(series[0].expected < 1e-9); // nothing absorbed at t = 0
+        let peak = series
+            .iter()
+            .enumerate()
+            .max_by(|a, b| a.1.expected.partial_cmp(&b.1.expected).unwrap())
+            .unwrap();
+        // Bateman t_max = ln(ka/ke)/(ka-ke) ≈ 2.9 h for these parameters
+        let peak_h = (peak.1.t - t0()).num_minutes() as f64 / 60.0;
+        assert!((1.5..5.0).contains(&peak_h), "peak at {peak_h}h");
+        // Late tail: absorption term is gone, so C(t+5)/C(t) = 0.5 exactly.
+        let c = |h: i64| series[(h as usize) * 2].expected; // 0.5 h steps
+        let ratio = c(29.0 as i64) / c(24);
+        assert!((ratio - 0.5).abs() < 1e-4, "tail ratio {ratio}");
+        assert!(series[40].low < series[40].expected && series[40].high > series[40].expected);
+    }
+
+    #[test]
+    fn oral_absorption_without_absorption_param_is_refused() {
+        let mut m = model(Some(5.0), None);
+        m.model_class = ModelClass::OralAbsorption;
+        let err = sample_series(
+            &m,
+            &[dose(100.0, t0())],
+            t0(),
+            t0() + Duration::hours(1),
+            1.0,
+        )
+        .expect_err("must refuse");
+        assert!(err.contains("absorption"), "{err}");
+        assert!(err.contains("refusing"), "{err}");
+    }
+
+    #[test]
+    fn plateau_saturates_and_never_returns_to_baseline() {
+        // A1/AC-1 creatine shape: daily dosing saturates at the ceiling.
+        let mut m = model(None, None);
+        m.model_class = ModelClass::Plateau;
+        m.params = serde_json::json!({ "rise_time_hours": 24.0, "ceiling": 25.0 });
+        let doses: Vec<DoseEvent> = (0..7)
+            .map(|d| DoseEvent {
+                substance: "Cre".into(),
+                amount: 5.0,
+                unit: "g".into(),
+                timestamp: t0() + Duration::days(d),
+                entry_id: "e".into(),
+            })
+            .collect();
+        let series =
+            sample_series(&m, &doses, t0(), t0() + Duration::days(7), 6.0).expect("series");
+        // Monotonic: never dips between doses.
+        for w in series.windows(2) {
+            assert!(
+                w[1].expected >= w[0].expected - 1e-12,
+                "dip at {:?}",
+                w[1].t
+            );
+        }
+        let last = series.last().unwrap();
+        assert!(
+            (last.expected - 25.0).abs() < 0.05,
+            "ceiling hit: {}",
+            last.expected
+        );
+        assert!(last.low <= last.expected && last.high >= last.expected);
+        assert!(last.band_is_assumption); // no rise_time_range given
+    }
+
+    #[test]
+    fn accumulation_rises_toward_steady_state() {
+        // A3/AC-2 vitamin-D shape: daily dosing trends upward across a week.
+        let mut m = model(Some(120.0), None); // 5-day pool half-life
+        m.model_class = ModelClass::Accumulation;
+        let doses: Vec<DoseEvent> = (0..7)
+            .map(|d| DoseEvent {
+                substance: "D3".into(),
+                amount: 1000.0,
+                unit: "iu".into(),
+                timestamp: t0() + Duration::days(d),
+                entry_id: "e".into(),
+            })
+            .collect();
+        let series =
+            sample_series(&m, &doses, t0(), t0() + Duration::days(7), 12.0).expect("series");
+        for w in series.windows(2) {
+            assert!(w[1].expected >= w[0].expected - 1e-12, "must trend up");
+        }
+        let day1 = series[2].expected;
+        let day6 = series[12].expected;
+        assert!(day6 > day1 * 4.0, "rising: day6 {day6} vs day1 {day1}");
+        // Bounded: the pool converges, it never grows past total dosed.
+        assert!(day6 < 7000.0, "must be bounded below total administered");
+    }
+
+    #[test]
+    fn none_class_still_refuses_explicitly() {
+        let mut m = model(Some(6.0), None);
+        m.model_class = ModelClass::None;
+        let err = sample_series(&m, &[dose(1.0, t0())], t0(), t0() + Duration::hours(1), 1.0)
+            .expect_err("must refuse");
+        assert!(err.contains("not modelled"), "{err}");
     }
 }

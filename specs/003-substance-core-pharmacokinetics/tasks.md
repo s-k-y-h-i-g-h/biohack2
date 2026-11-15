@@ -45,15 +45,15 @@
 - [x] T210 Implement `DoseEvent` derivation from `LogEntry` in `engine/src/pharmacokinetics.rs` (substance, amount, unit, timestamp, entry id) — missing quantity/unit is rejected, never defaulted
 - [x] T211 Implement unit validation: dose unit must match the model's expected unit; mismatch blocks the model and surfaces the mismatch (no silent conversion) — plus one-unit consistency across all doses
 - [x] T212 Implement `decay` model (one-compartment, first-order) — analytic, no ODE solver needed
-- [ ] T213 Implement `oral_absorption` model (lag/absorption phase + decay)
-- [ ] T214 Implement `plateau` model (saturation ceiling)
-- [ ] T215 Implement `accumulation` model (multi-day rise toward steady state)
+- [x] T213 Implement `oral_absorption` model (lag/absorption phase + decay) — Bateman; needs explicit `absorption_half_life_hours`/`ka_per_hour` in catalog params (refuses, never guesses); optional `lag_hours` (default 0 documented)
+- [x] T214 Implement `plateau` model (saturation ceiling) — per-dose saturating rise, optional `ceiling` cap; needs explicit `rise_time_hours`; band rides on rise time (range param or flagged ±25 %)
+- [x] T215 Implement `accumulation` model (multi-day rise toward steady state) — per-dose uptake at the elimination rate, superposed; band from the t½ band
 - [x] T216 Implement multi-dose superposition (summed contributions at time t) — causal: future doses contribute nothing
 - [x] T217 Implement band computation: evaluate at range endpoints → `low` / `expected` / `high` (FR-033). No midpoint-only output
 - [x] T218 Implement the documented default variability factor for single-value half-lives, and mark the output as assumption-derived (FR-033, A5/AC-2) → `DEFAULT_VARIABILITY = 0.25`, documented in research.md; points carry `band_is_assumption`
 - [ ] T219 Implement per-substance render windowing so long half-lives do not blow up the window (edge case) — partial: `MAX_SERIES_POINTS` fuse in place; windowing logic pending
-- [ ] T220 Implement `sample_series(substance, start, end, step) -> Vec<ActiveDosePoint>` as the public API — decay path exists; dispatch over all model classes pending T213–T215
-- [ ] T221 Unit tests: known analytic cases (single dose, half-life check at t=half_life; two doses sum; plateau saturates; accumulation rises) — decay cases done (11 new tests); plateau/accumulation pending their classes
+- [x] T220 Implement `sample_series(substance, start, end, step) -> Vec<ActiveDosePoint>` as the public API — dispatches over all four modelled classes; `none` refuses explicitly
+- [x] T221 Unit tests: known analytic cases (single dose, half-life check at t=half_life; two doses sum; plateau saturates; accumulation rises) — all five cases covered (16 sim tests, analytic expectations checked by hand)
 - [ ] T222 Create a shared **test vector** file (fixture: log + params → expected series) used by native and WASM tests
 - [ ] T223 WASM test: same fixture produces the same series on `wasm32` within documented tolerance (FR-038, SC-033)
 - [ ] T224 Test: local-time rendering of UTC-stored doses is correct across a DST boundary (chrono `wasmbind`/`now`/`clock` features must stay enabled — see the 2026-09-09 incident)
