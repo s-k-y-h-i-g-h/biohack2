@@ -70,11 +70,15 @@ pub fn refresh_pharmacokinetic_alerts(now: DateTime<Utc>) -> Result<usize, Strin
         if doses_for.is_empty() {
             continue;
         }
-        fresh.extend(redose_alert(LOCAL_USER, now, &doses_for, model, &band, None));
+        fresh.extend(redose_alert(
+            LOCAL_USER, now, &doses_for, model, &band, None,
+        ));
     }
 
     // 4. Cumulative-load alerts across the whole catalog.
-    fresh.extend(cumulative_load_alerts(LOCAL_USER, now, &doses, &catalog, None));
+    fresh.extend(cumulative_load_alerts(
+        LOCAL_USER, now, &doses, &catalog, None,
+    ));
 
     for a in &fresh {
         create_alert(a)?;
