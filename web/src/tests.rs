@@ -804,3 +804,25 @@ fn test_relative_time_buckets() {
         "old entries should show the absolute date, got: {rel}"
     );
 }
+
+// ── T223: native ↔ wasm32 PK parity on the shared spec-003 fixture ──────
+// Same vectors fixture the native engine test consumes; the point is that
+// wasm f64 math reproduces native expectations exactly (FR-038). Pure
+// computation, so it lives in its own module: with no configure macro it
+// runs on the node runner (`wasm-pack test --node`) while the localStorage
+// tests above stay browser-only.
+
+mod pk_parity {
+    use super::*;
+
+    #[wasm_bindgen_test]
+    fn pk_shared_vectors_match_native() {
+        let fixture = include_str!("../../engine/tests/fixtures/pk_vectors.json");
+        let failures = engine::pharmacokinetics::check_vectors(fixture);
+        assert!(
+            failures.is_empty(),
+            "wasm PK drift:\n{}",
+            failures.join("\n")
+        );
+    }
+}

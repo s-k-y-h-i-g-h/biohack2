@@ -1,0 +1,533 @@
+{
+ "tolerance": 1e-06,
+ "step_hours": 0.5,
+ "note": "spec-003 T222 shared test vector \u2014 consumed by engine (native) and web (wasm32) tests via check_vectors(). Expectations computed independently in Python (see commit message). All t_hours are exact multiples of step_hours from the fixed epoch 2026-01-01T00:00:00Z.",
+ "vectors": [
+  {
+   "name": "decay_single_dose",
+   "model": {
+    "substance": "VecDecay",
+    "model_class": "decay",
+    "half_life_hours": 6.0,
+    "half_life_range": null,
+    "params": null,
+    "provenance": "fixture",
+    "catalog_version": 1,
+    "rationale": null
+   },
+   "doses": [
+    {
+     "amount": 100.0,
+     "unit": "mg",
+     "offset_hours": 0.0
+    }
+   ],
+   "checks": [
+    {
+     "t_hours": 6.0,
+     "low": 39.68502629920499,
+     "expected": 50.0,
+     "high": 57.43491774985174
+    },
+    {
+     "t_hours": 12.0,
+     "low": 15.749013123685915,
+     "expected": 25.0,
+     "high": 32.98769776932235
+    }
+   ]
+  },
+  {
+   "name": "decay_two_doses_superposed",
+   "model": {
+    "substance": "VecDecay",
+    "model_class": "decay",
+    "half_life_hours": 6.0,
+    "half_life_range": null,
+    "params": null,
+    "provenance": "fixture",
+    "catalog_version": 1,
+    "rationale": null
+   },
+   "doses": [
+    {
+     "amount": 100.0,
+     "unit": "mg",
+     "offset_hours": 0.0
+    },
+    {
+     "amount": 100.0,
+     "unit": "mg",
+     "offset_hours": 6.0
+    }
+   ],
+   "checks": [
+    {
+     "t_hours": 6.0,
+     "low": 139.685026299205,
+     "expected": 150.0,
+     "high": 157.43491774985173
+    },
+    {
+     "t_hours": 0.0,
+     "low": 100.0,
+     "expected": 100.0,
+     "high": 100.0
+    },
+    {
+     "t_hours": 3.0,
+     "low": 62.99605249474366,
+     "expected": 70.71067811865476,
+     "high": 75.7858283255199
+    }
+   ]
+  },
+  {
+   "name": "oral_absorption_t3",
+   "model": {
+    "substance": "VecCaf",
+    "model_class": "oral_absorption",
+    "half_life_hours": 5.0,
+    "half_life_range": null,
+    "params": {
+     "absorption_half_life_hours": 1.0
+    },
+    "provenance": "fixture",
+    "catalog_version": 1,
+    "rationale": null
+   },
+   "doses": [
+    {
+     "amount": 200.0,
+     "unit": "mg",
+     "offset_hours": 0.0
+    }
+   ],
+   "checks": [
+    {
+     "t_hours": 3.0,
+     "low": 122.54977568141386,
+     "expected": 133.6884888466118,
+     "high": 140.94705333521753
+    }
+   ]
+  },
+  {
+   "name": "oral_absorption_t10",
+   "model": {
+    "substance": "VecCaf",
+    "model_class": "oral_absorption",
+    "half_life_hours": 5.0,
+    "half_life_range": null,
+    "params": {
+     "absorption_half_life_hours": 1.0
+    },
+    "provenance": "fixture",
+    "catalog_version": 1,
+    "rationale": null
+   },
+   "doses": [
+    {
+     "amount": 200.0,
+     "unit": "mg",
+     "offset_hours": 0.0
+    }
+   ],
+   "checks": [
+    {
+     "t_hours": 10.0,
+     "low": 42.685518746416136,
+     "expected": 62.255859375,
+     "high": 78.30962266505321
+    }
+   ]
+  },
+  {
+   "name": "oral_absorption_t29",
+   "model": {
+    "substance": "VecCaf",
+    "model_class": "oral_absorption",
+    "half_life_hours": 5.0,
+    "half_life_range": null,
+    "params": {
+     "absorption_half_life_hours": 1.0
+    },
+    "provenance": "fixture",
+    "catalog_version": 1,
+    "rationale": null
+   },
+   "doses": [
+    {
+     "amount": 200.0,
+     "unit": "mg",
+     "offset_hours": 0.0
+    }
+   ],
+   "checks": [
+    {
+     "t_hours": 29.0,
+     "low": 1.2816312776047147,
+     "expected": 4.487102483545883,
+     "high": 9.54929938957038
+    }
+   ]
+  },
+  {
+   "name": "plateau_daily_t24",
+   "model": {
+    "substance": "VecCre",
+    "model_class": "plateau",
+    "half_life_hours": null,
+    "half_life_range": null,
+    "params": {
+     "rise_time_hours": 24.0,
+     "ceiling": 25.0
+    },
+    "provenance": "fixture",
+    "catalog_version": 1,
+    "rationale": null
+   },
+   "doses": [
+    {
+     "amount": 5.0,
+     "unit": "g",
+     "offset_hours": 0.0
+    },
+    {
+     "amount": 5.0,
+     "unit": "g",
+     "offset_hours": 24.0
+    },
+    {
+     "amount": 5.0,
+     "unit": "g",
+     "offset_hours": 48.0
+    },
+    {
+     "amount": 5.0,
+     "unit": "g",
+     "offset_hours": 72.0
+    },
+    {
+     "amount": 5.0,
+     "unit": "g",
+     "offset_hours": 96.0
+    },
+    {
+     "amount": 5.0,
+     "unit": "g",
+     "offset_hours": 120.0
+    },
+    {
+     "amount": 5.0,
+     "unit": "g",
+     "offset_hours": 144.0
+    }
+   ],
+   "checks": [
+    {
+     "t_hours": 24.0,
+     "low": 2.128254112507413,
+     "expected": 2.5,
+     "high": 3.0157486850397506
+    }
+   ]
+  },
+  {
+   "name": "plateau_daily_t72",
+   "model": {
+    "substance": "VecCre",
+    "model_class": "plateau",
+    "half_life_hours": null,
+    "half_life_range": null,
+    "params": {
+     "rise_time_hours": 24.0,
+     "ceiling": 25.0
+    },
+    "provenance": "fixture",
+    "catalog_version": 1,
+    "rationale": null
+   },
+   "doses": [
+    {
+     "amount": 5.0,
+     "unit": "g",
+     "offset_hours": 0.0
+    },
+    {
+     "amount": 5.0,
+     "unit": "g",
+     "offset_hours": 24.0
+    },
+    {
+     "amount": 5.0,
+     "unit": "g",
+     "offset_hours": 48.0
+    },
+    {
+     "amount": 5.0,
+     "unit": "g",
+     "offset_hours": 72.0
+    },
+    {
+     "amount": 5.0,
+     "unit": "g",
+     "offset_hours": 96.0
+    },
+    {
+     "amount": 5.0,
+     "unit": "g",
+     "offset_hours": 120.0
+    },
+    {
+     "amount": 5.0,
+     "unit": "g",
+     "offset_hours": 144.0
+    }
+   ],
+   "checks": [
+    {
+     "t_hours": 72.0,
+     "low": 9.531546369972297,
+     "expected": 10.625,
+     "high": 11.915798028855455
+    }
+   ]
+  },
+  {
+   "name": "plateau_daily_t168",
+   "model": {
+    "substance": "VecCre",
+    "model_class": "plateau",
+    "half_life_hours": null,
+    "half_life_range": null,
+    "params": {
+     "rise_time_hours": 24.0,
+     "ceiling": 25.0
+    },
+    "provenance": "fixture",
+    "catalog_version": 1,
+    "rationale": null
+   },
+   "doses": [
+    {
+     "amount": 5.0,
+     "unit": "g",
+     "offset_hours": 0.0
+    },
+    {
+     "amount": 5.0,
+     "unit": "g",
+     "offset_hours": 24.0
+    },
+    {
+     "amount": 5.0,
+     "unit": "g",
+     "offset_hours": 48.0
+    },
+    {
+     "amount": 5.0,
+     "unit": "g",
+     "offset_hours": 72.0
+    },
+    {
+     "amount": 5.0,
+     "unit": "g",
+     "offset_hours": 96.0
+    },
+    {
+     "amount": 5.0,
+     "unit": "g",
+     "offset_hours": 120.0
+    },
+    {
+     "amount": 5.0,
+     "unit": "g",
+     "offset_hours": 144.0
+    }
+   ],
+   "checks": [
+    {
+     "t_hours": 168.0,
+     "low": 25.0,
+     "expected": 25.0,
+     "high": 25.0
+    }
+   ]
+  },
+  {
+   "name": "accumulation_daily_t24",
+   "model": {
+    "substance": "VecD3",
+    "model_class": "accumulation",
+    "half_life_hours": 120.0,
+    "half_life_range": null,
+    "params": null,
+    "provenance": "fixture",
+    "catalog_version": 1,
+    "rationale": null
+   },
+   "doses": [
+    {
+     "amount": 1000.0,
+     "unit": "iu",
+     "offset_hours": 0.0
+    },
+    {
+     "amount": 1000.0,
+     "unit": "iu",
+     "offset_hours": 24.0
+    },
+    {
+     "amount": 1000.0,
+     "unit": "iu",
+     "offset_hours": 48.0
+    },
+    {
+     "amount": 1000.0,
+     "unit": "iu",
+     "offset_hours": 72.0
+    },
+    {
+     "amount": 1000.0,
+     "unit": "iu",
+     "offset_hours": 96.0
+    },
+    {
+     "amount": 1000.0,
+     "unit": "iu",
+     "offset_hours": 120.0
+    },
+    {
+     "amount": 1000.0,
+     "unit": "iu",
+     "offset_hours": 144.0
+    }
+   ],
+   "checks": [
+    {
+     "t_hours": 24.0,
+     "low": 104.97492907202755,
+     "expected": 129.44943670387588,
+     "high": 168.76210385721225
+    }
+   ]
+  },
+  {
+   "name": "accumulation_daily_t96",
+   "model": {
+    "substance": "VecD3",
+    "model_class": "accumulation",
+    "half_life_hours": 120.0,
+    "half_life_range": null,
+    "params": null,
+    "provenance": "fixture",
+    "catalog_version": 1,
+    "rationale": null
+   },
+   "doses": [
+    {
+     "amount": 1000.0,
+     "unit": "iu",
+     "offset_hours": 0.0
+    },
+    {
+     "amount": 1000.0,
+     "unit": "iu",
+     "offset_hours": 24.0
+    },
+    {
+     "amount": 1000.0,
+     "unit": "iu",
+     "offset_hours": 48.0
+    },
+    {
+     "amount": 1000.0,
+     "unit": "iu",
+     "offset_hours": 72.0
+    },
+    {
+     "amount": 1000.0,
+     "unit": "iu",
+     "offset_hours": 96.0
+    },
+    {
+     "amount": 1000.0,
+     "unit": "iu",
+     "offset_hours": 120.0
+    },
+    {
+     "amount": 1000.0,
+     "unit": "iu",
+     "offset_hours": 144.0
+    }
+   ],
+   "checks": [
+    {
+     "t_hours": 96.0,
+     "low": 945.2144786930396,
+     "expected": 1137.4880205637123,
+     "high": 1426.0356844195985
+    }
+   ]
+  },
+  {
+   "name": "accumulation_daily_t168",
+   "model": {
+    "substance": "VecD3",
+    "model_class": "accumulation",
+    "half_life_hours": 120.0,
+    "half_life_range": null,
+    "params": null,
+    "provenance": "fixture",
+    "catalog_version": 1,
+    "rationale": null
+   },
+   "doses": [
+    {
+     "amount": 1000.0,
+     "unit": "iu",
+     "offset_hours": 0.0
+    },
+    {
+     "amount": 1000.0,
+     "unit": "iu",
+     "offset_hours": 24.0
+    },
+    {
+     "amount": 1000.0,
+     "unit": "iu",
+     "offset_hours": 48.0
+    },
+    {
+     "amount": 1000.0,
+     "unit": "iu",
+     "offset_hours": 72.0
+    },
+    {
+     "amount": 1000.0,
+     "unit": "iu",
+     "offset_hours": 96.0
+    },
+    {
+     "amount": 1000.0,
+     "unit": "iu",
+     "offset_hours": 120.0
+    },
+    {
+     "amount": 1000.0,
+     "unit": "iu",
+     "offset_hours": 144.0
+    }
+   ],
+   "checks": [
+    {
+     "t_hours": 168.0,
+     "low": 2396.714562554051,
+     "expected": 2823.2835972880507,
+     "high": 3425.1021988106686
+    }
+   ]
+  }
+ ]
+}

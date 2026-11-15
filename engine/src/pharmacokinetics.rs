@@ -692,6 +692,118 @@ pub fn sample_series(
     Ok(out)
 }
 
+/// T219: pick a render window for a characteristic time (t½ for decay/
+/// oral, rise time for plateau, t½ for accumulation) so long half-lives
+/// neither truncate the curve nor explode the point count. Shows ~8
+/// characteristic times (>99.6 % of the transition), clamped to 24 h…30 d,
+/// sampled in ~200 steps (well under MAX_SERIES_POINTS).
+pub fn recommended_window(characteristic_hours: f64) -> Result<(f64, f64), String> {
+    if !characteristic_hours.is_finite() || characteristic_hours <= 0.0 {
+        return Err(format!(
+            "characteristic time must be finite and > 0 h, got {characteristic_hours}"
+        ));
+    }
+    let window_hours = (8.0 * characteristic_hours).clamp(24.0, 720.0);
+    let step_hours = window_hours / 200.0;
+    Ok((window_hours, step_hours))
+}
+
+/// T222/T223 — verify the shared test-vector fixture (`tests/fixtures/
+/// pk_vectors.json`, expectations computed independently in Python).
+/// Single source of truth consumed by BOTH the native engine tests and the
+/// wasm32 web tests: an empty return means this target reproduces every
+/// recorded value within the documented tolerance (FR-038, SC-033).
+pub fn check_vectors(json: &str) -> Vec<String> {
+    use chrono::TimeZone;
+    #[derive(serde::Deserialize)]
+    struct Fix {
+        tolerance: f64,
+        step_hours: f64,
+        vectors: Vec<Vector>,
+    }
+    #[derive(serde::Deserialize)]
+    struct Vector {
+        name: String,
+        model: SubstanceModel,
+        doses: Vec<RawDose>,
+        checks: Vec<Chk>,
+    }
+    #[derive(serde::Deserialize)]
+    struct RawDose {
+        amount: f64,
+        unit: String,
+        offset_hours: f64,
+    }
+    #[derive(serde::Deserialize)]
+    struct Chk {
+        t_hours: f64,
+        low: f64,
+        expected: f64,
+        high: f64,
+    }
+
+    let fix: Fix = match serde_json::from_str(json) {
+        Ok(f) => f,
+        Err(e) => return vec![format!("fixture parse error: {e}")],
+    };
+    let epoch = match Utc.with_ymd_and_hms(2026, 1, 1, 0, 0, 0) {
+        chrono::LocalResult::Single(t) => t,
+        _ => return vec!["fixture epoch is not a single UTC instant".into()],
+    };
+    let mut failures = Vec::new();
+    for v in &fix.vectors {
+        let doses: Vec<DoseEvent> = v
+            .doses
+            .iter()
+            .enumerate()
+            .map(|(i, d)| DoseEvent {
+                substance: v.model.substance.clone(),
+                amount: d.amount,
+                unit: d.unit.clone(),
+                timestamp: epoch
+                    + Duration::milliseconds((d.offset_hours * 3_600_000.0).round() as i64),
+                entry_id: format!("{}#{i}", v.name),
+            })
+            .collect();
+        let end = epoch + Duration::hours(192);
+        let series = match sample_series(&v.model, &doses, epoch, end, fix.step_hours) {
+            Ok(s) => s,
+            Err(e) => {
+                failures.push(format!("{}: sample_series failed: {e}", v.name));
+                continue;
+            }
+        };
+        for c in &v.checks {
+            let idx = (c.t_hours / fix.step_hours).round() as usize;
+            let Some(pt) = series.get(idx) else {
+                failures.push(format!("{}: no sample at t={}h", v.name, c.t_hours));
+                continue;
+            };
+            let off_h = (pt.t - epoch).num_milliseconds() as f64 / 3_600_000.0;
+            if (off_h - c.t_hours).abs() > 1e-9 {
+                failures.push(format!(
+                    "{}: sample offset {off_h} != check t {}",
+                    v.name, c.t_hours
+                ));
+                continue;
+            }
+            for (label, got, want) in [
+                ("low", pt.low, c.low),
+                ("expected", pt.expected, c.expected),
+                ("high", pt.high, c.high),
+            ] {
+                if (got - want).abs() > fix.tolerance {
+                    failures.push(format!(
+                        "{}: t={}h {label}: got {got}, want {want} (tol {})",
+                        v.name, c.t_hours, fix.tolerance
+                    ));
+                }
+            }
+        }
+    }
+    failures
+}
+
 #[cfg(test)]
 mod sim_tests {
     use super::*;
@@ -1008,5 +1120,77 @@ mod sim_tests {
         let err = sample_series(&m, &[dose(1.0, t0())], t0(), t0() + Duration::hours(1), 1.0)
             .expect_err("must refuse");
         assert!(err.contains("not modelled"), "{err}");
+    }
+
+    #[test]
+    fn shared_vectors_match_python_expectations() {
+        let fixture = include_str!("../tests/fixtures/pk_vectors.json");
+        let failures = check_vectors(fixture);
+        assert!(
+            failures.is_empty(),
+            "vector drift:\n{}",
+            failures.join("\n")
+        );
+    }
+
+    #[test]
+    fn t219_recommended_window_bounds_long_and_short_half_lives() {
+        // caffeine-scale: 5 h t½ -> 40 h window
+        let (w, step) = recommended_window(5.0).unwrap();
+        assert!((w - 40.0).abs() < 1e-9);
+        // vitamin-D-scale: 120 h t½ would want 960 h, clamped to 30 d
+        let (w, step_long) = recommended_window(120.0).unwrap();
+        assert!((w - 720.0).abs() < 1e-9);
+        // never more than ~201 points, so sample_series can't hit the cap
+        for ch in [0.01, 5.0, 120.0, 5000.0] {
+            let (w, s) = recommended_window(ch).unwrap();
+            assert!(w / s <= 200.5, "window {w} step {s} exceeds point budget");
+        }
+        assert!(recommended_window(0.0).is_err());
+        assert!(recommended_window(f64::NAN).is_err());
+        let _ = step;
+        let _ = step_long;
+    }
+
+    #[test]
+    fn t224_dst_boundary_is_invisible_to_the_sim() {
+        // EU summer time ends 2026-10-25 01:00 UTC: Bucharest wall clock
+        // repeats 02:00->03:00 as +03:00 -> +02:00. The engine stores UTC
+        // instants only (FR: "internally always UTC"), so DST must be a
+        // pure display concern. chrono-tz is not vendored offline, so this
+        // tests the invariant directly with fixed offsets.
+        use chrono::{FixedOffset, TimeZone};
+        let epoch = Utc.with_ymd_and_hms(2026, 10, 24, 22, 0, 0).unwrap();
+        let model = model(Some(6.0), None);
+        let doses = vec![DoseEvent {
+            substance: "VecDecay".into(),
+            amount: 100.0,
+            unit: "mg".into(),
+            timestamp: epoch,
+            entry_id: "dst#0".into(),
+        }];
+        // Same Bucharest wall time (03:30 local) before and after the flip:
+        // 00:30Z at +03:00 and 01:30Z at +02:00 both read 03:30 local.
+        let before = FixedOffset::east_opt(3 * 3600)
+            .unwrap()
+            .with_ymd_and_hms(2026, 10, 25, 3, 30, 0)
+            .unwrap();
+        let after = FixedOffset::east_opt(2 * 3600)
+            .unwrap()
+            .with_ymd_and_hms(2026, 10, 25, 3, 30, 0)
+            .unwrap();
+        assert_eq!(before.to_utc(), epoch + Duration::minutes(150));
+        assert_eq!(after.to_utc(), epoch + Duration::minutes(210));
+        // identical wall clock, one real hour apart -> decay follows UTC,
+        // not the repeated wall hour
+        let c_before = onboard_at(&doses, 6.0, before.to_utc());
+        let c_after = onboard_at(&doses, 6.0, after.to_utc());
+        assert!(c_after < c_before, "decay must advance with UTC across DST");
+        // sampled series stays exactly uniform in UTC across the flip
+        let series =
+            sample_series(&model, &doses, epoch, epoch + Duration::hours(48), 3.0).unwrap();
+        for pair in series.windows(2) {
+            assert_eq!(pair[1].t - pair[0].t, Duration::hours(3));
+        }
     }
 }

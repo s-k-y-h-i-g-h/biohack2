@@ -25,6 +25,13 @@ sqlx = { workspace = true, features = ["runtime-tokio", "sqlite", "chrono", "uui
 default = ["db"]
 db = ["sqlx"]
 
+# uuid v4 on wasm32 needs getrandom's JS backend; the web crate only got it
+# through feature unification, so anything building `engine` alone for
+# wasm32 (e.g. the T223 vectors example) requires it here.
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+getrandom = { workspace = true }
+uuid = { workspace = true, features = ["js"] }
+
 [dev-dependencies]
 tempfile = "3.8"
 assert_matches = "1.5"

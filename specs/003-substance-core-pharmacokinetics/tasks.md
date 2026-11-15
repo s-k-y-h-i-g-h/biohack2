@@ -51,12 +51,12 @@
 - [x] T216 Implement multi-dose superposition (summed contributions at time t) — causal: future doses contribute nothing
 - [x] T217 Implement band computation: evaluate at range endpoints → `low` / `expected` / `high` (FR-033). No midpoint-only output
 - [x] T218 Implement the documented default variability factor for single-value half-lives, and mark the output as assumption-derived (FR-033, A5/AC-2) → `DEFAULT_VARIABILITY = 0.25`, documented in research.md; points carry `band_is_assumption`
-- [ ] T219 Implement per-substance render windowing so long half-lives do not blow up the window (edge case) — partial: `MAX_SERIES_POINTS` fuse in place; windowing logic pending
+- [x] T219 Implement per-substance render windowing so long half-lives do not blow up the window (edge case) — `recommended_window(characteristic_hours)`: ~8 characteristic times clamped 24 h–30 d in ~200 steps, so `sample_series` can never approach `MAX_SERIES_POINTS`
 - [x] T220 Implement `sample_series(substance, start, end, step) -> Vec<ActiveDosePoint>` as the public API — dispatches over all four modelled classes; `none` refuses explicitly
 - [x] T221 Unit tests: known analytic cases (single dose, half-life check at t=half_life; two doses sum; plateau saturates; accumulation rises) — all five cases covered (16 sim tests, analytic expectations checked by hand)
-- [ ] T222 Create a shared **test vector** file (fixture: log + params → expected series) used by native and WASM tests
-- [ ] T223 WASM test: same fixture produces the same series on `wasm32` within documented tolerance (FR-038, SC-033)
-- [ ] T224 Test: local-time rendering of UTC-stored doses is correct across a DST boundary (chrono `wasmbind`/`now`/`clock` features must stay enabled — see the 2026-09-09 incident)
+- [x] T222 Create a shared **test vector** file (fixture: log + params → expected series) used by native and WASM tests — `engine/tests/fixtures/pk_vectors.json` (11 vectors, all 4 modelled classes, ±25 % half-life band edges, expectations computed independently in Python); single checker `pharmacokinetics::check_vectors()` consumed by both targets
+- [x] T223 WASM test: same fixture produces the same series on `wasm32` within documented tolerance (FR-038, SC-033) — **executed green**: `engine/examples/wasm_vectors.rs` compiles the engine to `wasm32-unknown-unknown` and `engine/examples/wasm_vectors_node_check.mjs` runs the fixture in node's WebAssembly runtime (no browser/chromedriver needed); also a `wasm_bindgen_test` in `web/src/tests.rs` for browser CI
+- [x] T224 Test: local-time rendering of UTC-stored doses is correct across a DST boundary (chrono `wasmbind`/`now`/`clock` features must stay enabled — see the 2026-09-09 incident) — engine invariant test `t224_dst_boundary_is_invisible_to_the_sim` (2026-10-25 EU flip: identical wall clock 1 real hour apart decays by UTC; series stays exactly uniform across the boundary); browser-side conversion covered by spec-002 `local_time` tests
 
 **Checkpoint**: A dose log produces a reproducible band series on both targets. No simulation path can produce a single line without a band.
 
