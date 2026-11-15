@@ -55,7 +55,7 @@ impl Metric {
         }
     }
 
-    fn extract(&self, v: &VitalsEntry) -> Option<f64> {
+    pub(crate) fn extract(&self, v: &VitalsEntry) -> Option<f64> {
         match self {
             Metric::HeartRate => v.heart_rate.map(|x| x as f64),
             Metric::Hrv => v.hrv,

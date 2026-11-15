@@ -11,6 +11,7 @@
 //! glob never collides with `catalog::seed_catalog` (fn) vs `db::seed_catalog`
 //! (async fn) in WASM builds where `db` is absent.
 
+pub mod candidates;
 pub mod catalog;
 pub mod dashboard;
 pub mod explain;
