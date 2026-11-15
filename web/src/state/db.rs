@@ -13,6 +13,32 @@ const STORAGE_KEY_ALERTS: &str = "biohack2_alerts";
 const STORAGE_KEY_STACKS: &str = "biohack2_stacks";
 const STORAGE_KEY_NOTES: &str = "biohack2_notes";
 const STORAGE_KEY_TARGET_BANDS: &str = "biohack2_target_bands";
+const STORAGE_KEY_INSIGHT_LEDGER: &str = "biohack2_insight_ledger";
+
+// ── Insight ledger (spec 006 D4) ──────────────────────────────────────────────
+//
+// The ledger is written as a whole list because `engine::candidates::
+// record_outcome` is a pure function returning the updated ledger; the db
+// layer stays a dumb, sync local mirror like every other store here.
+
+pub fn get_insight_ledger() -> Vec<engine::candidates::LedgerEntry> {
+    LocalStorage::get::<Vec<engine::candidates::LedgerEntry>>(STORAGE_KEY_INSIGHT_LEDGER)
+        .unwrap_or_default()
+}
+
+pub fn set_insight_ledger(entries: &[engine::candidates::LedgerEntry]) -> Result<(), String> {
+    LocalStorage::set(STORAGE_KEY_INSIGHT_LEDGER, entries)
+        .map_err(|e| format!("Failed to write insight ledger: {e:?}"))
+}
+
+pub fn get_catalog_items() -> Vec<CatalogItem> {
+    match LocalStorage::get::<Vec<CatalogItem>>(STORAGE_KEY_CATALOG_ITEMS) {
+        Ok(items) if !items.is_empty() => items,
+        // A fresh install (or non-browser test run) still sees the seed so
+        // candidate generation never depends on seed timing.
+        _ => engine::catalog::seed_catalog(),
+    }
+}
 
 // ── LogEntry CRUD ─────────────────────────────────────────────────────────────
 
@@ -422,6 +448,31 @@ pub fn export_data() -> Result<String, String> {
             "Note",
             note.timestamp.format("%Y-%m-%dT%H:%M:%SZ"),
             content,
+        ));
+    }
+
+    // Insight ledger (spec 006 D4): user's own tested hypotheses travel with
+    // their data — export must cover every store (data-lifecycle spec).
+    for entry in get_insight_ledger() {
+        let evidence = entry.evidence.replace(',', ";");
+        let user_note = entry
+            .user_note
+            .clone()
+            .unwrap_or_default()
+            .replace(',', ";");
+        let metric = entry.metric.name();
+        let outcome = entry
+            .outcome_at
+            .map(|t| t.format("%Y-%m-%dT%H:%M:%SZ").to_string())
+            .unwrap_or_default();
+        csv.push_str(&format!(
+            "ledger,{},{},Ledger,{},{},{},{}\n",
+            entry.id,
+            entry.substance.replace(',', ";") + " | " + metric,
+            entry.status.label(),
+            evidence,
+            outcome,
+            user_note,
         ));
     }
 
