@@ -51,6 +51,12 @@ pub fn Layout(children: Children) -> impl IntoView {
                     aria-current=move || if is_active("#/history") { "page" } else { "" }
                 >"History"</a>
                 <a
+                    href="#/dashboard"
+                    class="nav-link"
+                    aria-label="Go to Dashboard page"
+                    aria-current=move || if is_active("#/dashboard") { "page" } else { "" }
+                >"Dashboard"</a>
+                <a
                     href="#/vitals"
                     class="nav-link"
                     aria-label="Go to Vitals page"

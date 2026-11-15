@@ -10,6 +10,7 @@ pub mod summary_stats;
 pub mod vitals_dashboard;
 pub mod vitals_form;
 
+pub use active_dose_panel::ActiveDosePanel;
 pub use alert_banner::AlertBanner;
 pub use layout::Layout;
 pub use log_form::LogForm;

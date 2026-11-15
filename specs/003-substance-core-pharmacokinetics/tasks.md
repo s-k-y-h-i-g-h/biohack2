@@ -105,7 +105,7 @@
 - [X] T243 Render "now" marker and the 24 h back / 12 h forward window — DONE (window + now_index derived in panel_view, asserted by tests; vertical rule at index 24)
 - [X] T244 Render target band edges on the same axis — DONE (dashed rules at target low/high share the sparkline y-axis)
 - [X] T245 Wire redose alerts into the alert panel — DONE via T233 (refresh_pharmacokinetic_alerts feeds Redose/CumulativeLoad into the shared alert state the banner renders)
-- [ ] T246 Implement the web dashboard page embedding the panel (spec 005 Phase 3)
+- [X] T246 Implement the web dashboard page embedding the panel (spec 005 Phase 3) — DONE (`#/dashboard` route + nav link; one ActiveDosePanel per tracked substance — target bands first, then logged substances; unmodelled substances get explicit no-model panels per T239; recomputes on every save via data_version)
 - [ ] T247 Implement target-band editing UI in the web app (form, not panel — spec 005 FR-079)
 - [ ] T248 Implement the provenance/limitations disclosure view (one interaction from any panel, SC-034)
 - [ ] T249 Performance test: 30-day series × 10 substances under 500 ms desktop / 2 s phone (SC-030)

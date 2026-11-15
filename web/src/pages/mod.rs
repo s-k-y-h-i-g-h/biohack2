@@ -15,3 +15,6 @@ pub use settings_page::SettingsPage as settings_page;
 
 pub mod notes_page;
 pub use notes_page::NotesPage as notes_page;
+
+pub mod dashboard_page;
+pub use dashboard_page::DashboardPage as dashboard_page;

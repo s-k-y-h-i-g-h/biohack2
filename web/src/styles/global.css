@@ -1053,3 +1053,9 @@ nav::-webkit-scrollbar {
 .pk-nomodel { padding: 8px 0; }
 .pk-provenance { font-size: .8rem; color: #9ca3af; }
 .pk-provenance summary { cursor: pointer; }
+
+/* ── Dashboard page (spec-003 T246) ─────────────────────────────────── */
+.dashboard-page h2 { margin-bottom: 2px; }
+.dashboard-sub { color: #9ca3af; font-size: .85rem; margin-top: 0; }
+.dashboard-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px; }
+.dashboard-empty { color: #9ca3af; padding: 24px 0; }
