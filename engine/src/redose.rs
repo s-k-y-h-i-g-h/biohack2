@@ -135,6 +135,119 @@ pub fn rolling_dose(
     Ok(selected.iter().map(|d| d.amount).sum())
 }
 
+/// T229 / FR-034: build the redose alert for one target band, offline from
+/// stored data only — the forward projection runs from `now` over the
+/// band's `window_hours` horizon. `None` when the band never crosses (AC-3
+/// sibling: no crossing, no alert). `now` is a parameter, not a clock read,
+/// so callers and tests fully determine the output; only the alert id is
+/// fresh per construction (same convention as `safety.rs`).
+pub fn redose_alert(
+    user_id: &str,
+    now: DateTime<Utc>,
+    doses: &[DoseEvent],
+    model: &crate::pk_params::SubstanceModel,
+    band: &crate::models::TargetBand,
+    linked_entry_id: Option<uuid::Uuid>,
+) -> Option<crate::models::Alert> {
+    use crate::models::{Alert, AlertSeverity, AlertType};
+    let horizon_ms = (band.window_hours * 3_600_000.0).round() as i64;
+    let series = crate::pharmacokinetics::sample_series(
+        model,
+        doses,
+        now,
+        now + Duration::milliseconds(horizon_ms),
+        0.25,
+    )
+    .ok()?;
+    let crossing = detect_band_crossing(&series, &band.substance, band.low)?;
+    let unit = series.last().map(|p| p.unit.as_str()).unwrap_or("");
+    Some(Alert {
+        id: uuid::Uuid::new_v4(),
+        user_id: user_id.to_string(),
+        alert_type: AlertType::Redose,
+        severity: AlertSeverity::Warning,
+        message: format!(
+            "{substance} falls below the target of {low} {unit} at {at} (redose window {start} – {end})",
+            substance = band.substance,
+            low = band.low,
+            at = crossing.crossed_at.to_rfc3339(),
+            start = crossing.redose_window_start.to_rfc3339(),
+            end = crossing.redose_window_end.to_rfc3339(),
+        ),
+        recommendation: Some(format!(
+            "Log a {substance} dose within the redose window to keep the simulated level inside the target band.",
+            substance = band.substance
+        )),
+        is_acknowledged: false,
+        linked_entry_id,
+        generated_at: now,
+        resolved_at: None,
+    })
+}
+
+/// T231 / FR-035: cumulative-load alerts, one per substance whose rolling
+/// 24 h intake exceeds the catalog daily maximum (`dosage_range.max` — the
+/// seed tables state daily figures, e.g. Vitamin D3 5000 IU). Distinct
+/// `AlertType::CumulativeLoad`, separate from the pairwise interaction
+/// alerts in `safety.rs`, which stay untouched.
+///
+/// Honesty rule: totals are compared against the max only when the logged
+/// unit equals the catalog unit — no silent unit coercion; a mismatch
+/// produces no alert rather than a wrong number. Escalation: severity is
+/// `Warning` up to 2× the maximum, `Critical` beyond (a doubling of a
+/// daily max is a qualitatively different risk, not a rounding issue).
+pub fn cumulative_load_alerts(
+    user_id: &str,
+    now: DateTime<Utc>,
+    doses: &[DoseEvent],
+    catalog: &[crate::models::CatalogItem],
+    linked_entry_id: Option<uuid::Uuid>,
+) -> Vec<crate::models::Alert> {
+    use crate::models::{Alert, AlertSeverity, AlertType};
+    let mut out = Vec::new();
+    for item in catalog {
+        let Some(range) = &item.dosage_range else {
+            continue;
+        };
+        let same_unit: Vec<DoseEvent> = doses
+            .iter()
+            .filter(|d| d.unit == range.unit)
+            .cloned()
+            .collect();
+        let Ok(total) = rolling_dose(&same_unit, &item.name, now, 24.0) else {
+            continue;
+        };
+        if total <= range.max {
+            continue;
+        }
+        out.push(Alert {
+            id: uuid::Uuid::new_v4(),
+            user_id: user_id.to_string(),
+            alert_type: AlertType::CumulativeLoad,
+            severity: if total >= range.max * 2.0 {
+                AlertSeverity::Critical
+            } else {
+                AlertSeverity::Warning
+            },
+            message: format!(
+                "{name}: {total:.1} {unit} in the last 24 h — catalog daily maximum is {max} {unit}",
+                name = item.name,
+                unit = range.unit,
+                max = range.max,
+            ),
+            recommendation: Some(format!(
+                "Hold further {name} doses until the rolling 24 h total is back under the maximum.",
+                name = item.name
+            )),
+            is_acknowledged: false,
+            linked_entry_id,
+            generated_at: now,
+            resolved_at: None,
+        });
+    }
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -257,5 +370,71 @@ mod tests {
         let c = detect_band_crossing(&series_at(&doses, t0(), 72), "Mag", 40.0).unwrap();
         assert!(c.redose_window_start <= c.crossed_at);
         assert!(c.crossed_at <= c.redose_window_end);
+    }
+
+    // T234 (subset) / T229: the alert fires only when the forward
+    // projection crosses, carries the window in its message.
+    #[test]
+    fn redose_alert_generation() {
+        use crate::models::TargetBand;
+        let band = TargetBand {
+            substance: "Mag".into(),
+            low: 40.0,
+            high: 90.0,
+            window_hours: 24.0,
+            updated_at: t0(),
+        };
+        // 20 h after a 100 mg dose (t½ 6 h) the level is ~10 mg -> crossing.
+        let now = t0() + Duration::hours(20);
+        let doses = [dose(100.0, t0())];
+        let alert = redose_alert("u1", now, &doses, &model(6.0), &band, None)
+            .expect("projection crosses 40 mg within 24 h");
+        assert_eq!(alert.user_id, "u1");
+        assert!(alert.message.contains("redose window"));
+        assert_eq!(alert.generated_at, now);
+
+        // Fresh 1000 mg dose: 4 half-lives over 24 h still leaves 62.5 mg,
+        // above the 40 mg target -> no crossing inside the horizon -> None.
+        let doses2 = [dose(1000.0, now)];
+        assert!(redose_alert("u1", now, &doses2, &model(6.0), &band, None).is_none());
+    }
+
+    // T234 (subset) / T231: cumulative load uses the rolling window, the
+    // catalog max, and refuses to compare across mismatched units.
+    #[test]
+    fn cumulative_alert_window_units_and_severity() {
+        use crate::catalog::seed_catalog;
+        let catalog = seed_catalog(); // Vitamin D3: max 5000 IU
+        let at = t0();
+        let d3 = |amount: f64, unit: &str, ago_hours: i64| DoseEvent {
+            substance: "Vitamin D3".into(),
+            amount,
+            unit: unit.into(),
+            timestamp: at - Duration::hours(ago_hours),
+            entry_id: Uuid::new_v4().to_string(),
+        };
+        // 6000 IU inside the window (the -25 h / 5000 IU dose must NOT count).
+        let doses = [
+            d3(3000.0, "IU", 2),
+            d3(3000.0, "IU", 20),
+            d3(5000.0, "IU", 25),
+        ];
+        let alerts = cumulative_load_alerts("u1", at, &doses, &catalog, None);
+        assert_eq!(alerts.len(), 1, "one cumulative alert for D3");
+        assert!(alerts[0].message.contains("6000.0 IU"));
+        assert_eq!(alerts[0].severity, crate::models::AlertSeverity::Warning);
+
+        // Under the max -> nothing.
+        let doses = [d3(3000.0, "IU", 2)];
+        assert!(cumulative_load_alerts("u1", at, &doses, &catalog, None).is_empty());
+
+        // Unit mismatch -> no comparison, no alert (no silent coercion).
+        let doses = [d3(500000.0, "mcg", 2)];
+        assert!(cumulative_load_alerts("u1", at, &doses, &catalog, None).is_empty());
+
+        // >= 2x max escalates to critical.
+        let doses = [d3(6000.0, "IU", 2), d3(4000.0, "IU", 1)];
+        let alerts = cumulative_load_alerts("u1", at, &doses, &catalog, None);
+        assert_eq!(alerts[0].severity, crate::models::AlertSeverity::Critical);
     }
 }

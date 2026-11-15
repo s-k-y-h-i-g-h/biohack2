@@ -157,7 +157,7 @@ pub async fn migrate(pool: &DbPool) -> anyhow::Result<()> {
         "CREATE TABLE IF NOT EXISTS alerts (
             id TEXT PRIMARY KEY,
             user_id TEXT NOT NULL,
-            type TEXT NOT NULL CHECK(type IN ('vital','interaction','warning')),
+            type TEXT NOT NULL CHECK(type IN ('vital','interaction','warning','redose','cumulative_load')),
             severity TEXT NOT NULL CHECK(severity IN ('info','warning','critical')),
             message TEXT NOT NULL,
             recommendation TEXT,
@@ -172,6 +172,70 @@ pub async fn migrate(pool: &DbPool) -> anyhow::Result<()> {
 
     sqlx::query(
         "CREATE INDEX IF NOT EXISTS idx_alerts_user_unack ON alerts(user_id, is_acknowledged)",
+    )
+    .execute(pool)
+    .await?;
+
+    // spec-003 T228: alerts.type gained 'redose' and 'cumulative_load'.
+    // SQLite cannot ALTER a CHECK constraint in place, so pre-existing
+    // databases get the table rebuilt exactly once; the sqlite_master guard
+    // makes this a no-op on fresh databases and on already-migrated ones.
+    let alerts_ddl: Option<(String,)> =
+        sqlx::query_as("SELECT sql FROM sqlite_master WHERE type='table' AND name='alerts'")
+            .fetch_optional(pool)
+            .await?;
+    if alerts_ddl.is_some_and(|(sql,)| !sql.contains("redose")) {
+        // Canonical SQLite recipe: rename the original aside, create the
+        // table under its real name with the new constraint, copy, drop.
+        // (Renaming the NEW table TO `alerts` hits a schema-namespace clash
+        // after the DROP on some SQLite builds.)
+        sqlx::query("ALTER TABLE alerts RENAME TO alerts_legacy")
+            .execute(pool)
+            .await?;
+        sqlx::query(
+            "CREATE TABLE alerts (
+                id TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL,
+                type TEXT NOT NULL CHECK(type IN ('vital','interaction','warning','redose','cumulative_load')),
+                severity TEXT NOT NULL CHECK(severity IN ('info','warning','critical')),
+                message TEXT NOT NULL,
+                recommendation TEXT,
+                is_acknowledged INTEGER NOT NULL DEFAULT 0,
+                linked_entry_id TEXT,
+                generated_at TEXT NOT NULL,
+                resolved_at TEXT
+            )",
+        )
+        .execute(pool)
+        .await?;
+        sqlx::query(
+            "INSERT INTO alerts SELECT id, user_id, type, severity, message, recommendation, is_acknowledged, linked_entry_id, generated_at, resolved_at FROM alerts_legacy",
+        )
+        .execute(pool)
+        .await?;
+        sqlx::query("DROP TABLE alerts_legacy")
+            .execute(pool)
+            .await?;
+        // The index rode along with the rename (same name is fine) — ensure
+        // it exists either way.
+        sqlx::query(
+            "CREATE INDEX IF NOT EXISTS idx_alerts_user_unack ON alerts(user_id, is_acknowledged)",
+        )
+        .execute(pool)
+        .await?;
+    }
+
+    // spec-003 T226: user-configured therapeutic target bands (FR-034).
+    sqlx::query(
+        "CREATE TABLE IF NOT EXISTS target_bands (
+            user_id TEXT NOT NULL,
+            substance TEXT NOT NULL,
+            low REAL NOT NULL CHECK(low >= 0),
+            high REAL NOT NULL,
+            window_hours REAL NOT NULL CHECK(window_hours > 0),
+            updated_at TEXT NOT NULL,
+            PRIMARY KEY (user_id, substance)
+        )",
     )
     .execute(pool)
     .await?;
@@ -732,6 +796,83 @@ pub async fn acknowledge_alert(pool: &DbPool, id: &Uuid) -> anyhow::Result<()> {
         .execute(pool)
         .await?;
     Ok(())
+}
+
+/// spec-003 T232: mark an alert resolved by external circumstance (a logged
+/// dose restoring the target band) without treating it as user-acknowledged.
+/// Idempotent: re-resolving just refreshes the timestamp.
+pub async fn resolve_alert(pool: &DbPool, id: &Uuid, at: DateTime<Utc>) -> anyhow::Result<()> {
+    sqlx::query("UPDATE alerts SET resolved_at = ?1 WHERE id = ?2")
+        .bind(at.to_rfc3339())
+        .bind(id.to_string())
+        .execute(pool)
+        .await?;
+    Ok(())
+}
+
+// ── Target band CRUD (spec-003 T226) ─────────────────────────────────────────
+
+/// Insert-or-replace the user's target band for a substance (one band per
+/// (user, substance) by table PK). Validation is the caller-model's job
+/// (`TargetBand::validate`); the table CHECKs mirror the numeric bounds.
+pub async fn upsert_target_band(
+    pool: &DbPool,
+    user_id: &str,
+    band: &TargetBand,
+) -> anyhow::Result<()> {
+    band.validate().map_err(anyhow::Error::msg)?;
+    sqlx::query(
+        "INSERT INTO target_bands (user_id, substance, low, high, window_hours, updated_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+         ON CONFLICT(user_id, substance) DO UPDATE SET
+            low = excluded.low, high = excluded.high,
+            window_hours = excluded.window_hours, updated_at = excluded.updated_at",
+    )
+    .bind(user_id)
+    .bind(&band.substance)
+    .bind(band.low)
+    .bind(band.high)
+    .bind(band.window_hours)
+    .bind(band.updated_at.to_rfc3339())
+    .execute(pool)
+    .await?;
+    Ok(())
+}
+
+pub async fn list_target_bands(pool: &DbPool, user_id: &str) -> anyhow::Result<Vec<TargetBand>> {
+    let rows = sqlx::query(
+        "SELECT substance, low, high, window_hours, updated_at FROM target_bands WHERE user_id = ?1 ORDER BY substance",
+    )
+    .bind(user_id)
+    .fetch_all(pool)
+    .await?;
+    rows.iter()
+        .map(|row| {
+            let updated: String = row.try_get("updated_at")?;
+            Ok(TargetBand {
+                substance: row.try_get("substance")?,
+                low: row.try_get("low")?,
+                high: row.try_get("high")?,
+                window_hours: row.try_get("window_hours")?,
+                updated_at: parse_datetime(&updated)
+                    .ok_or_else(|| sqlx::Error::Decode("bad updated_at rfc3339".into()))?,
+            })
+        })
+        .collect()
+}
+
+/// Returns whether a row was removed.
+pub async fn delete_target_band(
+    pool: &DbPool,
+    user_id: &str,
+    substance: &str,
+) -> anyhow::Result<bool> {
+    let res = sqlx::query("DELETE FROM target_bands WHERE user_id = ?1 AND substance = ?2")
+        .bind(user_id)
+        .bind(substance)
+        .execute(pool)
+        .await?;
+    Ok(res.rows_affected() > 0)
 }
 
 // ── Insight CRUD ──────────────────────────────────────────────────────────────

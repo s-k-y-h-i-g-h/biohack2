@@ -150,3 +150,102 @@ async fn test_create_and_query_vitals(pool: DbPool) -> anyhow::Result<()> {
 
     Ok(())
 }
+
+// ── spec-003 Phase 3 ─────────────────────────────────────────────────────────
+
+// T228/T226: a pre-existing database with the OLD alerts CHECK constraint
+// must survive migrate() and accept the new alert types afterwards.
+#[sqlx::test]
+async fn legacy_alerts_table_migrated_for_new_types(pool: DbPool) -> anyhow::Result<()> {
+    // Recreate the pre-spec-003 schema by hand (no migrate yet).
+    sqlx::query(
+        "CREATE TABLE alerts (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            type TEXT NOT NULL CHECK(type IN ('vital','interaction','warning')),
+            severity TEXT NOT NULL CHECK(severity IN ('info','warning','critical')),
+            message TEXT NOT NULL,
+            recommendation TEXT,
+            is_acknowledged INTEGER NOT NULL DEFAULT 0,
+            linked_entry_id TEXT,
+            generated_at TEXT NOT NULL,
+            resolved_at TEXT
+        )",
+    )
+    .execute(&pool)
+    .await?;
+    let legacy = engine::models::Alert {
+        id: Uuid::new_v4(),
+        user_id: "u1".into(),
+        alert_type: engine::models::AlertType::Warning,
+        severity: engine::models::AlertSeverity::Info,
+        message: "kept across migration".into(),
+        recommendation: None,
+        is_acknowledged: false,
+        linked_entry_id: None,
+        generated_at: chrono::Utc::now(),
+        resolved_at: None,
+    };
+    engine::db::create_alert(&pool, &legacy).await?;
+
+    migrate(&pool).await?; // rebuilds alerts, preserves rows
+
+    let fresh = engine::models::Alert {
+        id: Uuid::new_v4(),
+        alert_type: engine::models::AlertType::Redose,
+        ..legacy.clone()
+    };
+    engine::db::create_alert(&pool, &fresh).await?; // would hit the old CHECK
+    let all = engine::db::get_alerts(&pool, &Default::default()).await?;
+    assert_eq!(all.len(), 2);
+    assert!(
+        all.iter()
+            .any(|a| a.alert_type == engine::models::AlertType::Redose)
+    );
+
+    // T232: resolve without acknowledging.
+    engine::db::resolve_alert(&pool, &fresh.id, chrono::Utc::now()).await?;
+    let all = engine::db::get_alerts(&pool, &Default::default()).await?;
+    let r = all.iter().find(|a| a.id == fresh.id).unwrap();
+    assert!(r.resolved_at.is_some() && !r.is_acknowledged);
+    Ok(())
+}
+
+// T226: target band upsert / list / delete roundtrip.
+#[sqlx::test]
+async fn target_band_crud(pool: DbPool) -> anyhow::Result<()> {
+    migrate(&pool).await?;
+    let band = engine::models::TargetBand {
+        substance: "Magnesium".into(),
+        low: 40.0,
+        high: 90.0,
+        window_hours: 24.0,
+        updated_at: chrono::Utc::now(),
+    };
+    engine::db::upsert_target_band(&pool, "u1", &band).await?;
+    let mut raised = band.clone();
+    raised.low = 55.0;
+    engine::db::upsert_target_band(&pool, "u1", &raised).await?; // update path
+    engine::db::upsert_target_band(&pool, "u2", &band).await?; // other user
+
+    let u1 = engine::db::list_target_bands(&pool, "u1").await?;
+    assert_eq!(u1.len(), 1);
+    assert_eq!(u1[0].low, 55.0);
+    assert_eq!(engine::db::list_target_bands(&pool, "u2").await?.len(), 1);
+
+    // Validation rejects nonsense before it reaches SQL.
+    let bad = engine::models::TargetBand {
+        low: 100.0,
+        high: 50.0,
+        ..band.clone()
+    };
+    assert!(
+        engine::db::upsert_target_band(&pool, "u1", &bad)
+            .await
+            .is_err()
+    );
+
+    assert!(engine::db::delete_target_band(&pool, "u1", "Magnesium").await?);
+    assert!(!engine::db::delete_target_band(&pool, "u1", "Magnesium").await?);
+    Ok(())
+}

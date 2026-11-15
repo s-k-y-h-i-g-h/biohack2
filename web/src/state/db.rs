@@ -12,6 +12,7 @@ const STORAGE_KEY_VITALS: &str = "biohack2_vitals";
 const STORAGE_KEY_ALERTS: &str = "biohack2_alerts";
 const STORAGE_KEY_STACKS: &str = "biohack2_stacks";
 const STORAGE_KEY_NOTES: &str = "biohack2_notes";
+const STORAGE_KEY_TARGET_BANDS: &str = "biohack2_target_bands";
 
 // ── LogEntry CRUD ─────────────────────────────────────────────────────────────
 
@@ -185,6 +186,45 @@ pub fn acknowledge_alert(id: &Uuid) -> Result<(), String> {
         .map_err(|e| format!("Failed to acknowledge alert: {:?}", e))?;
     crate::state::sync::push_alert_acknowledge(&id.to_string());
     Ok(())
+}
+
+// ── Target bands (spec-003 T226) ─────────────────────────────────────────────
+//
+// One band per substance (matches the SQLite path's per-user PK). Validation
+// runs before anything touches storage — the same TargetBand::validate the
+// native path uses, so WASM and native reject exactly the same nonsense.
+// Bands are local user configuration: no sync push (the server keeps its own
+// copy in SQLite via the API layer).
+
+pub fn get_target_bands() -> Vec<TargetBand> {
+    let mut bands: Vec<TargetBand> =
+        LocalStorage::get(STORAGE_KEY_TARGET_BANDS).unwrap_or_default();
+    bands.sort_by(|a, b| a.substance.cmp(&b.substance));
+    bands
+}
+
+pub fn upsert_target_band(band: &TargetBand) -> Result<(), String> {
+    band.validate()?;
+    let mut bands = get_target_bands();
+    match bands.iter_mut().find(|b| b.substance == band.substance) {
+        Some(existing) => *existing = band.clone(),
+        None => bands.push(band.clone()),
+    }
+    LocalStorage::set(STORAGE_KEY_TARGET_BANDS, &bands)
+        .map_err(|e| format!("Failed to write target bands: {:?}", e))
+}
+
+/// Returns whether a band was present and removed.
+pub fn delete_target_band(substance: &str) -> Result<bool, String> {
+    let mut bands = get_target_bands();
+    let before = bands.len();
+    bands.retain(|b| b.substance != substance);
+    let removed = bands.len() < before;
+    if removed {
+        LocalStorage::set(STORAGE_KEY_TARGET_BANDS, &bands)
+            .map_err(|e| format!("Failed to write target bands: {:?}", e))?;
+    }
+    Ok(removed)
 }
 
 // ── Stack CRUD ────────────────────────────────────────────────────────────────
