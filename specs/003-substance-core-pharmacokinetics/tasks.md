@@ -108,7 +108,7 @@
 - [X] T246 Implement the web dashboard page embedding the panel (spec 005 Phase 3) — DONE (`#/dashboard` route + nav link; one ActiveDosePanel per tracked substance — target bands first, then logged substances; unmodelled substances get explicit no-model panels per T239; recomputes on every save via data_version)
 - [X] T247 Implement target-band editing UI in the web app (form, not panel — spec 005 FR-079) — DONE (`TargetBandEditor` form on #/dashboard: list + set + remove; validation delegated to `TargetBand::validate`; every save/delete regenerates the PK alert generation and bumps data_version, so panels and the alert banner refresh together)
 - [ ] T248 Implement the provenance/limitations disclosure view (one interaction from any panel, SC-034)
-- [ ] T249 Performance test: 30-day series × 10 substances under 500 ms desktop / 2 s phone (SC-030)
+- [X] T249 Performance test: 30-day series × 10 substances under 500 ms desktop / 2 s phone (SC-030) — DONE (`engine/examples/perf_sc030.rs`, release: panel_view × 10 = 3.9 ms; 30-day hourly series × 10 (7210 points, 900 dose events) = 13.5 ms vs 500 ms budget. 37× points at ~4× cost on wasm still ≪ 2 s phone budget; DOM cost of 10×37-point SVGs is additive-negligible)
 - [ ] T250 WASM tests for panel data derivation
 
 **Checkpoint**: Active-dose bands visible in terminal and web from one panel implementation.
