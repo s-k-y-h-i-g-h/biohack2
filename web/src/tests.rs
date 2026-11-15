@@ -918,3 +918,63 @@ fn test_refresh_fires_redose_alert_for_decaying_band() {
     .expect("read open alerts");
     assert!(open.iter().any(|a| a.alert_type == AlertType::Redose));
 }
+
+// T235: alerts fire with no network and no catalog fetch. Stronger than an
+// absent network — window.fetch is replaced with a function that THROWS, so
+// any code path that reaches for the network before raising an alert fails
+// this test loudly instead of silently degrading.
+#[wasm_bindgen_test]
+fn test_pk_alerts_fire_with_network_disabled() {
+    clear_test_storage();
+    use crate::state::db::{create_log_entry, search_catalog, upsert_target_band};
+    use crate::state::pk_alerts::refresh_pharmacokinetic_alerts;
+    use engine::models::{ItemType, ModelClass};
+    use wasm_bindgen::prelude::*;
+
+    let boom =
+        Closure::<dyn FnMut() -> Result<(), JsValue>>::wrap(Box::new(|| -> Result<(), JsValue> {
+            Err(js_sys::Error::new("T235: network is disabled").into())
+        }));
+    let window: JsValue = web_sys::window().expect("window").into();
+    js_sys::Reflect::set(&window, &JsValue::from_str("fetch"), boom.as_ref())
+        .expect("window.fetch is replaceable");
+    boom.forget();
+
+    search_catalog("").expect("catalog auto-seeds from localStorage, no fetch");
+    let model = crate::state::db::get_substance_models()
+        .into_iter()
+        .find(|m| m.model_class == ModelClass::Decay && m.has_numeric_half_life())
+        .expect("seed catalog has a decay substance");
+
+    let band = TargetBand {
+        substance: model.substance.clone(),
+        low: 1000.0,
+        high: 2000.0,
+        window_hours: 24.0,
+        updated_at: Utc::now(),
+    };
+    upsert_target_band(&band).expect("band stored offline");
+    let entry = LogEntry {
+        id: Uuid::new_v4(),
+        user_id: "local-device".to_string(),
+        item_type: ItemType::Supplement,
+        item_id: None,
+        name: model.substance.clone(),
+        quantity: Some(10.0),
+        unit: Some("mg".to_string()),
+        route: None,
+        timestamp: Utc::now() - chrono::Duration::hours(30),
+        stack_id: None,
+        notes: None,
+        acknowledged_interaction: false,
+        custom_fields: None,
+    };
+    create_log_entry(&entry).expect("log dose offline");
+
+    let created =
+        refresh_pharmacokinetic_alerts(Utc::now()).expect("alert generation needs no network");
+    assert!(
+        created >= 1,
+        "band crossing must fire fully offline: {created}"
+    );
+}

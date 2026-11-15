@@ -581,6 +581,16 @@ pub fn sample_series(
     step_hours: f64,
 ) -> Result<Vec<ActiveDosePoint>, String> {
     use crate::models::ModelClass;
+    // FR-036 runtime gate: no simulation runs on parameters whose origin is
+    // unrecorded. Provenance is mandatory in the type; this makes an empty
+    // (whitespace) value a refusal at the single simulation chokepoint, not
+    // a display nicety.
+    if model.provenance.trim().is_empty() {
+        return Err(format!(
+            "{}: refusing to simulate without provenance (FR-036) — every parameter used must record its origin",
+            model.substance
+        ));
+    }
     let shape = SimShape::resolve(model)?;
     if end < start {
         return Err("series window end precedes start".into());

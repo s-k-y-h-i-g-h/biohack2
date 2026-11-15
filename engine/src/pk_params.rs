@@ -9,6 +9,7 @@
 //! / `db::get_substance_models`, WASM via `web::state::db::get_substance_models`.
 
 use crate::models::ModelClass;
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 /// One substance's model assignment and parameters.
@@ -68,6 +69,35 @@ impl SubstanceModel {
     pub fn has_numeric_half_life(&self) -> bool {
         self.half_life_hours.is_some() || self.half_life_range.is_some()
     }
+
+    /// FR-036: a user override of the half-life, recorded WITH a timestamp.
+    /// The prior provenance is chained, never replaced — an audit must be
+    /// able to see both the catalog origin and the human edit. The override
+    /// is a point value: the catalog range is cleared so it cannot silently
+    /// win over the user's number in `band_half_lives`.
+    pub fn with_user_half_life_override(
+        &mut self,
+        hours: f64,
+        at: DateTime<Utc>,
+    ) -> Result<(), String> {
+        if !hours.is_finite() || hours <= 0.0 {
+            return Err(format!(
+                "half-life override {hours} is not a positive finite number of hours"
+            ));
+        }
+        let prev = if self.provenance.trim().is_empty() {
+            "no prior provenance recorded".to_string()
+        } else {
+            self.provenance.clone()
+        };
+        self.provenance = format!(
+            "{prev} | user override at {}: half_life_hours -> {hours} h",
+            at.to_rfc3339()
+        );
+        self.half_life_hours = Some(hours);
+        self.half_life_range = None;
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -104,5 +134,66 @@ mod tests {
         let back: SubstanceModel = serde_json::from_str(sparse).unwrap();
         assert_eq!(back.model_class, ModelClass::None);
         assert!(back.params.is_null());
+    }
+}
+
+#[cfg(test)]
+mod provenance_tests {
+    use super::*;
+
+    fn m() -> SubstanceModel {
+        SubstanceModel {
+            substance: "Testinum".into(),
+            model_class: ModelClass::Decay,
+            half_life_hours: Some(5.0),
+            half_life_range: Some((4.0, 6.0)),
+            params: serde_json::Value::Null,
+            provenance: "catalog seed string '5h' + T205 assignment table".into(),
+            catalog_version: 3,
+            rationale: None,
+        }
+    }
+
+    #[test]
+    fn user_override_chains_provenance_with_timestamp() {
+        let mut model = m();
+        let at = DateTime::parse_from_rfc3339("2026-11-15T03:00:00+00:00")
+            .unwrap()
+            .with_timezone(&Utc);
+        model
+            .with_user_half_life_override(7.5, at)
+            .expect("valid override");
+        // Both origins visible: catalog source first, human edit with time.
+        assert!(model.provenance.contains("catalog seed string '5h'"));
+        assert!(
+            model
+                .provenance
+                .contains("user override at 2026-11-15T03:00:00+00:00")
+        );
+        assert_eq!(model.half_life_hours, Some(7.5));
+        // The range is cleared — it must not silently outrank the user value.
+        assert_eq!(model.half_life_range, None);
+        // FR-036 negative form: nonsense overrides are refused, model untouched.
+        let before = model.clone();
+        assert!(model.with_user_half_life_override(0.0, at).is_err());
+        assert!(model.with_user_half_life_override(f64::NAN, at).is_err());
+        assert_eq!(model, before);
+    }
+
+    #[test]
+    fn empty_provenance_refuses_simulation() {
+        // FR-036 runtime gate at the single simulation chokepoint.
+        let mut model = m();
+        model.provenance = "   ".into();
+        let err = crate::pharmacokinetics::sample_series(
+            &model,
+            &[],
+            Utc::now(),
+            Utc::now() + chrono::Duration::hours(1),
+            1.0,
+        )
+        .expect_err("blank provenance must refuse to simulate");
+        assert!(err.contains("provenance"), "{err}");
+        assert!(err.contains("FR-036"), "{err}");
     }
 }
