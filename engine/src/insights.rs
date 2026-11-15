@@ -707,3 +707,294 @@ mod tests {
         assert_eq!(r.verdict, Verdict::NoChangeObserved);
     }
 }
+
+// ── US D3: trend / drift detection ──────────────────────────────────────────
+
+/// Sustained drift in one metric over a measured window (US D3). Drift needs
+/// no causal claim, which is exactly why it is the signal personal tracking
+/// is genuinely good at — and the result says so in those terms (FR-095).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct DriftInsight {
+    pub metric: Metric,
+    pub window: (DateTime<Utc>, DateTime<Utc>),
+    pub n: usize,
+    /// Points per day inside the window (reported, never assumed).
+    pub density: f64,
+    pub direction: DriftDirection,
+    /// Theil–Sen median slope, units per day. Robust to the outlier readings
+    /// wearables produce; no distributional assumptions.
+    pub slope_per_day: f64,
+    /// slope × window span: the total move the slope implies over the window.
+    pub total_move: f64,
+    /// Fraction of pairwise slopes agreeing with `direction` (midrank for
+    /// exact zeros). Directional consistency of the raw data, not a test.
+    pub consistency: f64,
+    pub gaps: Vec<Gap>,
+    pub limitations: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum DriftDirection {
+    Rising,
+    Falling,
+}
+
+/// Drift configuration. Defaults reflect spec 006's example unit of evidence
+/// ("resting HR rising across 6 weeks"): four weeks minimum span, fourteen
+/// points minimum, half a point per day minimum density.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub struct DriftConfig {
+    pub min_span_days: i64,
+    pub min_points: usize,
+    /// Below this density the insight is produced but qualified (AC D3-2).
+    pub sparse_below_per_day: f64,
+    /// |total move| must clear this multiple of the series MAD (or MAD==0
+    /// with a nonzero move) before drift is reported at all.
+    pub mad_multiple: f64,
+    /// Pairwise-slope agreement required with the chosen direction.
+    pub min_consistency: f64,
+}
+
+impl Default for DriftConfig {
+    fn default() -> Self {
+        Self {
+            min_span_days: 28,
+            min_points: 14,
+            sparse_below_per_day: 0.5,
+            mad_multiple: 1.5,
+            min_consistency: 0.75,
+        }
+    }
+}
+
+fn mad(xs: &[f64]) -> f64 {
+    let m = median(xs);
+    let dev: Vec<f64> = xs.iter().map(|x| (x - m).abs()).collect();
+    median(&dev)
+}
+
+/// Detect sustained drift in `metric` across the vitals history (US D3).
+///
+/// Returns `None` — no insight, no number — when the data cannot support one
+/// (no history, span or point count below the floor, magnitude inside the
+/// noise band, or direction not consistent enough). Pure function (FR-099).
+pub fn detect_drift(
+    vitals: &[VitalsEntry],
+    metric: Metric,
+    now: DateTime<Utc>,
+    cfg: &DriftConfig,
+) -> Option<DriftInsight> {
+    let s = samples(vitals, metric, DateTime::<Utc>::MIN_UTC, now);
+    if s.len() < cfg.min_points {
+        return None; // AC D3-3: no ingested history ⇒ no insight
+    }
+    let t0 = s.first()?.0;
+    let t1 = s.last()?.0;
+    let span_days = (t1 - t0).num_days();
+    if span_days < cfg.min_span_days {
+        return None;
+    }
+
+    // Theil–Sen: median of all pairwise slopes. O(n²), trivial for n=1 data.
+    let mut slopes: Vec<f64> = Vec::new();
+    for i in 0..s.len() {
+        for j in (i + 1)..s.len() {
+            let dt = (s[j].0 - s[i].0).num_seconds() as f64 / 86400.0;
+            if dt > 0.0 {
+                slopes.push((s[j].1 - s[i].1) / dt);
+            }
+        }
+    }
+    if slopes.is_empty() {
+        return None;
+    }
+    let slope = median(&slopes);
+    let total_move = slope * span_days as f64;
+
+    // Directional consistency of the raw pairwise movement (midrank zeros).
+    let zeros = slopes.iter().filter(|x| x.abs() < f64::EPSILON).count() as f64;
+    let pos = slopes.iter().filter(|x| **x > f64::EPSILON).count() as f64;
+    let consistency_up = (pos + 0.5 * zeros) / slopes.len() as f64;
+    let (direction, consistency) = if consistency_up >= 0.5 {
+        (DriftDirection::Rising, consistency_up)
+    } else {
+        (DriftDirection::Falling, 1.0 - consistency_up)
+    };
+
+    // Magnitude vs. the series' own spread: drift must clear its noise band.
+    let ys: Vec<f64> = s.iter().map(|(_, y)| *y).collect();
+    let spread = mad(&ys);
+    let magnitude_ok = if spread > 0.0 {
+        total_move.abs() >= cfg.mad_multiple * spread
+    } else {
+        total_move.abs() > 0.0
+    };
+    if !magnitude_ok || consistency < cfg.min_consistency {
+        return None; // inside the noise band: no number, no claim
+    }
+
+    let gaps = find_gaps(&s, t0, t1 + Duration::seconds(1), Side::Post);
+    let density = density(s.len(), span_days.max(1));
+
+    let mut limitations = format!(
+        "Descriptive only, over this window, in your data: {} → {} (UTC days), metric: {}. \
+         {} points at {:.2}/day. This is a sustained movement in what you recorded, not a \
+         population-level finding, not a clinical conclusion, and not medical advice; day \
+         boundaries are UTC.",
+        t0.date_naive(),
+        t1.date_naive(),
+        metric.definition(),
+        s.len(),
+        density,
+    );
+    if density < cfg.sparse_below_per_day {
+        limitations.push_str(
+            " Data are sparse in this window: the drift is qualified by that density — \
+             gaps in recording can mimic a trend.",
+        );
+    }
+    if !gaps.is_empty() {
+        limitations.push_str(&format!(
+            " {} gap(s) of ≥2 days without samples sit inside the window; missing-device time \
+             is not improvement.",
+            gaps.len()
+        ));
+    }
+
+    Some(DriftInsight {
+        metric,
+        window: (t0, t1),
+        n: s.len(),
+        density,
+        direction,
+        slope_per_day: slope,
+        total_move,
+        consistency,
+        gaps,
+        limitations,
+    })
+}
+
+#[cfg(test)]
+mod drift_tests {
+    use super::*;
+    use crate::models::VitalsEntry;
+    use chrono::TimeZone;
+    use uuid::Uuid;
+
+    fn t(y: i32, mo: u32, d: u32, h: u32, mi: u32) -> DateTime<Utc> {
+        Utc.with_ymd_and_hms(y, mo, d, h, mi, 0).unwrap()
+    }
+
+    fn hr(ts: DateTime<Utc>, hr: i32) -> VitalsEntry {
+        VitalsEntry {
+            id: Uuid::new_v4(),
+            user_id: "u".into(),
+            timestamp: ts,
+            bp_systolic: None,
+            bp_diastolic: None,
+            heart_rate: Some(hr),
+            weight: None,
+            blood_glucose: None,
+            temperature: None,
+            spo2: None,
+            hrv: None,
+            sleep_quality: None,
+            custom_metrics: None,
+            notes: None,
+        }
+    }
+
+    /// 6 weeks of resting HR: 60 bpm rising 0.4/day ⇒ steady drift.
+    fn rising_six_weeks() -> Vec<VitalsEntry> {
+        let start = t(2026, 8, 1, 8, 0);
+        (0..42)
+            .map(|d| hr(start + Duration::days(d), (60.0 + 0.4 * d as f64) as i32))
+            .collect()
+    }
+
+    #[test]
+    fn d3_detects_six_week_drift_with_window_slope_n() {
+        let v = rising_six_weeks();
+        let d = detect_drift(
+            &v,
+            Metric::HeartRate,
+            t(2026, 9, 12, 8, 0),
+            &DriftConfig::default(),
+        )
+        .expect("six-week steady rise must produce a drift insight");
+        assert_eq!(d.direction, DriftDirection::Rising);
+        assert_eq!(d.n, 42);
+        assert_eq!(d.window, (t(2026, 8, 1, 8, 0), t(2026, 9, 11, 8, 0)));
+        assert!(d.slope_per_day > 0.3, "slope {}", d.slope_per_day);
+        assert!(d.consistency >= 0.75);
+        assert!(d.limitations.contains("in your data"));
+        assert!(d.limitations.contains("not a clinical conclusion"));
+    }
+
+    #[test]
+    fn d3_flat_series_produces_no_insight() {
+        let start = t(2026, 8, 1, 8, 0);
+        let v: Vec<_> = (0..42)
+            .map(|d| {
+                // tiny alternating wobble: zero slope, real noise
+                hr(start + Duration::days(d), 60 + (d % 2) as i32)
+            })
+            .collect();
+        assert!(
+            detect_drift(
+                &v,
+                Metric::HeartRate,
+                t(2026, 9, 12, 8, 0),
+                &DriftConfig::default()
+            )
+            .is_none()
+        );
+    }
+
+    #[test]
+    fn d3_short_history_produces_no_insight() {
+        let v = rising_six_weeks();
+        // Only 10 days of it ingested ⇒ below both floors.
+        let short: Vec<_> = v.into_iter().take(10).collect();
+        assert!(
+            detect_drift(
+                &short,
+                Metric::HeartRate,
+                t(2026, 8, 11, 8, 0),
+                &DriftConfig::default()
+            )
+            .is_none()
+        );
+    }
+
+    #[test]
+    fn d3_sparse_data_gets_qualified_by_density() {
+        // Same rise, but every other day missing ⇒ density < 0.5/day.
+        let v: Vec<_> = rising_six_weeks()
+            .into_iter()
+            .enumerate()
+            .filter(|(i, _)| i % 3 == 0)
+            .map(|(_, x)| x)
+            .collect();
+        let d = detect_drift(
+            &v,
+            Metric::HeartRate,
+            t(2026, 9, 12, 8, 0),
+            &DriftConfig::default(),
+        )
+        .expect("14 points over 41 days still clears the floors");
+        assert!(d.density < 0.5);
+        assert!(d.limitations.contains("sparse"));
+        assert!(!d.gaps.is_empty(), "every-other-day gaps must be listed");
+    }
+
+    #[test]
+    fn d3_determinism() {
+        let v = rising_six_weeks();
+        let now = t(2026, 9, 12, 8, 0);
+        let a = detect_drift(&v, Metric::HeartRate, now, &DriftConfig::default());
+        let b = detect_drift(&v, Metric::HeartRate, now, &DriftConfig::default());
+        assert_eq!(a, b);
+    }
+}
