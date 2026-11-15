@@ -172,6 +172,9 @@ fn app() -> impl IntoView {
                 <Show when=move || current_path() == "/dashboard">
                     {pages::dashboard_page()}
                 </Show>
+                <Show when=move || current_path() == "/insights">
+                    {pages::insights_page()}
+                </Show>
                 <Show when=move || current_path() == "/" || current_path().is_empty()>
                     {pages::LogPage()}
                 </Show>

@@ -18,3 +18,6 @@ pub use notes_page::NotesPage as notes_page;
 
 pub mod dashboard_page;
 pub use dashboard_page::DashboardPage as dashboard_page;
+
+pub mod insights_page;
+pub use insights_page::InsightsPage as insights_page;

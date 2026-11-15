@@ -1,7 +1,7 @@
 use crate::components::{ActiveDosePanel, TargetBandEditor};
 use crate::state::db::{get_log_entries, get_target_bands, search_catalog};
 use crate::state::store::AppContext;
-use engine::dashboard::{panel_view, PanelView};
+use engine::dashboard::{PanelView, panel_view};
 use engine::pk_assignments::build_models;
 use engine::pk_params::SubstanceModel;
 use leptos::prelude::*;
