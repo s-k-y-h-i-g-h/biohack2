@@ -74,9 +74,9 @@
 - [x] T230 Implement rolling-24 h cumulative dose per substance against catalog max daily amount (FR-035)
 - [X] T231 Implement cumulative-load alert generation, distinct from pairwise interaction alerts (FR-015 stays as-is) — DONE (cf5780f: engine+db generation/persistence with unit+integration tests)
 - [X] T232 Alert resolution: redose alert resolves when a logged dose restores the band (A2/AC-2) — DONE (cf5780f: engine+db generation/persistence with unit+integration tests)
-- [ ] T233 Wire redose + cumulative alerts into the existing save flow so they appear in the current alert banner (spec 001 T087/T088 pattern) — DONE (1361b2c: refresh on save supersedes/recomputes PK alerts; banner excludes resolved; 2 wasm tests)
+- [X] T233 Wire redose + cumulative alerts into the existing save flow so they appear in the current alert banner (spec 001 T087/T088 pattern) — DONE (1361b2c: refresh on save supersedes/recomputes PK alerts; banner excludes resolved; 2 wasm tests)
 - [X] T234 Unit tests: crossing fires, restore resolves, no-target produces no alert, rolling window excludes out-of-window doses — DONE (cf5780f: engine+db generation/persistence with unit+integration tests)
-- [ ] T235 Test: alerts fire with no network and no catalog fetch
+- [X] T235 Test: alerts fire with no network and no catalog fetch — DONE (85e5738: wasm test with window.fetch replaced by a thrower; alert path fires network-hostile)
 
 **Checkpoint**: Redose and cumulative-load alerts fire from the log alone, through the existing alert system.
 
@@ -86,7 +86,7 @@
 
 **Purpose**: The user can audit every number, and is told what the number is not.
 
-- [ ] T236 Attach provenance (catalog default / catalog version / user override + timestamp) to every parameter used in a simulation (FR-036)
+- [X] T236 Attach provenance (catalog default / catalog version / user override + timestamp) to every parameter used in a simulation (FR-036) — DONE (85e5738: sample_series refuses blank provenance; with_user_half_life_override chains catalog origin + user edit + timestamp)
 - [ ] T237 Implement `explain(substance)` returning model class, parameters, provenance, and the dose events used (FR-037)
 - [ ] T238 Implement the limitations text generator (inputs named, "estimate not measurement" stated) (FR-039, A5)
 - [ ] T239 Implement `none`-class surfacing: panel shows "no model" with the recorded reason (A1/AC-3, FR-040)
