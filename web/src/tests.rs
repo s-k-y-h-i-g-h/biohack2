@@ -978,3 +978,47 @@ fn test_pk_alerts_fire_with_network_disabled() {
         "band crossing must fire fully offline: {created}"
     );
 }
+
+// T239: unmodelled substances the user has data for surface with their
+// recorded reason — the panel shows this, not a blank.
+#[wasm_bindgen_test]
+fn test_coverage_gaps_name_unmodelled_substances_with_reasons() {
+    clear_test_storage();
+    use crate::state::db::{create_log_entry, search_catalog};
+    use crate::state::pk_alerts::pk_coverage_gaps;
+    use engine::models::ItemType;
+
+    search_catalog("").expect("catalog auto-seeds");
+    let entry = LogEntry {
+        id: Uuid::new_v4(),
+        user_id: "local-device".to_string(),
+        item_type: ItemType::Supplement,
+        item_id: None,
+        name: "Alcohol".to_string(), // catalog: deliberately unmodelled
+        quantity: Some(30.0),
+        unit: Some("g".to_string()),
+        route: None,
+        timestamp: Utc::now(),
+        stack_id: None,
+        notes: None,
+        acknowledged_interaction: false,
+        custom_fields: None,
+    };
+    create_log_entry(&entry).expect("log entry");
+
+    let gaps = pk_coverage_gaps().expect("gaps query");
+    let alcohol = gaps
+        .iter()
+        .find(|g| g.substance.eq_ignore_ascii_case("Alcohol"))
+        .expect("Alcohol is unmodelled and the user logged it — must be surfaced");
+    assert!(
+        alcohol.reason.contains("Zero-order") || alcohol.reason.contains("refuse"),
+        "reason must be the recorded one: {}",
+        alcohol.reason
+    );
+    // Modelled substances the user logged must NOT appear as gaps.
+    assert!(
+        gaps.iter()
+            .all(|g| !g.substance.eq_ignore_ascii_case("Caffeine"))
+    );
+}

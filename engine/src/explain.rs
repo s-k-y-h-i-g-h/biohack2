@@ -152,7 +152,7 @@ mod tests {
     use crate::models::ItemType;
     use chrono::Duration;
 
-    fn model() -> SubstanceModel {
+    pub(super) fn model() -> SubstanceModel {
         SubstanceModel {
             substance: "Caffeine".into(),
             model_class: ModelClass::Decay,
@@ -165,7 +165,12 @@ mod tests {
         }
     }
 
-    fn entry(name: &str, qty: Option<f64>, age_hours: i64, now: DateTime<Utc>) -> LogEntry {
+    pub(super) fn entry(
+        name: &str,
+        qty: Option<f64>,
+        age_hours: i64,
+        now: DateTime<Utc>,
+    ) -> LogEntry {
         LogEntry {
             id: Uuid::new_v4(),
             user_id: "local-device".into(),
@@ -231,5 +236,166 @@ mod tests {
         assert!(!t2.contains("estimate, not a measurement"), "{t2}");
         u.half_life_hours = None;
         assert!(!u.has_numeric_half_life());
+    }
+}
+
+/// T239 (A1/AC-3, FR-040): one row per substance that produces no curve,
+/// with the reason a panel must show instead of a "no model" blank.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct UnmodelledSubstance {
+    pub substance: String,
+    pub reason: String,
+}
+
+/// True when a model can produce a simulated curve. Plateau is insensitive
+/// to half-life (its shape rides on rise-time params), so it is simulable
+/// without one; everything else needs a numeric half-life or it is a gap.
+pub fn is_simulatable(model: &SubstanceModel) -> bool {
+    match model.model_class {
+        ModelClass::None => false,
+        ModelClass::Plateau => true,
+        _ => model.has_numeric_half_life(),
+    }
+}
+
+/// Every model that will silently produce no curve, surfaced as data with
+/// a reason. Sorted case-insensitively by substance for stable rendering.
+pub fn unmodelled_report(models: &[SubstanceModel]) -> Vec<UnmodelledSubstance> {
+    let mut report: Vec<UnmodelledSubstance> = models
+        .iter()
+        .filter(|m| !is_simulatable(m))
+        .map(|m| {
+            let reason = match m.model_class {
+                ModelClass::None => m
+                    .rationale
+                    .clone()
+                    .unwrap_or_else(|| "model class is none — no curve is produced".into()),
+                other => format!(
+                    "{other:?} class but no numeric half-life recorded — nothing to project"
+                ),
+            };
+            UnmodelledSubstance {
+                substance: m.substance.clone(),
+                reason,
+            }
+        })
+        .collect();
+    report.sort_by(|a, b| {
+        a.substance
+            .to_lowercase()
+            .cmp(&b.substance.to_lowercase())
+            .then_with(|| a.substance.cmp(&b.substance))
+    });
+    report
+}
+
+#[cfg(test)]
+mod coverage_tests {
+    use super::tests::{entry, model};
+    use super::*;
+    use crate::catalog::seed_catalog;
+    use crate::pk_assignments::build_models;
+    use chrono::Duration;
+
+    #[test]
+    fn unmodelled_report_names_gaps_with_reasons() {
+        let mut ok = model(); // Decay with t½ — simulable
+        let none = SubstanceModel::unmodelled("Weird Stuff", "no published PK", 3);
+        let mut stranded = model(); // Decay class but half-life wiped
+        stranded.substance = "Stranded".into();
+        stranded.half_life_hours = None;
+        stranded.half_life_range = None;
+        let mut plateau = model(); // plateau needs no t½
+        plateau.substance = "Creatine".into();
+        plateau.model_class = ModelClass::Plateau;
+        plateau.half_life_hours = None;
+        plateau.half_life_range = None;
+        let report = unmodelled_report(&[ok.clone(), none, stranded, plateau.clone()]);
+        assert_eq!(report.len(), 2, "{report:?}");
+        assert_eq!(report[0].substance, "Stranded");
+        assert!(
+            report[0].reason.contains("no numeric half-life"),
+            "{:?}",
+            report[0]
+        );
+        assert_eq!(report[1].substance, "Weird Stuff");
+        assert_eq!(report[1].reason, "no published PK");
+        // Sanity: the two kept-out models really are simulable.
+        assert!(is_simulatable(&ok) && is_simulatable(&plateau));
+        ok.half_life_range = None;
+        assert!(is_simulatable(&ok)); // nominal alone is enough
+    }
+
+    #[test]
+    fn every_simulated_point_is_reproducible_from_explain_output() {
+        // SC-032: an auditor holding ONLY the explain() output can rebuild
+        // the exact series. Reconstruct model fields + used events, rerun,
+        // demand point-for-point equality (not "close" — identical math).
+        let now = DateTime::parse_from_rfc3339("2026-11-15T12:00:00+00:00")
+            .unwrap()
+            .with_timezone(&Utc);
+        let m = model();
+        let e1 = entry("Caffeine", Some(100.0), 1, now);
+        let e2 = entry("caffeine", Some(200.0), 4, now);
+        let bad = entry("Caffeine", None, 2, now); // must be refused, not guessed
+        let all = [e1.clone(), e2.clone(), bad];
+
+        let doses: Vec<crate::pharmacokinetics::DoseEvent> = all
+            .iter()
+            .filter_map(|e| crate::pharmacokinetics::DoseEvent::from_log_entry(e).ok())
+            .collect();
+        let original =
+            crate::pharmacokinetics::sample_series(&m, &doses, now, now + Duration::hours(12), 1.0)
+                .expect("original series");
+
+        let e = explain(&m, &all, now);
+        assert_eq!(e.events_used.len(), 2);
+        // Rebuild the model from explain output alone.
+        let rebuilt = SubstanceModel {
+            substance: e.substance.clone(),
+            model_class: e.model_class,
+            half_life_hours: e.half_life_hours,
+            half_life_range: e.half_life_range,
+            params: e.params.clone(),
+            provenance: e.provenance.clone(),
+            catalog_version: e.catalog_version,
+            rationale: e.rationale.clone(),
+        };
+        // Rebuild doses from only the events explain says were used.
+        let used_ids: Vec<Uuid> = e.events_used.clone();
+        let used_doses: Vec<crate::pharmacokinetics::DoseEvent> = all
+            .iter()
+            .filter(|l| used_ids.contains(&l.id))
+            .filter_map(|l| crate::pharmacokinetics::DoseEvent::from_log_entry(l).ok())
+            .collect();
+        let rebuilt_series = crate::pharmacokinetics::sample_series(
+            &rebuilt,
+            &used_doses,
+            now,
+            now + Duration::hours(12),
+            1.0,
+        )
+        .expect("rebuilt series");
+        assert_eq!(original.len(), rebuilt_series.len());
+        for (a, b) in original.iter().zip(&rebuilt_series) {
+            assert_eq!(a, b); // ActiveDosePoint: PartialEq, exact
+        }
+    }
+
+    #[test]
+    fn seed_catalog_has_no_unprovenanced_or_inconsistent_models() {
+        let models = build_models(&seed_catalog());
+        assert!(!models.is_empty());
+        for m in &models {
+            assert!(
+                !m.provenance.trim().is_empty(),
+                "{}: modelled substance lacks provenance (FR-036)",
+                m.substance
+            );
+        }
+        // Consistency: the report covers exactly the non-simulatable models.
+        let report = unmodelled_report(&models);
+        let expected = models.iter().filter(|m| !is_simulatable(m)).count();
+        assert_eq!(report.len(), expected, "report must cover every gap");
     }
 }

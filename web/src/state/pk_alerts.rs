@@ -85,3 +85,23 @@ pub fn refresh_pharmacokinetic_alerts(now: DateTime<Utc>) -> Result<usize, Strin
     }
     Ok(fresh.len())
 }
+
+/// T239 (A1/AC-3, FR-040): the "no model" gaps for substances the user
+/// actually deals with — those with a target band or a log entry. The panel
+/// renders these rows instead of a blank redose area: substance plus the
+/// recorded reason. Silent omission would make alerting look broken;
+/// explicit absence is the deliverable.
+pub fn pk_coverage_gaps() -> Result<Vec<engine::explain::UnmodelledSubstance>, String> {
+    let catalog = search_catalog("")?;
+    let entries = get_log_entries()?;
+    let key = |s: &str| s.trim().to_lowercase();
+    let wanted: std::collections::HashSet<String> = get_target_bands()
+        .iter()
+        .map(|b| key(&b.substance))
+        .chain(entries.iter().map(|e| key(&e.name)))
+        .collect();
+    Ok(engine::explain::unmodelled_report(&build_models(&catalog))
+        .into_iter()
+        .filter(|g| wanted.contains(&key(&g.substance)))
+        .collect())
+}
