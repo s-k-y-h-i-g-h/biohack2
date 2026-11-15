@@ -3,16 +3,7 @@ use engine::{
     db::{DbPool, migrate, seed_catalog as db_seed_catalog},
     models::LogEntry,
 };
-use sqlx::sqlite::SqlitePoolOptions;
 use uuid::Uuid;
-
-async fn test_pool() -> DbPool {
-    SqlitePoolOptions::new()
-        .max_connections(1)
-        .connect("sqlite::memory:")
-        .await
-        .unwrap()
-}
 
 #[sqlx::test]
 async fn test_seed_and_query_catalog(pool: DbPool) -> anyhow::Result<()> {

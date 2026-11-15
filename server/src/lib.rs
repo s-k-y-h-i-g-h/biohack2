@@ -4,6 +4,11 @@
 //! engine's SQLite layer. This process owns the SQLite file — the frontend's
 //! localStorage becomes a cache, not the source of truth.
 
+// axum's Response carries a type-erased boxed body; it exceeds the size lint
+// threshold but is cheap to move, and IntoResponse cannot be implemented for
+// Box<Response>, so re-boxing is not an option. Standard axum suppression.
+#![allow(clippy::result_large_err)]
+
 use axum::{
     Json, Router,
     extract::{Path, Query, State},

@@ -1,3 +1,7 @@
+// The wasm entry point (#[wasm_bindgen(start)]) and everything it calls are
+// cfg'd out of host/test builds, so host-only lints see them as dead.
+#![cfg_attr(test, allow(dead_code, unused_imports))]
+
 use gloo_storage::Storage;
 use leptos::prelude::*;
 use leptos::*;
