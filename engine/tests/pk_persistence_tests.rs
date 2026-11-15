@@ -71,7 +71,7 @@ async fn substance_models_round_trip_and_are_idempotent(pool: DbPool) -> anyhow:
         );
         if m.model_class != ModelClass::Decay {
             assert!(
-                m.rationale.as_deref().unwrap_or("").trim().len() > 0,
+                !m.rationale.as_deref().unwrap_or("").trim().is_empty(),
                 "{} needs a rationale",
                 m.substance
             );

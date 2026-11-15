@@ -232,11 +232,10 @@ pub fn check_panel_vectors(json: &str) -> Vec<String> {
             if !view.series.is_empty() {
                 failures.push(format!("{}: expected empty series, got {}", v.name, view.series.len()));
             }
-            if let Some(prefix) = &v.note_prefix {
-                if !view.note.starts_with(prefix.as_str()) {
+            if let Some(prefix) = &v.note_prefix
+                && !view.note.starts_with(prefix.as_str()) {
                     failures.push(format!("{}: note {:?} lacks prefix {prefix:?}", v.name, view.note));
                 }
-            }
             continue;
         }
         let want_len = (LOOKBACK_HOURS + LOOKFORWARD_HOURS) as usize + 1;
@@ -247,14 +246,13 @@ pub fn check_panel_vectors(json: &str) -> Vec<String> {
         if view.now_index != LOOKBACK_HOURS as usize {
             failures.push(format!("{}: now_index {}, want {LOOKBACK_HOURS}", v.name, view.now_index));
         }
-        if let Some(flag) = v.band_is_assumption {
-            if view.series[0].band_is_assumption != flag {
+        if let Some(flag) = v.band_is_assumption
+            && view.series[0].band_is_assumption != flag {
                 failures.push(format!(
                     "{}: band_is_assumption {}, want {flag}",
                     v.name, view.series[0].band_is_assumption
                 ));
             }
-        }
         for c in &v.checks {
             let Some(pt) = view.series.get(c.index) else {
                 failures.push(format!("{}: no sample at index {}", v.name, c.index));

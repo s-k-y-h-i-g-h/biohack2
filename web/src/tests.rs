@@ -9,7 +9,7 @@ use wasm_bindgen_test::*;
 wasm_bindgen_test_configure!(run_in_browser);
 
 fn clear_test_storage() {
-    use wasm_bindgen::JsCast;
+    
     let window = web_sys::window().expect("should have window");
     let storage = window
         .local_storage()
@@ -372,8 +372,7 @@ fn test_vitals_form_handles_empty_inputs() {
 #[wasm_bindgen_test]
 fn test_vitals_dashboard_uses_first_entry() {
     // VitalsDashboard shows recent_vitals.first() — verify this logic
-    let vitals = vec![
-        VitalsEntry {
+    let vitals = [VitalsEntry {
             id: Uuid::new_v4(),
             user_id: "test".to_string(),
             timestamp: Utc::now() - chrono::Duration::hours(2),
@@ -404,8 +403,7 @@ fn test_vitals_dashboard_uses_first_entry() {
             sleep_quality: None,
             custom_metrics: None,
             notes: None,
-        },
-    ];
+        }];
 
     // Dashboard uses .first() — verify it shows the first entry in the vec
     // (in real usage, the vec is sorted by timestamp desc, so first = most recent)
@@ -433,7 +431,7 @@ fn test_alert_banner_visibility_logic() {
     assert!(!alert_none.is_some(), "alert should be hidden when None");
 
     // Extract message
-    let message = alert_some.as_ref().map(|s| s.as_str()).unwrap_or("");
+    let message = alert_some.as_deref().unwrap_or("");
     assert_eq!(message, "Hypertensive urgency!");
 }
 
@@ -443,7 +441,7 @@ fn test_alert_banner_visibility_logic() {
 fn test_safety_engine_hypertensive_urgency_detection() {
     use chrono::Utc;
     use engine::models::VitalsEntry;
-    use engine::safety::{SafetyEngine, run_safety_check};
+    use engine::safety::run_safety_check;
     use uuid::Uuid;
 
     let entry = VitalsEntry {
@@ -518,9 +516,9 @@ fn test_create_vitals_entry_triggers_safety_check() {
     // This test verifies the intended integration: when create_vitals_entry is called,
     // the safety engine should run and create alerts for abnormal vitals.
     // Currently this is NOT wired (known bug T038), so we test the expected behavior.
-    use crate::state::db::{create_vitals_entry, get_alerts, get_vitals_entries};
+    use crate::state::db::{create_vitals_entry, get_vitals_entries};
     use chrono::Utc;
-    use engine::models::{AlertFilter, VitalsEntry};
+    use engine::models::VitalsEntry;
     use uuid::Uuid;
 
     clear_test_storage();
