@@ -89,6 +89,8 @@ impl ItemType {
         }
     }
 
+    // Parsers return Option (no rich error type); inherent methods by design.
+    #[allow(clippy::should_implement_trait)]
     pub fn from_str(s: &str) -> Option<Self> {
         match s {
             "supplement" => Some(Self::Supplement),
@@ -112,6 +114,8 @@ impl RouteType {
         }
     }
 
+    // Parsers return Option (no rich error type); inherent methods by design.
+    #[allow(clippy::should_implement_trait)]
     pub fn from_str(s: &str) -> Option<Self> {
         match s {
             "oral" => Some(Self::Oral),
@@ -134,6 +138,8 @@ impl SleepQuality {
         }
     }
 
+    // Parsers return Option (no rich error type); inherent methods by design.
+    #[allow(clippy::should_implement_trait)]
     pub fn from_str(s: &str) -> Option<Self> {
         match s {
             "poor" => Some(Self::Poor),
@@ -156,6 +162,8 @@ impl AlertType {
         }
     }
 
+    // Parsers return Option (no rich error type); inherent methods by design.
+    #[allow(clippy::should_implement_trait)]
     pub fn from_str(s: &str) -> Option<Self> {
         match s {
             "vital" => Some(Self::Vital),
@@ -177,6 +185,8 @@ impl AlertSeverity {
         }
     }
 
+    // Parsers return Option (no rich error type); inherent methods by design.
+    #[allow(clippy::should_implement_trait)]
     pub fn from_str(s: &str) -> Option<Self> {
         match s {
             "info" => Some(Self::Info),
@@ -196,6 +206,8 @@ impl InsightType {
         }
     }
 
+    // Parsers return Option (no rich error type); inherent methods by design.
+    #[allow(clippy::should_implement_trait)]
     pub fn from_str(s: &str) -> Option<Self> {
         match s {
             "correlation" => Some(Self::Correlation),

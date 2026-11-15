@@ -98,6 +98,8 @@ impl MechanismClass {
         }
     }
 
+    // Parsers return Option (no rich error type); inherent methods by design.
+    #[allow(clippy::should_implement_trait)]
     pub fn from_str(s: &str) -> Option<Self> {
         match s {
             "antiplatelet" => Some(Self::Antiplatelet),
