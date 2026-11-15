@@ -1,4 +1,4 @@
-use crate::components::ActiveDosePanel;
+use crate::components::{ActiveDosePanel, TargetBandEditor};
 use crate::state::db::{get_log_entries, get_target_bands, search_catalog};
 use crate::state::store::AppContext;
 use engine::dashboard::{panel_view, PanelView};
@@ -55,6 +55,7 @@ pub fn DashboardPage() -> impl IntoView {
                     />
                 </div>
             </Show>
+            <TargetBandEditor/>
         </div>
     }
 }

@@ -1059,3 +1059,8 @@ nav::-webkit-scrollbar {
 .dashboard-sub { color: #9ca3af; font-size: .85rem; margin-top: 0; }
 .dashboard-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px; }
 .dashboard-empty { color: #9ca3af; padding: 24px 0; }
+
+/* ── Target band editor (spec-003 T247) ─────────────────────────────── */
+.target-band-editor { margin-top: 28px; }
+.band-table { border-collapse: collapse; margin: 8px 0 16px; }
+.band-table th, .band-table td { text-align: left; padding: 4px 14px 4px 0; border-bottom: 1px solid var(--border, #e5e7eb); }

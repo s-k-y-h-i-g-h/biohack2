@@ -7,6 +7,7 @@ pub mod stack_builder;
 pub mod stack_edit_modal;
 pub mod stack_list_view;
 pub mod summary_stats;
+pub mod target_band_editor;
 pub mod vitals_dashboard;
 pub mod vitals_form;
 
@@ -19,5 +20,6 @@ pub use stack_builder::StackBuilder;
 pub use stack_edit_modal::StackEditModal;
 pub use stack_list_view::StackListView;
 pub use summary_stats::SummaryStats;
+pub use target_band_editor::TargetBandEditor;
 pub use vitals_dashboard::VitalsDashboard;
 pub use vitals_form::VitalsForm;
