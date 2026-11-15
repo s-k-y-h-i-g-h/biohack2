@@ -17,6 +17,7 @@ pub mod models;
 pub mod pharmacokinetics;
 pub mod pk_assignments;
 pub mod pk_params;
+pub mod redose;
 pub mod safety;
 
 #[cfg(feature = "db")]

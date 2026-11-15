@@ -66,12 +66,12 @@
 
 **Purpose**: Make the curve speak, through the existing alert path.
 
-- [ ] T225 Add `TargetBand` entity to `engine/src/models.rs` (substance, low, high, window_hours, updated_at)
+- [x] T225 Add `TargetBand` entity to `engine/src/models.rs` (substance, low, high, window_hours, updated_at)
 - [ ] T226 Persist target bands (SQLite + WASM storage paths)
-- [ ] T227 Implement band-crossing detection: simulated band crosses below target low → crossing time + redose window
-- [ ] T228 Extend `AlertType` with `Redose` and `CumulativeLoad` in `engine/src/models.rs` (existing `Alert` carries type/severity/message/recommendation — reuse, do not fork the alert path)
+- [x] T227 Implement band-crossing detection: simulated band crosses below target low → crossing time + redose window
+- [x] T228 Extend `AlertType` with `Redose` and `CumulativeLoad` in `engine/src/models.rs` (existing `Alert` carries type/severity/message/recommendation — reuse, do not fork the alert path)
 - [ ] T229 Implement redose alert generation in the engine (offline, from stored data only)
-- [ ] T230 Implement rolling-24 h cumulative dose per substance against catalog max daily amount (FR-035)
+- [x] T230 Implement rolling-24 h cumulative dose per substance against catalog max daily amount (FR-035)
 - [ ] T231 Implement cumulative-load alert generation, distinct from pairwise interaction alerts (FR-015 stays as-is)
 - [ ] T232 Alert resolution: redose alert resolves when a logged dose restores the band (A2/AC-2)
 - [ ] T233 Wire redose + cumulative alerts into the existing save flow so they appear in the current alert banner (spec 001 T087/T088 pattern)

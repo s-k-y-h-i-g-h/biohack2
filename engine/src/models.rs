@@ -46,6 +46,10 @@ pub enum AlertType {
     Vital,
     Interaction,
     Warning,
+    /// spec-003 FR-034: simulated band fell below a configured target band.
+    Redose,
+    /// spec-003 FR-035: rolling-24 h intake exceeds the catalog daily max.
+    CumulativeLoad,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
@@ -147,6 +151,8 @@ impl AlertType {
             Self::Vital => "vital",
             Self::Interaction => "interaction",
             Self::Warning => "warning",
+            Self::Redose => "redose",
+            Self::CumulativeLoad => "cumulative_load",
         }
     }
 
@@ -155,6 +161,8 @@ impl AlertType {
             "vital" => Some(Self::Vital),
             "interaction" => Some(Self::Interaction),
             "warning" => Some(Self::Warning),
+            "redose" => Some(Self::Redose),
+            "cumulative_load" => Some(Self::CumulativeLoad),
             _ => None,
         }
     }
@@ -312,6 +320,45 @@ pub struct VitalsEntry {
     pub sleep_quality: Option<SleepQuality>,
     pub custom_metrics: Option<serde_json::Value>,
     pub notes: Option<String>,
+}
+
+/// spec-003 T225 / FR-034: a user-configured therapeutic target for the
+/// simulated on-board amount of a substance. The simulation must stay
+/// inside `[low, high]`; a crossing below `low` raises a redose alert.
+/// `window_hours` is the horizon over which the target is evaluated when
+/// projecting the series ahead (how far the app looks for a crossing).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub struct TargetBand {
+    pub substance: String,
+    pub low: f64,
+    pub high: f64,
+    pub window_hours: f64,
+    pub updated_at: DateTime<Utc>,
+}
+
+impl TargetBand {
+    pub fn validate(&self) -> Result<(), String> {
+        if self.substance.trim().is_empty() {
+            return Err("target band needs a substance name".into());
+        }
+        if !(self.low.is_finite() && self.high.is_finite() && self.window_hours.is_finite()) {
+            return Err("target band values must be finite".into());
+        }
+        if self.low < 0.0 || self.high < self.low {
+            return Err(format!(
+                "target band needs 0 <= low <= high, got low={} high={}",
+                self.low, self.high
+            ));
+        }
+        if self.window_hours <= 0.0 {
+            return Err(format!(
+                "target band window_hours must be > 0, got {}",
+                self.window_hours
+            ));
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
