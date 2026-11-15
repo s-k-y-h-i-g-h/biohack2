@@ -87,8 +87,8 @@
 **Purpose**: The user can audit every number, and is told what the number is not.
 
 - [X] T236 Attach provenance (catalog default / catalog version / user override + timestamp) to every parameter used in a simulation (FR-036) — DONE (85e5738: sample_series refuses blank provenance; with_user_half_life_override chains catalog origin + user edit + timestamp)
-- [ ] T237 Implement `explain(substance)` returning model class, parameters, provenance, and the dose events used (FR-037)
-- [ ] T238 Implement the limitations text generator (inputs named, "estimate not measurement" stated) (FR-039, A5)
+- [X] T237 Implement `explain(substance)` returning model class, parameters, provenance, and the dose events used (FR-037) — DONE (3dba73d: engine::explain — class, params, provenance chain, used vs refused events with reasons)
+- [X] T238 Implement the limitations text generator (inputs named, "estimate not measurement" stated) (FR-039, A5) — DONE (3dba73d: limitations_text names only numbers on the model; states estimate-not-measurement; unmodelled variant makes no estimate claim)
 - [ ] T239 Implement `none`-class surfacing: panel shows "no model" with the recorded reason (A1/AC-3, FR-040)
 - [ ] T240 Unit tests: every rendered point is reproducible from `explain()` output (SC-032); no modelled substance lacks provenance
 
