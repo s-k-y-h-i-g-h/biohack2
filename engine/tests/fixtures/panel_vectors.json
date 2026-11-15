@@ -1,0 +1,163 @@
+{
+ "tolerance": 1e-09,
+ "note": "spec-003 T250: shared panel-derivation vectors for the dashboard path (panel_view: fixed window now-24h..now+12h at 1 h steps = 37 points, now_index 24, now = 2026-01-03T00:00:00Z, dose offsets relative to now). Expected values computed analytically from the documented closed forms (decay a*0.5^(dt/t_half), plateau a*(1-0.5^(dt/rise)), band edges at half-life*(1+/-0.25) when no catalog range, geometric mean for the expected limb of a range). Consumed by the native engine test (x86_64) and by the wasm32 node runner (wasm_vectors) \u2014 SC-033 parity for panel data.",
+ "vectors": [
+  {
+   "name": "panel_decay_point_half_life",
+   "model": {
+    "substance": "VecPanelDecay",
+    "model_class": "decay",
+    "half_life_hours": 6.0,
+    "half_life_range": null,
+    "params": null,
+    "provenance": "fixture",
+    "catalog_version": 1,
+    "rationale": null
+   },
+   "doses": [
+    {
+     "amount": 100.0,
+     "unit": "mg",
+     "offset_hours": -6.0
+    }
+   ],
+   "checks": [
+    {
+     "index": 18,
+     "low": 100.0,
+     "expected": 100.0,
+     "high": 100.0
+    },
+    {
+     "index": 24,
+     "low": 39.68502629920499,
+     "expected": 50.0,
+     "high": 57.43491774985174
+    },
+    {
+     "index": 30,
+     "low": 15.749013123685915,
+     "expected": 25.0,
+     "high": 32.98769776932235
+    },
+    {
+     "index": 36,
+     "low": 6.25,
+     "expected": 12.5,
+     "high": 18.94645708137998
+    }
+   ],
+   "band": null,
+   "expect_empty": false,
+   "band_is_assumption": true
+  },
+  {
+   "name": "panel_decay_catalog_range",
+   "model": {
+    "substance": "VecPanelRange",
+    "model_class": "decay",
+    "half_life_hours": null,
+    "half_life_range": [
+     6.0,
+     12.0
+    ],
+    "params": null,
+    "provenance": "fixture",
+    "catalog_version": 1,
+    "rationale": null
+   },
+   "doses": [
+    {
+     "amount": 100.0,
+     "unit": "mg",
+     "offset_hours": -12.0
+    }
+   ],
+   "checks": [
+    {
+     "index": 24,
+     "low": 25.0,
+     "expected": 37.521422724648176,
+     "high": 50.0
+    },
+    {
+     "index": 36,
+     "low": 6.25,
+     "expected": 14.078571632817443,
+     "high": 25.0
+    }
+   ],
+   "band": {
+    "substance": "VecPanelRange",
+    "low": 5.0,
+    "high": 95.0,
+    "window_hours": 24.0
+   },
+   "expect_empty": false,
+   "band_is_assumption": false
+  },
+  {
+   "name": "panel_plateau_rise",
+   "model": {
+    "substance": "VecPanelPlateau",
+    "model_class": "plateau",
+    "half_life_hours": null,
+    "half_life_range": null,
+    "params": {
+     "rise_time_hours": 5.0
+    },
+    "provenance": "fixture",
+    "catalog_version": 1,
+    "rationale": null
+   },
+   "doses": [
+    {
+     "amount": 100.0,
+     "unit": "mg",
+     "offset_hours": -10.0
+    }
+   ],
+   "checks": [
+    {
+     "index": 14,
+     "low": 0.0,
+     "expected": 0.0,
+     "high": 0.0
+    },
+    {
+     "index": 24,
+     "low": 67.01230223067765,
+     "expected": 75.0,
+     "high": 84.25098687631409
+    },
+    {
+     "index": 36,
+     "low": 91.28285208530997,
+     "expected": 95.263385729655,
+     "high": 98.28621096922716
+    }
+   ],
+   "band": null,
+   "expect_empty": false,
+   "band_is_assumption": true
+  },
+  {
+   "name": "panel_none_class_empty",
+   "model": {
+    "substance": "VecPanelNone",
+    "model_class": "none",
+    "half_life_hours": null,
+    "half_life_range": null,
+    "params": null,
+    "provenance": "fixture",
+    "catalog_version": 1,
+    "rationale": "explicitly not modelled (fixture)"
+   },
+   "doses": [],
+   "checks": [],
+   "band": null,
+   "expect_empty": true,
+   "note_prefix": "No model \u2014"
+  }
+ ]
+}

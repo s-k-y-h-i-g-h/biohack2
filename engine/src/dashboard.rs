@@ -129,6 +129,154 @@ pub fn panel_view(
     })
 }
 
+/// T250 — verify the shared panel-derivation fixture (`tests/fixtures/
+/// panel_vectors.json`) through the real dashboard path, `panel_view`.
+/// Same contract as `pharmacokinetics::check_vectors`: an empty return
+/// means this target reproduces every recorded value within tolerance.
+/// Consumed by the native x86_64 test AND the wasm32 node runner, making
+/// panel data derivation (window, indices, band edges, empty-model path)
+/// a bit-exact-within-tolerance parity claim — SC-033, not just the raw
+/// curve maths.
+pub fn check_panel_vectors(json: &str) -> Vec<String> {
+    use crate::models::{ItemType, TargetBand};
+    use chrono::TimeZone;
+    #[derive(serde::Deserialize)]
+    struct Fix {
+        tolerance: f64,
+        vectors: Vec<Vector>,
+    }
+    #[derive(serde::Deserialize)]
+    struct Vector {
+        name: String,
+        model: SubstanceModel,
+        doses: Vec<RawDose>,
+        checks: Vec<Chk>,
+        #[serde(default)]
+        band: Option<RawBand>,
+        #[serde(default)]
+        expect_empty: bool,
+        #[serde(default)]
+        band_is_assumption: Option<bool>,
+        #[serde(default)]
+        note_prefix: Option<String>,
+    }
+    #[derive(serde::Deserialize)]
+    struct RawDose {
+        amount: f64,
+        unit: String,
+        offset_hours: f64,
+    }
+    #[derive(serde::Deserialize)]
+    struct RawBand {
+        substance: String,
+        low: f64,
+        high: f64,
+        window_hours: f64,
+    }
+    #[derive(serde::Deserialize)]
+    struct Chk {
+        index: usize,
+        low: f64,
+        expected: f64,
+        high: f64,
+    }
+
+    let fix: Fix = match serde_json::from_str(json) {
+        Ok(f) => f,
+        Err(e) => return vec![format!("fixture parse error: {e}")],
+    };
+    // Fixed instants so native and wasm see identical arithmetic: doses
+    // are offset from `now`; the window is the panel's own now-24..now+12.
+    let epoch = match Utc.with_ymd_and_hms(2026, 1, 1, 0, 0, 0) {
+        chrono::LocalResult::Single(t) => t,
+        _ => return vec!["fixture epoch is not a single UTC instant".into()],
+    };
+    let now = epoch + chrono::Duration::hours(48);
+    let mut failures = Vec::new();
+    for v in &fix.vectors {
+        let entries: Vec<crate::models::LogEntry> = v
+            .doses
+            .iter()
+            .map(|d| crate::models::LogEntry {
+                id: uuid::Uuid::nil(),
+                user_id: "fixture".into(),
+                item_type: ItemType::Supplement,
+                item_id: None,
+                name: v.model.substance.clone(),
+                quantity: Some(d.amount),
+                unit: Some(d.unit.clone()),
+                route: None,
+                timestamp: now
+                    + chrono::Duration::milliseconds((d.offset_hours * 3_600_000.0).round() as i64),
+                stack_id: None,
+                notes: None,
+                acknowledged_interaction: false,
+                custom_fields: None,
+            })
+            .collect();
+        let band = v.band.as_ref().map(|b| TargetBand {
+            substance: b.substance.clone(),
+            low: b.low,
+            high: b.high,
+            window_hours: b.window_hours,
+            updated_at: now,
+        });
+        let view = match panel_view(&v.model, &entries, band.as_ref(), now) {
+            Ok(view) => view,
+            Err(e) => {
+                failures.push(format!("{}: panel_view failed: {e}", v.name));
+                continue;
+            }
+        };
+        if v.expect_empty {
+            if !view.series.is_empty() {
+                failures.push(format!("{}: expected empty series, got {}", v.name, view.series.len()));
+            }
+            if let Some(prefix) = &v.note_prefix {
+                if !view.note.starts_with(prefix.as_str()) {
+                    failures.push(format!("{}: note {:?} lacks prefix {prefix:?}", v.name, view.note));
+                }
+            }
+            continue;
+        }
+        let want_len = (LOOKBACK_HOURS + LOOKFORWARD_HOURS) as usize + 1;
+        if view.series.len() != want_len {
+            failures.push(format!("{}: series len {}, want {want_len}", v.name, view.series.len()));
+            continue;
+        }
+        if view.now_index != LOOKBACK_HOURS as usize {
+            failures.push(format!("{}: now_index {}, want {LOOKBACK_HOURS}", v.name, view.now_index));
+        }
+        if let Some(flag) = v.band_is_assumption {
+            if view.series[0].band_is_assumption != flag {
+                failures.push(format!(
+                    "{}: band_is_assumption {}, want {flag}",
+                    v.name, view.series[0].band_is_assumption
+                ));
+            }
+        }
+        for c in &v.checks {
+            let Some(pt) = view.series.get(c.index) else {
+                failures.push(format!("{}: no sample at index {}", v.name, c.index));
+                continue;
+            };
+            for (label, got, want) in [
+                ("low", pt.low, c.low),
+                ("expected", pt.expected, c.expected),
+                ("high", pt.high, c.high),
+            ] {
+                if (got - want).abs() > fix.tolerance {
+                    failures.push(format!(
+                        "{}: idx {} {label}: got {got}, want {want} (tol {})",
+                        v.name, c.index, fix.tolerance
+                    ));
+                }
+            }
+        }
+    }
+    failures
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -231,5 +379,52 @@ mod tests {
         assert_eq!(v.series.len(), (LOOKBACK_HOURS + LOOKFORWARD_HOURS + 1) as usize);
         let r = v.now_reading.expect("gauge exists even at zero");
         assert_eq!(r.expected, 0.0);
+    }
+
+    #[test]
+    fn panel_vectors_fixture_passes_and_pins_closed_forms() {
+        // The shared T250 fixture (also run wasm-side by the node runner).
+        let fixture = include_str!("../tests/fixtures/panel_vectors.json");
+        let failures = crate::dashboard::check_panel_vectors(fixture);
+        assert!(
+            failures.is_empty(),
+            "panel vector failures:\n{}",
+            failures.join("\n")
+        );
+        use chrono::TimeZone;
+        // Independent analytic spot-checks: the fixture must not merely
+        // record whatever the engine emitted — these are hand-computed.
+        // decay t_half=6h, dose 100 at now-6h: exactly one half-life to now.
+        let m = SubstanceModel {
+            substance: "VecPanelDecay".into(),
+            model_class: ModelClass::Decay,
+            half_life_hours: Some(6.0),
+            half_life_range: None,
+            params: serde_json::Value::Null,
+            provenance: "test".into(),
+            catalog_version: 1,
+            rationale: None,
+        };
+        let now = chrono::Utc
+            .with_ymd_and_hms(2026, 1, 3, 0, 0, 0)
+            .unwrap();
+        let e = LogEntry {
+            id: uuid::Uuid::nil(),
+            user_id: "test".into(),
+            item_type: ItemType::Supplement,
+            item_id: None,
+            name: "VecPanelDecay".into(),
+            quantity: Some(100.0),
+            unit: Some("mg".into()),
+            route: None,
+            timestamp: now - chrono::Duration::hours(6),
+            stack_id: None,
+            notes: None,
+            acknowledged_interaction: false,
+            custom_fields: None,
+        };
+        let v = crate::dashboard::panel_view(&m, &[e], None, now).unwrap();
+        assert_eq!(v.series[24].expected, 50.0, "0.5^1 is exact");
+        assert_eq!(v.series[18].expected, 100.0);
     }
 }
