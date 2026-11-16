@@ -60,9 +60,12 @@ pub fn InsightsPage() -> impl IntoView {
         version.get(); // track
         let vitals = get_vitals_entries(&Default::default()).unwrap_or_default();
         let now = chrono::Utc::now();
+        // Day boundaries follow the viewer's clock, so a "day" in a gap or
+        // drift window is a day on their calendar, not on the server's.
+        let day_offset = *chrono::Local::now().offset();
         FEED_METRICS
             .iter()
-            .filter_map(|m| detect_drift(&vitals, *m, now, &DriftConfig::default()))
+            .filter_map(|m| detect_drift(&vitals, *m, now, &DriftConfig::default(), day_offset))
             .collect::<Vec<DriftInsight>>()
     });
 
@@ -101,7 +104,14 @@ pub fn InsightsPage() -> impl IntoView {
                 started_at: anchor,
             };
             let spec = ReviewSpec::default_for(metric);
-            let result = run_review(&vitals, &logs, &intervention, &spec, chrono::Utc::now());
+            let result = run_review(
+                &vitals,
+                &logs,
+                &intervention,
+                &spec,
+                chrono::Utc::now(),
+                *chrono::Local::now().offset(),
+            );
             review.set(Some(OpenReview {
                 substance,
                 metric,

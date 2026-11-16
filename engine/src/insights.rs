@@ -6,13 +6,17 @@
 //! deterministic and reproducible for identical inputs (FR-099); fully
 //! offline (FR-100).
 //!
-//! Known limitation surfaced in every result's limitations text: day
-//! boundaries are UTC, not user-local (the 2026-09-09 chrono incident made
-//! day-boundary handling a named hazard; local-day aggregation needs a
-//! user-timezone input this engine does not yet take).
+//! Day boundaries are caller-supplied (`day_offset` on every entry point):
+//! native callers pass UTC (deterministic, no user context), the browser
+//! passes the viewer's current local offset so gap days match the user's
+//! calendar. The offset used is named in every result's limitations text.
+//! The 2026-09-09 chrono incident made day-boundary handling a named hazard:
+//! a fixed offset is applied consistently across a window, and the pinned
+//! DST vectors (`check_day_boundary_vectors`) pin behavior on the 2026 EU
+//! DST-end weekend for UTC and a local offset alike.
 
 use crate::models::{LogEntry, VitalsEntry};
-use chrono::{DateTime, Duration, TimeZone, Utc};
+use chrono::{DateTime, Duration, FixedOffset, Offset, TimeZone, Utc};
 use serde::{Deserialize, Serialize};
 
 /// A numeric vital this engine can review. Each metric carries its own
@@ -224,22 +228,39 @@ fn samples(
     s
 }
 
-/// Runs of ≥2 consecutive whole UTC days inside [from, to) with no sample.
+/// Human-readable name for a day-boundary offset, for limitations text.
+pub(crate) fn day_boundary_label(off: FixedOffset) -> String {
+    if off.local_minus_utc() == 0 {
+        "UTC".to_string()
+    } else {
+        format!("UTC{}", off) // FixedOffset Display: "+01:00" / "-08:00"
+    }
+}
+
+/// Runs of ≥2 consecutive whole days (in `day_offset` days) inside
+/// [from, to) with no sample.
 fn find_gaps(
     samples: &[(DateTime<Utc>, f64)],
     from: DateTime<Utc>,
     to: DateTime<Utc>,
     window: Side,
+    day_offset: FixedOffset,
 ) -> Vec<Gap> {
     let mut gaps = Vec::new();
-    let first_day = from.date_naive();
-    let last_day = (to - Duration::seconds(1)).date_naive();
+    let first_day = from.with_timezone(&day_offset).date_naive();
+    let last_day = (to - Duration::seconds(1))
+        .with_timezone(&day_offset)
+        .date_naive();
     let days: Vec<_> = (0..=(last_day.signed_duration_since(first_day).num_days()))
         .map(|d| first_day + Duration::days(d))
         .collect();
     let has_sample: Vec<bool> = days
         .iter()
-        .map(|d| samples.iter().any(|(t, _)| &t.date_naive() == d))
+        .map(|d| {
+            samples
+                .iter()
+                .any(|(t, _)| &t.with_timezone(&day_offset).date_naive() == d)
+        })
         .collect();
     let mut run_start: Option<usize> = None;
     for (i, present) in has_sample
@@ -351,6 +372,7 @@ pub fn run_review(
     intervention: &Intervention,
     spec: &ReviewSpec,
     now: DateTime<Utc>,
+    day_offset: FixedOffset,
 ) -> ReviewResult {
     let pre_start = intervention.started_at - Duration::days(spec.pre_days);
     let post_end = (intervention.started_at + Duration::days(spec.post_days)).min(now);
@@ -360,8 +382,14 @@ pub fn run_review(
     let pre_s = samples(vitals, spec.metric, pre_window.0, pre_window.1);
     let post_s = samples(vitals, spec.metric, post_window.0, post_window.1);
 
-    let mut gaps = find_gaps(&pre_s, pre_window.0, pre_window.1, Side::Pre);
-    gaps.extend(find_gaps(&post_s, post_window.0, post_window.1, Side::Post));
+    let mut gaps = find_gaps(&pre_s, pre_window.0, pre_window.1, Side::Pre, day_offset);
+    gaps.extend(find_gaps(
+        &post_s,
+        post_window.0,
+        post_window.1,
+        Side::Post,
+        day_offset,
+    ));
     let confounders = find_confounders(logs, &intervention.name, pre_window.0, post_window.1);
 
     let mut missing = Vec::new();
@@ -391,7 +419,14 @@ pub fn run_review(
         ));
     }
 
-    let limitations = limitations_text(spec, &pre_window, &post_window, &gaps, &confounders);
+    let limitations = limitations_text(
+        spec,
+        &pre_window,
+        &post_window,
+        &gaps,
+        &confounders,
+        day_offset,
+    );
 
     // FR-092: below the floor we refuse the number entirely.
     if !missing.is_empty() {
@@ -467,12 +502,14 @@ fn limitations_text(
     post: &(DateTime<Utc>, DateTime<Utc>),
     gaps: &[Gap],
     confounders: &[Confounder],
+    day_offset: FixedOffset,
 ) -> String {
+    let label = day_boundary_label(day_offset);
     let mut t = format!(
-        "Descriptive only, over this window, in your data: pre {} → {}, post {} → {} (UTC days), \
-         metric: {}. This is not a population-level finding, not a clinical conclusion, and not \
-         medical advice. n per side is small; a review of one person's data cannot establish \
-         causation. Day boundaries are UTC, not your local timezone.",
+        "Descriptive only, over this window, in your data: pre {} → {}, post {} → {} ({label} \
+         days), metric: {}. This is not a population-level finding, not a clinical conclusion, \
+         and not medical advice. n per side is small; a review of one person's data cannot \
+         establish causation. Day boundaries are {label} days.",
         pre.0.date_naive(),
         pre.1.date_naive(),
         post.0.date_naive(),
@@ -505,6 +542,9 @@ fn limitations_text(
 /// targets (SC-095). The pinned facts: the DST day counts as covered with
 /// no phantom gap, both window counts are exact, and the verdict and
 /// medians reproduce digit-for-digit on wasm32 and native alike.
+/// Second leg: the same fixture reviewed with a fixed local day boundary
+/// (UTC+01:00) must reproduce counts, gap set, verdict and effect size —
+/// the viewer's offset moves day edges, not the numbers.
 pub fn check_day_boundary_vectors() -> Vec<String> {
     fn mk_hr(ts: DateTime<Utc>, hr: i32) -> VitalsEntry {
         VitalsEntry {
@@ -552,7 +592,7 @@ pub fn check_day_boundary_vectors() -> Vec<String> {
     };
     let spec = ReviewSpec::default_for(Metric::HeartRate);
     let now = Utc.with_ymd_and_hms(2026, 11, 1, 12, 0, 0).unwrap();
-    let r = run_review(&vitals, &[], &intervention, &spec, now);
+    let r = run_review(&vitals, &[], &intervention, &spec, now, Utc.fix());
 
     let mut fails = Vec::new();
     let mut check = |cond: bool, what: &str| {
@@ -591,6 +631,40 @@ pub fn check_day_boundary_vectors() -> Vec<String> {
     check(
         r.effect_size == Some(-1.0),
         &format!("effect size: {:?}", r.effect_size),
+    );
+    // Second leg: a fixed local day boundary (UTC+01:00) must reproduce the
+    // counts, the gap set, the verdict and the effect size — the viewer's
+    // offset moves the day edges, not the numbers. Only the named boundary
+    // in the limitations text may differ.
+    let local = FixedOffset::east_opt(3600).unwrap();
+    let rl = run_review(&vitals, &[], &intervention, &spec, now, local);
+    check(
+        rl.n_pre == r.n_pre && rl.n_post == r.n_post,
+        &format!(
+            "local-day counts must match UTC: got {} / {}",
+            rl.n_pre, rl.n_post
+        ),
+    );
+    check(
+        rl.gaps == r.gaps,
+        &format!(
+            "local-day grouping must reproduce the gap set: {:?}",
+            rl.gaps
+        ),
+    );
+    check(
+        rl.verdict == r.verdict
+            && rl.median_shift == r.median_shift
+            && rl.effect_size == r.effect_size,
+        "local-day grouping must reproduce verdict and effect size",
+    );
+    check(
+        rl.limitations.contains("UTC+01:00 days"),
+        "local run must name UTC+01:00 as its day boundary",
+    );
+    check(
+        r.limitations.contains("Day boundaries are UTC days."),
+        "UTC run must name UTC as its day boundary",
     );
     fails
 }
@@ -666,6 +740,7 @@ mod tests {
             },
             &ReviewSpec::default_for(Metric::HeartRate),
             base_ts() + Duration::days(14),
+            Utc.fix(),
         );
         assert_eq!(r.verdict, Verdict::ChangeObserved);
         assert_eq!(r.n_pre, 14);
@@ -693,6 +768,7 @@ mod tests {
             },
             &ReviewSpec::default_for(Metric::HeartRate),
             base_ts() + Duration::days(2),
+            Utc.fix(),
         );
         assert_eq!(r.verdict, Verdict::InsufficientData);
         assert!(r.pre.is_none() && r.post.is_none());
@@ -719,6 +795,7 @@ mod tests {
             },
             &ReviewSpec::default_for(Metric::HeartRate),
             base_ts() + Duration::days(14),
+            Utc.fix(),
         );
         assert!(
             r.confounders
@@ -756,6 +833,7 @@ mod tests {
             },
             &spec,
             base_ts() + Duration::days(14),
+            Utc.fix(),
         );
         assert!(
             r.gaps.iter().any(|g| g.window == Side::Post && g.days >= 4),
@@ -778,8 +856,8 @@ mod tests {
         };
         let spec = ReviewSpec::default_for(Metric::HeartRate);
         let now = base_ts() + Duration::days(14);
-        let a = run_review(&v, &[], &iv, &spec, now);
-        let b = run_review(&v, &[], &iv, &spec, now);
+        let a = run_review(&v, &[], &iv, &spec, now, Utc.fix());
+        let b = run_review(&v, &[], &iv, &spec, now, Utc.fix());
         // Full structural equality incl. floats — pure function, no RNG.
         assert_eq!(a, b);
     }
@@ -807,6 +885,7 @@ mod tests {
             },
             &ReviewSpec::default_for(Metric::HeartRate),
             base_ts() + Duration::days(14),
+            Utc.fix(),
         );
         assert_eq!(r.verdict, Verdict::NoChangeObserved);
     }
@@ -887,6 +966,7 @@ pub fn detect_drift(
     metric: Metric,
     now: DateTime<Utc>,
     cfg: &DriftConfig,
+    day_offset: FixedOffset,
 ) -> Option<DriftInsight> {
     let s = samples(vitals, metric, DateTime::<Utc>::MIN_UTC, now);
     if s.len() < cfg.min_points {
@@ -937,14 +1017,15 @@ pub fn detect_drift(
         return None; // inside the noise band: no number, no claim
     }
 
-    let gaps = find_gaps(&s, t0, t1 + Duration::seconds(1), Side::Post);
+    let gaps = find_gaps(&s, t0, t1 + Duration::seconds(1), Side::Post, day_offset);
     let density = density(s.len(), span_days.max(1));
 
+    let label = day_boundary_label(day_offset);
     let mut limitations = format!(
-        "Descriptive only, over this window, in your data: {} → {} (UTC days), metric: {}. \
+        "Descriptive only, over this window, in your data: {} → {} ({label} days), metric: {}. \
          {} points at {:.2}/day. This is a sustained movement in what you recorded, not a \
          population-level finding, not a clinical conclusion, and not medical advice; day \
-         boundaries are UTC.",
+         boundaries are {label} days.",
         t0.date_naive(),
         t1.date_naive(),
         metric.definition(),
@@ -1025,6 +1106,7 @@ mod drift_tests {
             Metric::HeartRate,
             t(2026, 9, 12, 8, 0),
             &DriftConfig::default(),
+            Utc.fix(),
         )
         .expect("six-week steady rise must produce a drift insight");
         assert_eq!(d.direction, DriftDirection::Rising);
@@ -1050,7 +1132,8 @@ mod drift_tests {
                 &v,
                 Metric::HeartRate,
                 t(2026, 9, 12, 8, 0),
-                &DriftConfig::default()
+                &DriftConfig::default(),
+                Utc.fix()
             )
             .is_none()
         );
@@ -1066,7 +1149,8 @@ mod drift_tests {
                 &short,
                 Metric::HeartRate,
                 t(2026, 8, 11, 8, 0),
-                &DriftConfig::default()
+                &DriftConfig::default(),
+                Utc.fix()
             )
             .is_none()
         );
@@ -1086,6 +1170,7 @@ mod drift_tests {
             Metric::HeartRate,
             t(2026, 9, 12, 8, 0),
             &DriftConfig::default(),
+            Utc.fix(),
         )
         .expect("14 points over 41 days still clears the floors");
         assert!(d.density < 0.5);
@@ -1097,8 +1182,20 @@ mod drift_tests {
     fn d3_determinism() {
         let v = rising_six_weeks();
         let now = t(2026, 9, 12, 8, 0);
-        let a = detect_drift(&v, Metric::HeartRate, now, &DriftConfig::default());
-        let b = detect_drift(&v, Metric::HeartRate, now, &DriftConfig::default());
+        let a = detect_drift(
+            &v,
+            Metric::HeartRate,
+            now,
+            &DriftConfig::default(),
+            Utc.fix(),
+        );
+        let b = detect_drift(
+            &v,
+            Metric::HeartRate,
+            now,
+            &DriftConfig::default(),
+            Utc.fix(),
+        );
         assert_eq!(a, b);
     }
 }
