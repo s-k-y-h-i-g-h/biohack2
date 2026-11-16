@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  native:
+    name: Engine tests (native)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - uses: Swatinem/rust-cache@v2
+      - name: Format check
+        run: cargo fmt --all --check
+      - name: Engine tests
+        run: cargo test -p engine
+
+  wasm:
+    name: WASM parity (spec-003 SC-033 / spec-006 SC-095)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+      # T223/T250/SC-095 pattern: the engine built for wasm32-unknown-unknown
+      # runs the shared vector checkers under node — no browser, no glue.
+      # The same checkers are asserted natively by `cargo test -p engine`,
+      # so a red step here means wasm and native drifted apart.
+      - name: Build wasm vectors shim
+        run: cargo build --target wasm32-unknown-unknown -p engine --bin wasm_vectors --no-default-features
+      - name: Node wasm parity check
+        run: node engine/examples/wasm_vectors_node_check.mjs
+      # Browser-scoped web tests (pk_parity, review_boundaries,
+      # localStorage) — GitHub runners ship Firefox + geckodriver.
+      - name: Install wasm-pack
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+      - name: Web browser wasm tests
+        working-directory: web
+        run: wasm-pack test --headless --firefox

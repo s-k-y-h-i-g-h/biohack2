@@ -1021,3 +1021,24 @@ fn test_coverage_gaps_name_unmodelled_substances_with_reasons() {
             .all(|g| !g.substance.eq_ignore_ascii_case("Caffeine"))
     );
 }
+
+// ── Spec-006: review day-boundary parity on wasm32 (SC-095) ─────────────
+// The engine's pinned DST/day-boundary vectors (2026-10-25 EU DST-end
+// weekend) must reproduce digit-for-digit on wasm32. Same checker the
+// native test calls, so expectations cannot drift between targets.
+// Pure computation — no configure macro, so it runs on the node runner
+// alongside pk_parity while the localStorage tests stay browser-only.
+
+mod review_boundaries {
+    use super::*;
+
+    #[wasm_bindgen_test]
+    fn review_day_boundary_vectors_match_native() {
+        let failures = engine::insights::check_day_boundary_vectors();
+        assert!(
+            failures.is_empty(),
+            "wasm review day-boundary drift:\n{}",
+            failures.join("\n")
+        );
+    }
+}

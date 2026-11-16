@@ -90,7 +90,7 @@ Insights are durable records with status: proposed → tested → supported / un
 - **Data density lies.** 7 points over 7 days and 7 points over 7 hours are not the same evidence. Density is reported, not assumed.
 - **Multiple comparisons.** Scanning 40 substances against 8 metrics guarantees "significant" results by chance. The system MUST account for the scan it performed, and MUST NOT present a scan-derived result as a tested hypothesis.
 - **Wearable gaps.** A disconnected device produces a gap that looks like improvement. Gaps are surfaced in every review whose window contains one.
-- **Timezone and DST.** Reviews aggregate by local day. The 2026-09-09 chrono incident is the cautionary precedent; day-boundary logic needs WASM tests.
+- **Timezone and DST.** Reviews aggregate by local day. The 2026-09-09 chrono incident is the cautionary precedent; day-boundary logic needs WASM tests. *Resolved 2026-11-16:* the engine groups gap/density coverage by UTC calendar day (it takes no timezone input); the shared `check_day_boundary_vectors` fixture spanning the 2026-10-25 DST-end weekend is asserted by the native test and inside real wasm32 via `wasm_vectors_node_check.mjs` (SC-095).
 - **N=1.** No claim of statistical significance to a population. Language is descriptive: "in your data, over this window".
 
 ## Requirements *(mandatory)*

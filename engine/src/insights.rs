@@ -12,7 +12,7 @@
 //! user-timezone input this engine does not yet take).
 
 use crate::models::{LogEntry, VitalsEntry};
-use chrono::{DateTime, Duration, Utc};
+use chrono::{DateTime, Duration, TimeZone, Utc};
 use serde::{Deserialize, Serialize};
 
 /// A numeric vital this engine can review. Each metric carries its own
@@ -496,6 +496,105 @@ fn limitations_text(
     t
 }
 
+/// Pinned day-boundary vector set (spec-006 edge case: timezone/DST —
+/// "day-boundary logic needs WASM tests"). The fixture spans the 2026-10-25
+/// EU DST-end weekend, where the repeated local hour makes a naive
+/// local-day grouping disagree with the UTC-day grouping the engine
+/// deliberately uses. One source of truth: the native test and the wasm32
+/// parity test both call this, so the expectations can never drift between
+/// targets (SC-095). The pinned facts: the DST day counts as covered with
+/// no phantom gap, both window counts are exact, and the verdict and
+/// medians reproduce digit-for-digit on wasm32 and native alike.
+pub fn check_day_boundary_vectors() -> Vec<String> {
+    fn mk_hr(ts: DateTime<Utc>, hr: i32) -> VitalsEntry {
+        VitalsEntry {
+            id: uuid::Uuid::nil(),
+            user_id: "vector".into(),
+            timestamp: ts,
+            bp_systolic: None,
+            bp_diastolic: None,
+            heart_rate: Some(hr),
+            weight: None,
+            blood_glucose: None,
+            temperature: None,
+            spo2: None,
+            hrv: None,
+            sleep_quality: None,
+            custom_metrics: None,
+            notes: None,
+        }
+    }
+    let day = |d: u32, h: u32, mi: u32| Utc.with_ymd_and_hms(2026, 10, d, h, mi, 0).unwrap();
+
+    // Pre: 14 days of flat 70 bpm ending at the intervention start. Daily
+    // samples sit at 14:00Z so they fall cleanly on one side of the 12:00Z
+    // anchor — a fixture straddling its own anchor measures the straddle,
+    // not the boundary rule.
+    let mut vitals: Vec<VitalsEntry> = (4..=17).map(|d| mk_hr(day(d, 14, 0), 70)).collect();
+    // Post: flat 60 bpm, including the DST weekend. On 2026-10-25 the
+    // 01:30 local hour happens twice in London (BST 00:30Z, GMT 01:30Z):
+    // two samples, one UTC day, one wall-clock reading. On 2026-10-30 an
+    // extra sample sits at 23:59Z — near the UTC midnight edge, still the
+    // same local day in every EU offset.
+    vitals.extend((18..=31).map(|d| mk_hr(day(d, 14, 0), 60)));
+    vitals.push(mk_hr(day(25, 0, 30), 60));
+    vitals.push(mk_hr(day(25, 1, 30), 60));
+    vitals.push(mk_hr(day(30, 23, 59), 60));
+    vitals.push(mk_hr(day(31, 8, 0), 60));
+    vitals.push(mk_hr(
+        Utc.with_ymd_and_hms(2026, 11, 1, 8, 0, 0).unwrap(),
+        60,
+    ));
+
+    let intervention = Intervention {
+        name: "magnesium".into(),
+        started_at: day(18, 12, 0),
+    };
+    let spec = ReviewSpec::default_for(Metric::HeartRate);
+    let now = Utc.with_ymd_and_hms(2026, 11, 1, 12, 0, 0).unwrap();
+    let r = run_review(&vitals, &[], &intervention, &spec, now);
+
+    let mut fails = Vec::new();
+    let mut check = |cond: bool, what: &str| {
+        if !cond {
+            fails.push(what.to_string());
+        }
+    };
+    check(
+        r.n_pre == 14,
+        &format!("n_pre: expected 14, got {}", r.n_pre),
+    );
+    check(
+        r.n_post == 19,
+        &format!("n_post: expected 19, got {}", r.n_post),
+    );
+    check(
+        r.gaps.is_empty(),
+        &format!("DST day must not fabricate a gap: {:?}", r.gaps),
+    );
+    check(
+        r.verdict == Verdict::ChangeObserved,
+        &format!("verdict: expected ChangeObserved, got {:?}", r.verdict),
+    );
+    check(
+        r.pre.as_ref().map(|s| s.median) == Some(70.0),
+        &format!("pre median: {:?}", r.pre.as_ref().map(|s| s.median)),
+    );
+    check(
+        r.post.as_ref().map(|s| s.median) == Some(60.0),
+        &format!("post median: {:?}", r.post.as_ref().map(|s| s.median)),
+    );
+    check(
+        r.median_shift == Some(-10.0),
+        &format!("median shift: {:?}", r.median_shift),
+    );
+    check(
+        r.effect_size == Some(-1.0),
+        &format!("effect size: {:?}", r.effect_size),
+    );
+    fails
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -683,6 +782,11 @@ mod tests {
         let b = run_review(&v, &[], &iv, &spec, now);
         // Full structural equality incl. floats — pure function, no RNG.
         assert_eq!(a, b);
+    }
+
+    #[test]
+    fn fr099_day_boundary_vectors_match_pinned_expectations() {
+        assert_eq!(check_day_boundary_vectors(), Vec::<String>::new());
     }
 
     #[test]

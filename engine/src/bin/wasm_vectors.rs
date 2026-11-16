@@ -78,6 +78,38 @@ pub extern "C" fn panel_vectors_report_len() -> usize {
     unsafe { PANEL_REPORT_LEN }
 }
 
+static mut BOUNDARY_REPORT_PTR: usize = 0;
+static mut BOUNDARY_REPORT_LEN: usize = 0;
+
+/// spec-006 SC-095: review day-boundary / DST vectors (FR-099) run inside
+/// wasm32 and asserted digit-for-digit, same shared-checker pattern as the
+/// PK and panel suites — the native test (`fr099_day_boundary_vectors...`)
+/// and this export call the one `check_day_boundary_vectors`, so wasm and
+/// native cannot drift. No fixture file: the vectors are built in code.
+#[unsafe(no_mangle)]
+pub extern "C" fn boundary_vectors_run() {
+    let report = match engine::insights::check_day_boundary_vectors() {
+        f if f.is_empty() => "OK".to_string(),
+        f => f.join("\n"),
+    };
+    let bytes = report.into_bytes();
+    unsafe {
+        BOUNDARY_REPORT_PTR = bytes.as_ptr() as usize;
+        BOUNDARY_REPORT_LEN = bytes.len();
+        std::mem::forget(bytes);
+    }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn boundary_vectors_report_ptr() -> usize {
+    unsafe { BOUNDARY_REPORT_PTR }
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn boundary_vectors_report_len() -> usize {
+    unsafe { BOUNDARY_REPORT_LEN }
+}
+
 fn main() {
     // Bin entry exists only to satisfy cargo; the node runner calls the
     // exports directly.

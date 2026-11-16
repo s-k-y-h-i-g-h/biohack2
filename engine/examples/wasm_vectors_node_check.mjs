@@ -50,9 +50,11 @@ function readReport(runName, ptrName, lenName) {
 }
 
 // T223: raw curve maths. T250: panel data derivation (panel_view path).
+// spec-006 SC-095: review day-boundary/DST vectors (FR-099).
 const reports = [
   ["wasm PK vectors", readReport("pk_vectors_run", "pk_vectors_report_ptr", "pk_vectors_report_len")],
   ["wasm panel vectors", readReport("panel_vectors_run", "panel_vectors_report_ptr", "panel_vectors_report_len")],
+  ["wasm day-boundary vectors", readReport("boundary_vectors_run", "boundary_vectors_report_ptr", "boundary_vectors_report_len")],
 ];
 
 let failed = false;
