@@ -935,9 +935,10 @@ fn test_pk_alerts_fire_with_network_disabled() {
             Err(js_sys::Error::new("T235: network is disabled").into())
         }));
     let window: JsValue = web_sys::window().expect("window").into();
+    let real_fetch =
+        js_sys::Reflect::get(&window, &JsValue::from_str("fetch")).expect("window.fetch exists");
     js_sys::Reflect::set(&window, &JsValue::from_str("fetch"), boom.as_ref())
         .expect("window.fetch is replaceable");
-    boom.forget();
 
     search_catalog("").expect("catalog auto-seeds from localStorage, no fetch");
     let model = crate::state::db::get_substance_models()
@@ -976,6 +977,13 @@ fn test_pk_alerts_fire_with_network_disabled() {
         created >= 1,
         "band crossing must fire fully offline: {created}"
     );
+
+    // Put fetch back: every test shares this page, and a boom closure left
+    // on window.fetch (the old boom.forget()) makes every *later* test that
+    // touches the network die with "T235: network is disabled" instead of
+    // this one.
+    js_sys::Reflect::set(&window, &JsValue::from_str("fetch"), &real_fetch)
+        .expect("window.fetch is restorable");
 }
 
 // T239: unmodelled substances the user has data for surface with their
