@@ -40,7 +40,7 @@ async fn fetch_safe(
     body: Option<String>,
 ) -> Result<gloo_net::http::Response, JsValue> {
     let mut init = web_sys::RequestInit::new();
-    init.method(method);
+    init.set_method(method);
     if let Some(b) = body {
         let headers = js_sys::Object::new();
         js_sys::Reflect::set(
@@ -48,8 +48,9 @@ async fn fetch_safe(
             &JsValue::from_str("Content-Type"),
             &JsValue::from_str("application/json"),
         )?;
-        init.headers(&headers);
-        init.body(Some(&JsValue::from_str(&b)));
+        init.set_headers(&headers);
+        let body_obj: js_sys::Object = js_sys::JsString::from(b.as_str()).into();
+        init.set_body(&body_obj);
     }
     let request = web_sys::Request::new_with_str_and_init(url, &init)?;
     let window = web_sys::window().ok_or_else(|| JsValue::from_str("no window"))?;
