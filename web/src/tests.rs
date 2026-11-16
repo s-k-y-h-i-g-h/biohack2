@@ -14,7 +14,23 @@ fn clear_test_storage() {
         .local_storage()
         .expect("should have local storage")
         .expect("storage should not be null");
-    storage.clear().expect("should clear storage");
+    // NEVER storage.clear(): the wasm-bindgen browser harness keeps its own
+    // state keys in the same localStorage, and wiping them kills the page
+    // mid-run (geckodriver then reports the test runner as crashed). Remove
+    // only the app's namespace.
+    let mut doomed: Vec<String> = Vec::new();
+    for i in 0..storage.length().expect("storage length") {
+        if let Some(key) = storage.key(i).expect("storage key") {
+            if key.starts_with("biohack2_") {
+                doomed.push(key);
+            }
+        }
+    }
+    for key in doomed {
+        storage
+            .remove_item(&key)
+            .expect("should remove test key");
+    }
 }
 
 // ── LogEntry CRUD ─────────────────────────────────────────────────────────────

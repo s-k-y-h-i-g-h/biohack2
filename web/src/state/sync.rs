@@ -10,8 +10,8 @@
 
 use crate::state::db;
 use engine::models::*;
-use gloo_net::http::Request;
 use gloo_storage::{LocalStorage, Storage};
+use wasm_bindgen::JsCast;
 use wasm_bindgen::JsValue;
 use wasm_bindgen_futures::spawn_local;
 
@@ -24,28 +24,50 @@ fn log_warn(msg: &str) {
     web_sys::console::warn_1(&JsValue::from_str(msg));
 }
 
+/// Run a fetch without ever letting a JS exception cross the wasm boundary.
+///
+/// `gloo_net::Request::send()` calls `window.fetch` through a wasm-bindgen
+/// import *without* `catch`: when `fetch` throws synchronously (poisoned,
+/// replaced, or missing in the current document) the Rust panic fires inside
+/// the spawned task, traps the module, and the whole page dies — under the
+/// wasm-bindgen browser test harness that shows up as a silent runner crash
+/// (`http status: 500`) with no JavaScript error in the log. Every failure
+/// mode here — no window, no fetch, sync throw, async rejection — collapses
+/// into a regular `Err` the fire-and-forget callers already log.
+async fn fetch_safe(
+    method: &str,
+    url: &str,
+    body: Option<String>,
+) -> Result<gloo_net::http::Response, JsValue> {
+    let mut init = web_sys::RequestInit::new();
+    init.method(method);
+    if let Some(b) = body {
+        let headers = js_sys::Object::new();
+        js_sys::Reflect::set(
+            &headers,
+            &JsValue::from_str("Content-Type"),
+            &JsValue::from_str("application/json"),
+        )?;
+        init.headers(&headers);
+        init.body(Some(&JsValue::from_str(&b)));
+    }
+    let request = web_sys::Request::new_with_str_and_init(url, &init)?;
+    let window = web_sys::window().ok_or_else(|| JsValue::from_str("no window"))?;
+    let fetch: js_sys::Function =
+        js_sys::Reflect::get(window.as_ref(), &JsValue::from_str("fetch"))?.dyn_into()?;
+    let promise: js_sys::Promise = fetch.call1(window.as_ref(), request.as_ref())?.dyn_into()?;
+    let response = wasm_bindgen_futures::JsFuture::from(promise).await?;
+    Ok(gloo_net::http::Response::from(
+        response.dyn_into::<web_sys::Response>()?,
+    ))
+}
+
 fn push(method: &str, path: &str, body: Option<serde_json::Value>) {
     let url = format!("api/{path}");
     let method = method.to_string();
+    let body = body.map(|b| serde_json::to_string(&b).unwrap_or_default());
     spawn_local(async move {
-        let builder = match method.as_str() {
-            "POST" => Request::post(&url),
-            "PUT" => Request::put(&url),
-            "DELETE" => Request::delete(&url),
-            _ => Request::get(&url),
-        };
-        let result = if let Some(b) = body {
-            match builder
-                .header("Content-Type", "application/json")
-                .body(serde_json::to_string(&b).unwrap_or_default())
-            {
-                Ok(req) => req.send().await,
-                Err(e) => Err(e),
-            }
-        } else {
-            builder.send().await
-        };
-        match result {
+        match fetch_safe(&method, &url, body).await {
             Ok(resp) if resp.ok() => {}
             Ok(resp) => log_warn(&format!("sync: {method} {url} -> {}", resp.status())),
             Err(e) => log_warn(&format!(
@@ -119,7 +141,7 @@ struct ServerState {
 /// immediately and refreshes when this lands.
 pub fn sync_from_server() {
     spawn_local(async move {
-        let resp = match Request::get("api/sync/pull").send().await {
+        let resp = match fetch_safe("GET", "api/sync/pull", None).await {
             Ok(r) => r,
             Err(_) => {
                 log_warn("sync: server unreachable, staying on local cache");
@@ -162,13 +184,7 @@ pub fn sync_from_server() {
                 "notes": db::get_notes().unwrap_or_default(),
             });
             let body = serde_json::to_string(&payload).unwrap_or_default();
-            let result = Request::post("api/sync/push")
-                .header("Content-Type", "application/json")
-                .body(body);
-            let send_result = match result {
-                Ok(req) => req.send().await,
-                Err(e) => Err(e),
-            };
+            let send_result = fetch_safe("POST", "api/sync/push", Some(body)).await;
             match send_result {
                 Ok(r) if r.ok() => {
                     let _ = LocalStorage::set(SYNCED_FLAG, true);
