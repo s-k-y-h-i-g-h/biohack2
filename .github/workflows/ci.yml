@@ -51,6 +51,7 @@ jobs:
       - name: Web browser wasm tests
         working-directory: web
         run: |
-          cargo test --target wasm32-unknown-unknown --no-run
-          BIN=$(ls -t target/wasm32-unknown-unknown/debug/deps/web-*.wasm | head -1)
+          BIN=$(cargo test --target wasm32-unknown-unknown --no-run 2>&1 \
+            | grep -oE '\(([^)]+\.wasm)\)' | tr -d '()' | head -1)
+          echo "test binary: $BIN"
           BROWSER=firefox wasm-bindgen-test-runner --nocapture "$BIN"
