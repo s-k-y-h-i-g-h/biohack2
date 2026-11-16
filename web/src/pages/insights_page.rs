@@ -20,8 +20,8 @@ use engine::candidates::{
     Candidate, LedgerStatus, generate_candidates, latest_mention, record_outcome,
 };
 use engine::insights::{
-    DriftConfig, DriftDirection, DriftInsight, Intervention, Metric, ReviewResult, ReviewSpec,
-    Verdict, detect_drift, run_review,
+    ConfounderKind, DriftConfig, DriftDirection, DriftInsight, Intervention, Metric, ReviewResult,
+    ReviewSpec, Side, Verdict, detect_drift, run_review,
 };
 use leptos::ev::MouseEvent;
 use leptos::prelude::*;
@@ -353,7 +353,16 @@ fn DriftCard(insight: DriftInsight) -> impl IntoView {
         insight.total_move, insight.slope_per_day
     );
     let consistency = format!("{:.0}% of movements agree", insight.consistency * 100.0);
-    let gaps = format!("{}", insight.gaps.len());
+    let gaps = if insight.gaps.is_empty() {
+        "none".to_string()
+    } else {
+        insight
+            .gaps
+            .iter()
+            .map(|g| format!("{} → {} ({} days)", g.start_day, g.end_day, g.days))
+            .collect::<Vec<_>>()
+            .join("; ")
+    };
     let limitations = insight.limitations.clone();
 
     view! {
@@ -415,12 +424,58 @@ fn ReviewPanel(review: OpenReview, close: RwSignal<Option<OpenReview>>) -> impl 
         .median_shift
         .map(|m| format!("{:+.1}", m))
         .unwrap_or_else(|| "—".to_string());
+    let density = format!(
+        "{} of {} pre days · {} of {} post days",
+        r.n_pre,
+        (r.pre_window.1 - r.pre_window.0).num_days(),
+        r.n_post,
+        (r.post_window.1 - r.post_window.0).num_days(),
+    );
+    let definition = r.metric.definition().to_string();
+    // Names and dates, never bare counts: "3 confounders" hides which
+    // three, and a review that hides them is a lie (FR-093, FR-101).
     let confounders = if r.confounders.is_empty() {
         "none found".to_string()
     } else {
-        format!("{}", r.confounders.len())
+        r.confounders
+            .iter()
+            .map(|c| match c.kind {
+                ConfounderKind::StartedInWindow => {
+                    format!(
+                        "{} (new — first logged {})",
+                        c.name,
+                        c.first_seen.date_naive()
+                    )
+                }
+                ConfounderKind::LogVolumeChanged => {
+                    format!(
+                        "{} (log volume changed — seen since {})",
+                        c.name,
+                        c.first_seen.date_naive()
+                    )
+                }
+            })
+            .collect::<Vec<_>>()
+            .join("; ")
     };
-    let gaps = format!("{}", r.gaps.len());
+    let gaps = if r.gaps.is_empty() {
+        "none found".to_string()
+    } else {
+        r.gaps
+            .iter()
+            .map(|g| {
+                let side = match g.window {
+                    Side::Pre => "pre",
+                    Side::Post => "post",
+                };
+                format!(
+                    "{} window {} → {} ({} days)",
+                    side, g.start_day, g.end_day, g.days
+                )
+            })
+            .collect::<Vec<_>>()
+            .join("; ")
+    };
     let missing = if r.missing.is_empty() {
         None
     } else {
@@ -475,6 +530,10 @@ fn ReviewPanel(review: OpenReview, close: RwSignal<Option<OpenReview>>) -> impl 
                 <dd>{windows.clone()}</dd>
                 <dt>"Points"</dt>
                 <dd>{counts.clone()}</dd>
+                <dt>"Density"</dt>
+                <dd>{density.clone()}</dd>
+                <dt>"Definition"</dt>
+                <dd>{definition.clone()}</dd>
                 <dt>"Effect size"</dt>
                 <dd>{effect.clone()}</dd>
                 <dt>"Median shift"</dt>
