@@ -8,24 +8,6 @@ use wasm_bindgen_test::*;
 
 wasm_bindgen_test_configure!(run_in_browser);
 
-// TEMPORARY DEBUG PROBE (remove after WASM CI diagnosis): schedules the name
-// log via setTimeout so it reaches the REAL console (outside the harness's
-// per-test capture) even when the test itself traps the wasm module.
-fn probe(name: &'static str) {
-    use wasm_bindgen::prelude::*;
-    let cb = Closure::wrap(Box::new(move || {
-        web_sys::console::log_1(&format!("LIVE:{name}").into());
-    }) as Box<dyn FnMut()>);
-    let handle = cb.as_ref().clone();
-    std::mem::forget(cb);
-    if let Some(win) = web_sys::window() {
-        let _ = win.set_timeout_with_callback_and_timeout_and_arguments_0(
-            handle.unchecked_ref::<js_sys::Function>(),
-            0,
-        );
-    }
-}
-
 fn clear_test_storage() {
     let window = web_sys::window().expect("should have window");
     let storage = window
@@ -45,7 +27,9 @@ fn clear_test_storage() {
         }
     }
     for key in doomed {
-        storage.remove_item(&key).expect("should remove test key");
+        storage
+            .remove_item(&key)
+            .expect("should remove test key");
     }
 }
 
@@ -53,7 +37,6 @@ fn clear_test_storage() {
 
 #[wasm_bindgen_test]
 fn test_create_and_get_log_entry() {
-    probe("test_create_and_get_log_entry");
     clear_test_storage();
     use crate::state::db::{create_log_entry, get_log_entries};
 
@@ -83,7 +66,6 @@ fn test_create_and_get_log_entry() {
 
 #[wasm_bindgen_test]
 fn test_get_log_entries_returns_sorted_descending() {
-    probe("test_get_log_entries_returns_sorted_descending");
     clear_test_storage();
     use crate::state::db::{create_log_entry, get_log_entries};
 
@@ -131,7 +113,6 @@ fn test_get_log_entries_returns_sorted_descending() {
 
 #[wasm_bindgen_test]
 fn test_delete_log_entry() {
-    probe("test_delete_log_entry");
     clear_test_storage();
     use crate::state::db::{create_log_entry, delete_log_entry, get_log_entries};
 
@@ -162,7 +143,6 @@ fn test_delete_log_entry() {
 
 #[wasm_bindgen_test]
 fn test_create_and_get_vitals_entry() {
-    probe("test_create_and_get_vitals_entry");
     clear_test_storage();
     use crate::state::db::{create_vitals_entry, get_vitals_entries};
 
@@ -193,7 +173,6 @@ fn test_create_and_get_vitals_entry() {
 
 #[wasm_bindgen_test]
 fn test_get_vitals_entries_sorted_descending() {
-    probe("test_get_vitals_entries_sorted_descending");
     clear_test_storage();
     use crate::state::db::{create_vitals_entry, get_vitals_entries};
 
@@ -243,7 +222,6 @@ fn test_get_vitals_entries_sorted_descending() {
 
 #[wasm_bindgen_test]
 fn test_create_and_get_alerts() {
-    probe("test_create_and_get_alerts");
     clear_test_storage();
     use crate::state::db::{create_alert, get_alerts};
     use engine::models::{AlertSeverity, AlertType};
@@ -270,7 +248,6 @@ fn test_create_and_get_alerts() {
 
 #[wasm_bindgen_test]
 fn test_acknowledge_alert() {
-    probe("test_acknowledge_alert");
     clear_test_storage();
     use crate::state::db::{acknowledge_alert, create_alert, get_alerts};
     use engine::models::{AlertFilter, AlertSeverity, AlertType};
@@ -463,7 +440,6 @@ fn test_vitals_dashboard_shows_empty_for_empty_vec() {
 
 #[wasm_bindgen_test]
 fn test_alert_banner_visibility_logic() {
-    probe("test_alert_banner_visibility_logic");
     // AlertBanner shows when alert.get().is_some()
     let alert_some: Option<String> = Some("Hypertensive urgency!".to_string());
     let alert_none: Option<String> = None;
@@ -554,7 +530,6 @@ fn test_safety_engine_normal_vitals_no_alert() {
 
 #[wasm_bindgen_test]
 fn test_create_vitals_entry_triggers_safety_check() {
-    probe("test_create_vitals_entry_triggers_safety_check");
     // This test verifies the intended integration: when create_vitals_entry is called,
     // the safety engine should run and create alerts for abnormal vitals.
     // Currently this is NOT wired (known bug T038), so we test the expected behavior.
@@ -601,7 +576,6 @@ fn test_create_vitals_entry_triggers_safety_check() {
 
 #[wasm_bindgen_test]
 fn test_create_and_get_note() {
-    probe("test_create_and_get_note");
     clear_test_storage();
     use crate::state::db::{create_note, get_notes};
 
@@ -626,7 +600,6 @@ fn test_create_and_get_note() {
 
 #[wasm_bindgen_test]
 fn test_get_notes_sorted_descending() {
-    probe("test_get_notes_sorted_descending");
     clear_test_storage();
     use crate::state::db::{create_note, get_notes};
 
@@ -678,7 +651,6 @@ fn test_update_note() {
 
 #[wasm_bindgen_test]
 fn test_delete_note() {
-    probe("test_delete_note");
     clear_test_storage();
     use crate::state::db::{create_note, delete_note, get_notes};
 
@@ -735,7 +707,6 @@ fn test_note_serialization_roundtrip() {
 
 #[wasm_bindgen_test]
 fn test_note_export_included_in_csv() {
-    probe("test_note_export_included_in_csv");
     clear_test_storage();
     use crate::state::db::{create_note, export_data};
 
@@ -762,7 +733,6 @@ fn test_note_export_included_in_csv() {
 
 #[wasm_bindgen_test]
 fn test_local_time_converts_from_utc() {
-    probe("test_local_time_converts_from_utc");
     use crate::pages::history_page::local_time;
     use chrono::TimeZone;
 
@@ -783,7 +753,6 @@ fn test_local_time_converts_from_utc() {
 
 #[wasm_bindgen_test]
 fn test_local_date_key_uses_local_calendar_day() {
-    probe("test_local_date_key_uses_local_calendar_day");
     use crate::pages::history_page::local_date_key;
     use chrono::TimeZone;
 
@@ -1037,7 +1006,6 @@ fn test_pk_alerts_fire_with_network_disabled() {
 // recorded reason — the panel shows this, not a blank.
 #[wasm_bindgen_test]
 fn test_coverage_gaps_name_unmodelled_substances_with_reasons() {
-    probe("test_coverage_gaps_name_unmodelled_substances_with_reasons");
     clear_test_storage();
     use crate::state::db::{create_log_entry, search_catalog};
     use crate::state::pk_alerts::pk_coverage_gaps;
