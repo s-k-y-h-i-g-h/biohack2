@@ -1117,3 +1117,14 @@ nav::-webkit-scrollbar {
 .ledger-status.inconclusive { background: var(--warning-bg); color: var(--warning); }
 .ledger-status.proposed { background: var(--bg-input); color: var(--text-muted); }
 .ledger-evidence { color: var(--text-muted); font-size: .72rem; }
+
+/* Review panel: the engine's answer for one candidate, shown before it can
+   enter the ledger. Accent-left border marks it as an action surface, not
+   another insight card — it is a test, not a finding. */
+.review-panel { background: var(--bg-card, #fff); border: 1px solid var(--border, #e5e7eb); border-left: 3px solid var(--accent, #0ea5e9); border-radius: 8px; padding: 14px 16px; margin: 14px 0; }
+.review-verdict { font-size: .8rem; font-weight: 600; color: var(--text-secondary, #475569); }
+.review-missing { font-size: .78rem; color: #b45309; margin: 0 0 8px; }
+.review-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 12px; }
+.review-actions .save-button { width: auto; }
+.candidate-review { font-size: .72rem; padding: 3px 10px; border-radius: 6px; border: 1px solid var(--border, #e5e7eb); background: var(--bg-card, #fff); color: var(--text-secondary, #475569); cursor: pointer; white-space: nowrap; }
+.candidate-review:hover { border-color: var(--accent, #0ea5e9); color: var(--accent, #0ea5e9); }

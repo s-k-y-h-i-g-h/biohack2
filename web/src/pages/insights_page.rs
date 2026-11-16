@@ -6,15 +6,34 @@
 //! carry their origin note and available data and are explicitly *hypotheses*
 //! — the `Candidate` type cannot express a verdict, and the ledger only
 //! changes through an actual review outcome, so no UI path lets an
-//! un-earned insight render as a finding. The intervention-review window
-//! picker (starting a D1 review from a candidate) is the next increment;
-//! until it exists the candidate states what running one would use.
+//! un-earned insight render as a finding. Running a review from a candidate
+//! uses the engine's fixed default windows (14 days each side, floor of 7
+//! points): the note's timestamp anchors the intervention, so the user
+//! cannot shop for a flattering window (FR-096).
 
-use crate::state::db::{get_catalog_items, get_insight_ledger, get_notes, get_vitals_entries};
+use crate::state::db::{
+    get_catalog_items, get_insight_ledger, get_log_entries, get_notes, get_vitals_entries,
+    set_insight_ledger,
+};
 use crate::state::store::AppContext;
-use engine::candidates::{Candidate, generate_candidates};
-use engine::insights::{DriftConfig, DriftDirection, DriftInsight, Metric, detect_drift};
+use engine::candidates::{Candidate, LedgerStatus, generate_candidates, record_outcome};
+use engine::insights::{
+    DriftConfig, DriftDirection, DriftInsight, Intervention, Metric, ReviewResult, ReviewSpec,
+    Verdict, detect_drift, run_review,
+};
+use leptos::ev::MouseEvent;
 use leptos::prelude::*;
+
+/// A review started from a candidate: the pair under test, the anchor the
+/// note provided, and the engine's answer. Stored in a page signal so the
+/// panel (verdict + limitations) and the record action see one object —
+/// the verdict can never travel without its limitations text (FR-094).
+#[derive(Clone, PartialEq)]
+struct OpenReview {
+    substance: String,
+    metric: Metric,
+    result: ReviewResult,
+}
 
 /// Metrics the feed sweeps. An insight appears per metric that has enough
 /// history; metrics without data simply contribute nothing (FR-092).
@@ -63,6 +82,29 @@ pub fn InsightsPage() -> impl IntoView {
         version.get(); // track
         get_insight_ledger()
     });
+
+    // D1 review, started from a candidate. One review is open at a time;
+    // recording its outcome is the only way into the ledger.
+    let review = RwSignal::<Option<OpenReview>>::new(None);
+    let on_review = move |c: Candidate| {
+        let Some(metric) = c.metric else { return };
+        let vitals = get_vitals_entries(&Default::default()).unwrap_or_default();
+        let logs = get_log_entries().unwrap_or_default();
+        // The note's own timestamp is the intervention anchor — the user
+        // picks no window, so there is nothing to shop for (FR-096).
+        let intervention = Intervention {
+            name: c.substance.clone(),
+            started_at: c.origin_note_at,
+        };
+        let spec = ReviewSpec::default_for(metric);
+        let result = run_review(&vitals, &logs, &intervention, &spec, chrono::Utc::now());
+        review.set(Some(OpenReview {
+            substance: c.substance.clone(),
+            metric,
+            result,
+        }));
+    };
+    let on_review = Callback::new(on_review);
 
     view! {
         <div class="page insights-page">
@@ -117,12 +159,18 @@ pub fn InsightsPage() -> impl IntoView {
                             candidates
                                 .get()
                                 .into_iter()
-                                .map(|c| view! { <CandidateRow candidate=c /> })
+                                .map(|c| view! { <CandidateRow candidate=c on_review=on_review /> })
                                 .collect::<Vec<_>>()
                         }}
                     </ul>
                 </Show>
             </section>
+
+            <Show when=move || review.get().is_some()>
+                {move || {
+                    review.get().map(|r| view! { <ReviewPanel review=r close=review /> })
+                }}
+            </Show>
 
             <Show when=move || !ledger.get().is_empty()>
                 <section class="insight-ledger" aria-label="Test ledger">
@@ -174,8 +222,13 @@ pub fn InsightsPage() -> impl IntoView {
 
 /// One queue row. Deliberately a row, not a card: a candidate is cheaper
 /// than an insight and must not visually compete with one (FR-097).
+/// The review button is the only action a candidate offers — and it exists
+/// only where a review is meaningful (testable, not yet tested).
 #[component]
-fn CandidateRow(candidate: Candidate) -> impl IntoView {
+fn CandidateRow(
+    candidate: Candidate,
+    #[prop(into)] on_review: Callback<Candidate>,
+) -> impl IntoView {
     let substance = candidate.substance.clone();
     let metric = candidate
         .metric
@@ -190,6 +243,8 @@ fn CandidateRow(candidate: Candidate) -> impl IntoView {
     } else {
         "0 readings".to_string()
     };
+    let for_review = candidate.clone();
+    let can_review = candidate.testable && !candidate.tested;
 
     view! {
         <li class="candidate-row" aria-label=format!("Candidate: {} × {}", substance.clone(), metric.clone())>
@@ -210,6 +265,19 @@ fn CandidateRow(candidate: Candidate) -> impl IntoView {
                 }}
             </span>
             <span class="candidate-reason" title=reason.clone()>{reason.clone()}</span>
+            // Static per row (rows rebuild when the queue signal changes),
+            // so a plain Option — no reactive closure owning the candidate.
+            {can_review.then(|| {
+                let target = for_review.clone();
+                view! {
+                    <button
+                        class="candidate-review"
+                        on:click=move |_| on_review.run(target.clone())
+                    >
+                        "Review 14d vs 14d"
+                    </button>
+                }
+            })}
         </li>
     }
 }
@@ -264,6 +332,122 @@ fn DriftCard(insight: DriftInsight) -> impl IntoView {
                 <dd>{definition.clone()}</dd>
             </dl>
             <p class="insight-limitations">{limitations.clone()}</p>
+        </article>
+    }
+}
+
+/// The review the engine produced for one candidate, shown before it can be
+/// recorded: verdict, effect, both windows, n per side, confounders, gaps,
+/// and the limitations sentence — the full disclosure contract of the drift
+/// card applied to a review (FR-091/094/095). Recording is offered only when
+/// the floors were met; `InsufficientData` explains what is missing instead
+/// (FR-092), because writing a status from thin data would fake a test.
+#[component]
+fn ReviewPanel(review: OpenReview, close: RwSignal<Option<OpenReview>>) -> impl IntoView {
+    let ctx = expect_context::<AppContext>();
+    let pair = format!("{} × {}", review.substance, review.metric.name());
+    let r = review.result.clone();
+    let verdict = match r.verdict {
+        Verdict::ChangeObserved => "a change beyond the noise band",
+        Verdict::NoChangeObserved => "no change beyond the noise band",
+        Verdict::Inconclusive => "an effect straddling the threshold",
+        Verdict::InsufficientData => "not enough data to test",
+    };
+    let windows = format!(
+        "pre {} → {} · post {} → {}",
+        r.pre_window.0.date_naive(),
+        r.pre_window.1.date_naive(),
+        r.post_window.0.date_naive(),
+        r.post_window.1.date_naive(),
+    );
+    let counts = format!("{} before · {} after", r.n_pre, r.n_post);
+    let effect = r
+        .effect_size
+        .map(|e| format!("{:+.3}", e))
+        .unwrap_or_else(|| "—".to_string());
+    let shift = r
+        .median_shift
+        .map(|m| format!("{:+.1}", m))
+        .unwrap_or_else(|| "—".to_string());
+    let confounders = if r.confounders.is_empty() {
+        "none found".to_string()
+    } else {
+        format!("{}", r.confounders.len())
+    };
+    let gaps = format!("{}", r.gaps.len());
+    let missing = if r.missing.is_empty() {
+        None
+    } else {
+        Some(r.missing.join("; "))
+    };
+    let limitations = r.limitations.clone();
+    let recordable = r.verdict != Verdict::InsufficientData;
+
+    // Descriptive label first ("a change beyond the noise band"), ledger
+    // status second — the ledger word is an administrative state, the
+    // sentence is what was actually observed (FR-095).
+    let on_record = Callback::new(move |_: MouseEvent| {
+        let Some(open) = close.get() else { return };
+        let status = match open.result.verdict {
+            Verdict::ChangeObserved => LedgerStatus::Supported,
+            Verdict::NoChangeObserved => LedgerStatus::Unsupported,
+            Verdict::Inconclusive => LedgerStatus::Inconclusive,
+            Verdict::InsufficientData => return,
+        };
+        let evidence = format!(
+            "review {}→{} vs {}→{}, n={}/{}",
+            open.result.pre_window.0.date_naive(),
+            open.result.pre_window.1.date_naive(),
+            open.result.post_window.0.date_naive(),
+            open.result.post_window.1.date_naive(),
+            open.result.n_pre,
+            open.result.n_post,
+        );
+        let updated = record_outcome(
+            &get_insight_ledger(),
+            &open.substance,
+            open.metric,
+            status,
+            &evidence,
+            None,
+            chrono::Utc::now(),
+        );
+        if set_insight_ledger(&updated).is_ok() {
+            close.set(None);
+            ctx.data_version.update(|v| *v += 1);
+        }
+    });
+
+    view! {
+        <article class="review-panel" aria-label=format!("Review: {}", pair.clone())>
+            <header class="insight-card-header">
+                <h3>{pair.clone()}</h3>
+                <span class="review-verdict">{verdict.to_string()}</span>
+            </header>
+            <dl class="insight-meta">
+                <dt>"Windows"</dt>
+                <dd>{windows.clone()}</dd>
+                <dt>"Points"</dt>
+                <dd>{counts.clone()}</dd>
+                <dt>"Effect size"</dt>
+                <dd>{effect.clone()}</dd>
+                <dt>"Median shift"</dt>
+                <dd>{shift.clone()}</dd>
+                <dt>"Confounders"</dt>
+                <dd>{confounders.clone()}</dd>
+                <dt>"Gaps ≥2 days"</dt>
+                <dd>{gaps.clone()}</dd>
+            </dl>
+            {missing.map(|m| view! { <p class="review-missing">{format!("Cannot test yet: {}.", m)}</p> })}
+            <p class="insight-limitations">{limitations.clone()}</p>
+            <div class="review-actions">
+                <button type="button" class="cancel-btn" on:click=move |_| close.set(None)>"Close"</button>
+                {recordable.then(|| {
+                    view! {
+                        <button type="button" class="save-button" on:click=move |ev| on_record.run(ev)>"Record in ledger"</button>
+                    }
+                })}
+            </div>
         </article>
     }
 }
