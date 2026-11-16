@@ -40,10 +40,17 @@ jobs:
         run: cargo build --target wasm32-unknown-unknown -p engine --bin wasm_vectors --no-default-features
       - name: Node wasm parity check
         run: node engine/examples/wasm_vectors_node_check.mjs
-      # Browser-scoped web tests (pk_parity, review_boundaries,
-      # localStorage) — GitHub runners ship Firefox + geckodriver.
-      - name: Install wasm-pack
-        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+      # Web browser wasm tests. We drive wasm-bindgen-test-runner directly
+      # (instead of `wasm-pack test`) so the harness CLI flags — positional
+      # test filter, --nocapture — actually reach the runner instead of
+      # `cargo build`.
+      - name: Install wasm-bindgen-test-runner
+        run: |
+          curl -sL https://github.com/rustwasm/wasm-bindgen/releases/download/0.2.127/wasm-bindgen-0.2.127-x86_64-unknown-linux-musl.tar.gz \
+            | tar xz --strip-components=1 -C /usr/local/bin wasm-bindgen-0.2.127-x86_64-unknown-linux-musl/wasm-bindgen-test-runner
       - name: Web browser wasm tests
         working-directory: web
-        run: wasm-pack test --headless --firefox -- --skip test_note_export_included_in_csv
+        run: |
+          cargo test --target wasm32-unknown-unknown --no-run
+          BIN=$(ls -t target/wasm32-unknown-unknown/debug/deps/web-*.wasm | head -1)
+          wasm-bindgen-test-runner --headless --firefox --nocapture "$BIN"

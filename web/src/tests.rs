@@ -27,9 +27,7 @@ fn clear_test_storage() {
         }
     }
     for key in doomed {
-        storage
-            .remove_item(&key)
-            .expect("should remove test key");
+        storage.remove_item(&key).expect("should remove test key");
     }
 }
 
