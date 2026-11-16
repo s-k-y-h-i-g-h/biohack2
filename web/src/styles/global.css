@@ -1111,5 +1111,9 @@ nav::-webkit-scrollbar {
 }
 .ledger-table td { border-bottom: 1px solid var(--border); padding: 7px 10px; color: var(--text-secondary); }
 .ledger-status { font-size: .7rem; padding: 2px 8px; border-radius: 999px; background: var(--info-bg); color: var(--info); }
-.ledger-status.tested { background: var(--success-bg); color: var(--success); }
+.ledger-status.tested { background: var(--info-bg); color: var(--info); }
+.ledger-status.supported { background: var(--success-bg); color: var(--success); }
+.ledger-status.unsupported { background: var(--error-bg); color: var(--error); }
+.ledger-status.inconclusive { background: var(--warning-bg); color: var(--warning); }
+.ledger-status.proposed { background: var(--bg-input); color: var(--text-muted); }
 .ledger-evidence { color: var(--text-muted); font-size: .72rem; }
