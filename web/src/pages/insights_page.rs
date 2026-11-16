@@ -16,7 +16,9 @@ use crate::state::db::{
     set_insight_ledger,
 };
 use crate::state::store::AppContext;
-use engine::candidates::{Candidate, LedgerStatus, generate_candidates, record_outcome};
+use engine::candidates::{
+    Candidate, LedgerStatus, generate_candidates, latest_mention, record_outcome,
+};
 use engine::insights::{
     DriftConfig, DriftDirection, DriftInsight, Intervention, Metric, ReviewResult, ReviewSpec,
     Verdict, detect_drift, run_review,
@@ -83,28 +85,34 @@ pub fn InsightsPage() -> impl IntoView {
         get_insight_ledger()
     });
 
-    // D1 review, started from a candidate. One review is open at a time;
-    // recording its outcome is the only way into the ledger.
+    // D1 review, started from a candidate or a ledger re-test. One review
+    // is open at a time; recording its outcome is the only way into the
+    // ledger.
     let review = RwSignal::<Option<OpenReview>>::new(None);
-    let on_review = move |c: Candidate| {
+    let open_review = Callback::new(
+        move |(substance, metric, anchor): (String, Metric, chrono::DateTime<chrono::Utc>)| {
+            let vitals = get_vitals_entries(&Default::default()).unwrap_or_default();
+            let logs = get_log_entries().unwrap_or_default();
+            // The anchor is decided by the caller's fixed rule (origin note
+            // for candidates, newest mention for re-tests) — the user picks
+            // no window, so there is nothing to shop for (FR-096).
+            let intervention = Intervention {
+                name: substance.clone(),
+                started_at: anchor,
+            };
+            let spec = ReviewSpec::default_for(metric);
+            let result = run_review(&vitals, &logs, &intervention, &spec, chrono::Utc::now());
+            review.set(Some(OpenReview {
+                substance,
+                metric,
+                result,
+            }));
+        },
+    );
+    let on_review = Callback::new(move |c: Candidate| {
         let Some(metric) = c.metric else { return };
-        let vitals = get_vitals_entries(&Default::default()).unwrap_or_default();
-        let logs = get_log_entries().unwrap_or_default();
-        // The note's own timestamp is the intervention anchor — the user
-        // picks no window, so there is nothing to shop for (FR-096).
-        let intervention = Intervention {
-            name: c.substance.clone(),
-            started_at: c.origin_note_at,
-        };
-        let spec = ReviewSpec::default_for(metric);
-        let result = run_review(&vitals, &logs, &intervention, &spec, chrono::Utc::now());
-        review.set(Some(OpenReview {
-            substance: c.substance.clone(),
-            metric,
-            result,
-        }));
-    };
-    let on_review = Callback::new(on_review);
+        open_review.run((c.substance, metric, c.origin_note_at));
+    });
 
     view! {
         <div class="page insights-page">
@@ -182,6 +190,7 @@ pub fn InsightsPage() -> impl IntoView {
                                 <th>"Status"</th>
                                 <th>"Evidence"</th>
                                 <th>"Outcome"</th>
+                                <th>"Re-test"</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -201,12 +210,49 @@ pub fn InsightsPage() -> impl IntoView {
                                             .outcome_at
                                             .map(|t| t.date_naive().to_string())
                                             .unwrap_or_default();
+                                        // A re-test anchors on the newest note naming
+                                        // the substance (fixed engine rule); no such
+                                        // note means nothing to re-anchor to, and the
+                                        // button says so instead of pretending.
+                                        let substance = e.substance.clone();
+                                        let metric = e.metric;
+                                        let has_anchor = latest_mention(
+                                            &get_notes().unwrap_or_default(),
+                                            &substance,
+                                        )
+                                        .is_some();
+                                        let retest_substance = substance.clone();
                                         view! {
                                             <tr>
                                                 <td>{pair}</td>
                                                 <td><span class=format!("ledger-status {}", status.clone())>{status.clone()}</span></td>
                                                 <td class="ledger-evidence">{evidence}</td>
                                                 <td>{outcome}</td>
+                                                <td>
+                                                    <button
+                                                        class="candidate-review"
+                                                        disabled=!has_anchor
+                                                        title=if has_anchor {
+                                                            "Re-run the review anchored on the newest note naming this substance"
+                                                        } else {
+                                                            "No note names this substance — nothing to anchor a re-test to"
+                                                        }
+                                                        on:click=move |_| {
+                                                            let notes = get_notes().unwrap_or_default();
+                                                            if let Some(anchor) =
+                                                                latest_mention(&notes, &retest_substance)
+                                                            {
+                                                                open_review.run((
+                                                                    retest_substance.clone(),
+                                                                    metric,
+                                                                    anchor.timestamp,
+                                                                ));
+                                                            }
+                                                        }
+                                                    >
+                                                        "Re-test"
+                                                    </button>
+                                                </td>
                                             </tr>
                                         }
                                     })

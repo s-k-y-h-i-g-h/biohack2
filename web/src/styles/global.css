@@ -1128,3 +1128,5 @@ nav::-webkit-scrollbar {
 .review-actions .save-button { width: auto; }
 .candidate-review { font-size: .72rem; padding: 3px 10px; border-radius: 6px; border: 1px solid var(--border, #e5e7eb); background: var(--bg-card, #fff); color: var(--text-secondary, #475569); cursor: pointer; white-space: nowrap; }
 .candidate-review:hover { border-color: var(--accent, #0ea5e9); color: var(--accent, #0ea5e9); }
+.candidate-review:disabled { opacity: .45; cursor: not-allowed; }
+.candidate-review:disabled:hover { border-color: var(--border, #e5e7eb); color: var(--text-secondary, #475569); }

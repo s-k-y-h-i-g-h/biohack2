@@ -158,6 +158,21 @@ fn mentions(haystack_lower: &str, needle_lower: &str) -> bool {
     false
 }
 
+/// The most recent note naming `substance` — the anchor for re-testing a
+/// ledger pair. Same whole-word matcher as candidate generation, so the
+/// re-test measures the same substance the first test meant; picking the
+/// newest mention is a fixed rule, not a knob the user can tune to shop
+/// for a kinder window.
+pub fn latest_mention<'a>(notes: &'a [Note], substance: &str) -> Option<&'a Note> {
+    let name_lower = substance.to_lowercase();
+    let mut hits: Vec<&Note> = notes
+        .iter()
+        .filter(|n| mentions(&n.content.to_lowercase(), &name_lower))
+        .collect();
+    hits.sort_by(|a, b| (a.timestamp, a.id).cmp(&(b.timestamp, b.id)));
+    hits.last().copied()
+}
+
 const ALL_METRICS: [Metric; 7] = [
     Metric::HeartRate,
     Metric::Hrv,
@@ -343,6 +358,20 @@ mod tests {
         let catalog = catalog_hit("Ashwagandha");
         let notes = vec![note("slept fine, walked 8k steps", 1)];
         assert!(generate_candidates(&notes, &catalog, &vitals_with_hr(5), &[]).is_empty());
+    }
+
+    #[test]
+    fn latest_mention_picks_newest_not_oldest() {
+        // A re-test must anchor on the newest mention (more data after it),
+        // never drift to the earliest one just because it sorts first.
+        let notes = vec![
+            note("started magnesium", 12),
+            note("raised magnesium to 400mg", 5),
+            note("slept fine", 1),
+        ];
+        let found = latest_mention(&notes, "Magnesium").expect("a mention");
+        assert_eq!(found.content, "raised magnesium to 400mg");
+        assert!(latest_mention(&notes, "CoQ10").is_none());
     }
 
     #[test]
