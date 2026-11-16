@@ -476,12 +476,14 @@ pub fn export_data() -> Result<String, String> {
         ));
     }
 
-    // Write to localStorage and show in console (fallback for WASM)
-    if let Some(win) = web_sys::window() {
+    // Mirror the CSV into localStorage (fallback for headless/test runs).
+    // NOTE: no window.alert() here — a modal dialog inside a pure export
+    // function deadlocks headless Firefox (Marionette has no dialog to show)
+    // and belongs to the UI layer anyway: settings_page triggers a real
+    // Blob download, history_page is informational.
+    if web_sys::window().is_some() {
         let storage = gloo_storage::LocalStorage::raw();
         let _ = storage.set_item("biohack_export_csv", &csv);
-        // Alert user that data is exported
-        let _ = win.alert_with_message("Data exported! Check browser console for CSV content.");
     }
 
     Ok(csv)
