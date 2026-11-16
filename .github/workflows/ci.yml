@@ -53,4 +53,4 @@ jobs:
         run: |
           cargo test --target wasm32-unknown-unknown --no-run
           BIN=$(ls -t target/wasm32-unknown-unknown/debug/deps/web-*.wasm | head -1)
-          wasm-bindgen-test-runner --headless --firefox --nocapture "$BIN"
+          BROWSER=firefox wasm-bindgen-test-runner --nocapture "$BIN"
