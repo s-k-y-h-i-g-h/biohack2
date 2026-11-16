@@ -1077,3 +1077,39 @@ nav::-webkit-scrollbar {
 .insight-meta dt { color: var(--text-muted, #94a3b8); }
 .insight-meta dd { margin: 0; color: var(--text-secondary, #475569); }
 .insight-limitations { font-size: .75rem; color: var(--text-secondary, #475569); border-top: 1px solid var(--border, #e5e7eb); padding-top: 8px; margin: 0; line-height: 1.45; }
+
+/* Candidate queue (D2) — deliberately quieter than insight cards: a hypothesis
+   must not visually compete with an earned insight (FR-097). */
+.candidate-queue { margin-top: 22px; }
+.candidate-queue h2 { font-size: 1rem; color: var(--text-secondary); margin: 0 0 4px; }
+.candidate-queue > p { font-size: .8rem; color: var(--text-muted); margin: 0 0 10px; }
+.candidate-list { display: grid; gap: 8px; }
+.candidate-row {
+  display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+  background: var(--bg-card); border: 1px dashed var(--border);
+  border-radius: var(--radius-sm); padding: 10px 14px; font-size: .85rem;
+}
+.candidate-pair { font-weight: 600; color: var(--text-primary); }
+.candidate-pair::after { content: " →"; color: var(--text-muted); }
+.candidate-reason { color: var(--text-secondary); flex: 1 1 240px; min-width: 0; }
+.candidate-data { color: var(--text-muted); font-size: .75rem; white-space: nowrap; }
+.candidate-origin { color: var(--text-muted); font-size: .7rem; font-style: italic; width: 100%; }
+.candidate-status {
+  font-size: .7rem; padding: 2px 8px; border-radius: 999px;
+  background: var(--info-bg); color: var(--info); white-space: nowrap;
+}
+.candidate-status.tested { background: var(--success-bg); color: var(--success); }
+.candidate-status.untestable { background: var(--bg-input); color: var(--text-muted); }
+
+/* Test ledger (D4) — plain table, statuses mirrored from candidate chips. */
+.insight-ledger { margin-top: 22px; }
+.insight-ledger h2 { font-size: 1rem; color: var(--text-secondary); margin: 0 0 10px; }
+.ledger-table { width: 100%; border-collapse: collapse; font-size: .8rem; }
+.ledger-table th {
+  text-align: left; color: var(--text-muted); font-weight: 500;
+  border-bottom: 1px solid var(--border); padding: 6px 10px;
+}
+.ledger-table td { border-bottom: 1px solid var(--border); padding: 7px 10px; color: var(--text-secondary); }
+.ledger-status { font-size: .7rem; padding: 2px 8px; border-radius: 999px; background: var(--info-bg); color: var(--info); }
+.ledger-status.tested { background: var(--success-bg); color: var(--success); }
+.ledger-evidence { color: var(--text-muted); font-size: .72rem; }
