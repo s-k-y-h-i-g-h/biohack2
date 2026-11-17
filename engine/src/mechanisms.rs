@@ -615,9 +615,11 @@ mod tests {
         let a = tag_for_name("Piracetam");
         let b = tag_for_name("Memantine");
         assert!(a.contains(&MechanismClass::GlutamatergicModulating));
-        assert!(pair_rules(&a, &b)
-            .iter()
-            .any(|h| h.code == "additive_glutamatergic_modulation"));
+        assert!(
+            pair_rules(&a, &b)
+                .iter()
+                .any(|h| h.code == "additive_glutamatergic_modulation")
+        );
         let nac = tag_for_name("NAC (N-Acetyl Cysteine)");
         assert!(nac.contains(&MechanismClass::GlutathionePrecursor));
         assert!(!nac.contains(&MechanismClass::GlutamatergicModulating));
@@ -629,13 +631,19 @@ mod tests {
     fn mushroom_stacking_fires_between_mushrooms_only() {
         let c = tag_for_name("Cordyceps");
         let r = tag_for_name("Reishi Mushroom");
-        assert!(pair_rules(&c, &r).iter().any(|h| h.code == "additive_mushroom_stacking"));
+        assert!(
+            pair_rules(&c, &r)
+                .iter()
+                .any(|h| h.code == "additive_mushroom_stacking")
+        );
         // D3 modulates immunity gently; with a mild mushroom it stays silent.
         assert!(pair_rules(&tag_for_name("Vitamin D3"), &c).is_empty());
         // D3 + reishi keeps firing the immunomodulation rule (strong mushroom).
-        assert!(pair_rules(&tag_for_name("Vitamin D3"), &r)
-            .iter()
-            .any(|h| h.code == "additive_immunomodulation"));
+        assert!(
+            pair_rules(&tag_for_name("Vitamin D3"), &r)
+                .iter()
+                .any(|h| h.code == "additive_immunomodulation")
+        );
     }
 
     #[test]
@@ -643,18 +651,22 @@ mod tests {
         let r = tag_for_name("Rhodiola Rosea");
         assert!(!r.contains(&MechanismClass::Stimulant));
         assert!(pair_rules(&r, &tag_for_name("Caffeine")).is_empty());
-        assert!(pair_rules(&r, &tag_for_name("Sertraline"))
-            .iter()
-            .any(|h| h.code == "serotonergic_pair"));
+        assert!(
+            pair_rules(&r, &tag_for_name("Sertraline"))
+                .iter()
+                .any(|h| h.code == "serotonergic_pair")
+        );
     }
 
     #[test]
     fn piperine_flags_cyp3a4_substrates() {
         let p = tag_for_name("Piperine");
         assert!(p.contains(&MechanismClass::Cyp3a4Inhibitor));
-        assert!(pair_rules(&p, &tag_for_name("Curcumin"))
-            .iter()
-            .any(|h| h.code == "cyp3a4_inhibition"));
+        assert!(
+            pair_rules(&p, &tag_for_name("Curcumin"))
+                .iter()
+                .any(|h| h.code == "cyp3a4_inhibition")
+        );
         assert!(pair_rules(&p, &tag_for_name("Zinc")).is_empty());
     }
 
