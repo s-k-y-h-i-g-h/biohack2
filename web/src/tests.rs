@@ -1032,8 +1032,9 @@ fn test_coverage_gaps_name_unmodelled_substances_with_reasons() {
         .iter()
         .find(|g| g.substance.eq_ignore_ascii_case("Alcohol"))
         .expect("Alcohol is unmodelled and the user logged it — must be surfaced");
+    let reason = alcohol.reason.to_lowercase();
     assert!(
-        alcohol.reason.contains("Zero-order") || alcohol.reason.contains("refuse"),
+        reason.contains("zero-order") || reason.contains("refuse"),
         "reason must be the recorded one: {}",
         alcohol.reason
     );
