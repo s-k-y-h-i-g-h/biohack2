@@ -60,6 +60,14 @@ pub enum MechanismClass {
     ThyroidModulating,
     /// Modulates immune function.
     Immunomodulating,
+    /// Medicinal mushroom (beta-glucan / triterpene rich). The stacking
+    /// caution applies mushroom × mushroom — not toward gentle immunomodulant
+    /// vitamins. 2026-11-17 approved FP fix (split out of Immunomodulating).
+    MedicinalMushroom,
+    /// Glutathione precursor / system xc- substrate (NAC). Deliberately has
+    /// no pair rules: precursor-level glutamate modulation is not receptor-
+    /// level modulation (2026-11-17 approved FP fix). Vocabulary tag for audit.
+    GlutathionePrecursor,
     /// Vitamin-K–driven procoagulant activity (clotting-factor synthesis).
     Procoagulant,
     /// Modulates glutamate/NMDA signaling.
@@ -90,6 +98,8 @@ impl MechanismClass {
             Self::CnsDepressant => "cns_depressant",
             Self::ThyroidModulating => "thyroid_modulating",
             Self::Immunomodulating => "immunomodulating",
+            Self::MedicinalMushroom => "medicinal_mushroom",
+            Self::GlutathionePrecursor => "glutathione_precursor",
             Self::Procoagulant => "procoagulant",
             Self::GlutamatergicModulating => "glutamatergic_modulating",
             Self::Hypoglycemic => "hypoglycemic",
@@ -116,6 +126,8 @@ impl MechanismClass {
             "cns_depressant" => Some(Self::CnsDepressant),
             "thyroid_modulating" => Some(Self::ThyroidModulating),
             "immunomodulating" => Some(Self::Immunomodulating),
+            "medicinal_mushroom" => Some(Self::MedicinalMushroom),
+            "glutathione_precursor" => Some(Self::GlutathionePrecursor),
             "procoagulant" => Some(Self::Procoagulant),
             "glutamatergic_modulating" => Some(Self::GlutamatergicModulating),
             "hypoglycemic" => Some(Self::Hypoglycemic),
@@ -261,12 +273,20 @@ const PAIR_RULES: &[(
         "Usually benign; if immunosuppressed, autoimmune, or pre-transplant, review the stack with a clinician.",
     ),
     (
+        MechanismClass::MedicinalMushroom,
+        MechanismClass::MedicinalMushroom,
+        "additive_mushroom_stacking",
+        AlertSeverity::Info,
+        "Two medicinal mushrooms in the same window: stacked beta-glucan/triterpene load — label caution on combining",
+        "Usually benign; if immunosuppressed, autoimmune, or pre-transplant, review the stack with a clinician.",
+    ),
+    (
         MechanismClass::GlutamatergicModulating,
         MechanismClass::GlutamatergicModulating,
         "additive_glutamatergic_modulation",
         AlertSeverity::Info,
         "Two glutamatergic/NMDA-modulating agents: combined effect on glutamate signaling",
-        "Expect shifted NMDA tone (e.g. NAC + memantine); start low, note cognitive/emotional side effects, separate doses if jittery.",
+        "Expect shifted NMDA tone (e.g. piracetam + memantine); start low, note cognitive/emotional side effects, separate doses if jittery.",
     ),
     (
         MechanismClass::MaoInhibitor,
@@ -374,6 +394,10 @@ const SEED_TAGS: &[(&str, &[MechanismClass])] = &[
         &[
             MechanismClass::Antiplatelet,
             MechanismClass::Cyp3a4Inhibitor,
+            // Curcumin is itself a 3A4/P-gp substrate — the mechanism behind
+            // piperine's 2000% bioavailability boost (Shoba 1998). Tagged so
+            // piperine (and other inhibitors) flag it (2026-11-17 FN fix).
+            MechanismClass::Cyp3a4Substrate,
         ],
     ),
     (
@@ -411,11 +435,17 @@ const SEED_TAGS: &[(&str, &[MechanismClass])] = &[
         "n-methyl-cyclazodone",
         &[MechanismClass::Stimulant, MechanismClass::Hypertensive],
     ),
-    ("nac", &[MechanismClass::GlutamatergicModulating]),
+    // NAC is a glutathione precursor (system xc-), NOT a receptor-level
+    // glutamatergic — 2026-11-17 approved FP fix (NAC+piracetam fired with no
+    // additive-toxicity literature; the real receptor pair is racetam+memantine).
+    ("nac", &[MechanismClass::GlutathionePrecursor]),
     (
         "omega-3",
         &[MechanismClass::Antiplatelet, MechanismClass::Hypotensive],
     ),
+    // Piperine (BioPerine): strong CYP3A4/P-gp inhibition is its marketed
+    // mechanism — now catches co-dosed 3A4 substrates (2026-11-17 FN fix).
+    ("piperine", &[MechanismClass::Cyp3a4Inhibitor]),
     ("piracetam", &[MechanismClass::GlutamatergicModulating]),
     (
         "quercetin",
@@ -430,6 +460,7 @@ const SEED_TAGS: &[(&str, &[MechanismClass])] = &[
         &[
             MechanismClass::Antiplatelet,
             MechanismClass::Immunomodulating,
+            MechanismClass::MedicinalMushroom,
         ],
     ),
     (
@@ -440,10 +471,15 @@ const SEED_TAGS: &[(&str, &[MechanismClass])] = &[
         ],
     ),
     (
+        // Rhodiola is an adaptogen with serotonergic activity, not a stimulant:
+        // rhodiola+caffeine is a mainstream stack with no case reports
+        // (2026-11-17 approved FP fix). Serotonergic pairing still fires.
         "rhodiola",
-        &[MechanismClass::Serotonergic, MechanismClass::Stimulant],
+        &[MechanismClass::Serotonergic],
     ),
-    ("cordyceps", &[MechanismClass::Immunomodulating]),
+    // Cordyceps is a mild medicinal mushroom; the strong-immunomodulant tag
+    // stays on reishi/D3 so D3+cordyceps no longer flags (2026-11-17 FP fix).
+    ("cordyceps", &[MechanismClass::MedicinalMushroom]),
     ("umcka", &[MechanismClass::Immunomodulating]),
     (
         "9-me-bc",
@@ -571,15 +607,55 @@ mod tests {
     }
 
     #[test]
-    fn nac_memantine_get_glutamatergic_rule() {
-        let a = tag_for_name("NAC (N-Acetyl Cysteine)");
+    fn piracetam_memantine_fire_glutamatergic_rule_nac_does_not() {
+        // 2026-11-17 (approved FP fix): NAC modulates glutamate only as a
+        // glutathione precursor (system xc-), which has no additive-toxicity
+        // literature with racetams or memantine. The real receptor-level pair
+        // is AMPA-potentiator × NMDA-antagonist (piracetam + memantine).
+        let a = tag_for_name("Piracetam");
         let b = tag_for_name("Memantine");
         assert!(a.contains(&MechanismClass::GlutamatergicModulating));
-        let hits = pair_rules(&a, &b);
-        assert!(
-            hits.iter()
-                .any(|h| h.code == "additive_glutamatergic_modulation")
-        );
+        assert!(pair_rules(&a, &b)
+            .iter()
+            .any(|h| h.code == "additive_glutamatergic_modulation"));
+        let nac = tag_for_name("NAC (N-Acetyl Cysteine)");
+        assert!(nac.contains(&MechanismClass::GlutathionePrecursor));
+        assert!(!nac.contains(&MechanismClass::GlutamatergicModulating));
+        assert!(pair_rules(&nac, &b).is_empty());
+        assert!(pair_rules(&nac, &a).is_empty());
+    }
+
+    #[test]
+    fn mushroom_stacking_fires_between_mushrooms_only() {
+        let c = tag_for_name("Cordyceps");
+        let r = tag_for_name("Reishi Mushroom");
+        assert!(pair_rules(&c, &r).iter().any(|h| h.code == "additive_mushroom_stacking"));
+        // D3 modulates immunity gently; with a mild mushroom it stays silent.
+        assert!(pair_rules(&tag_for_name("Vitamin D3"), &c).is_empty());
+        // D3 + reishi keeps firing the immunomodulation rule (strong mushroom).
+        assert!(pair_rules(&tag_for_name("Vitamin D3"), &r)
+            .iter()
+            .any(|h| h.code == "additive_immunomodulation"));
+    }
+
+    #[test]
+    fn rhodiola_pairs_serotonically_not_as_stimulant() {
+        let r = tag_for_name("Rhodiola Rosea");
+        assert!(!r.contains(&MechanismClass::Stimulant));
+        assert!(pair_rules(&r, &tag_for_name("Caffeine")).is_empty());
+        assert!(pair_rules(&r, &tag_for_name("Sertraline"))
+            .iter()
+            .any(|h| h.code == "serotonergic_pair"));
+    }
+
+    #[test]
+    fn piperine_flags_cyp3a4_substrates() {
+        let p = tag_for_name("Piperine");
+        assert!(p.contains(&MechanismClass::Cyp3a4Inhibitor));
+        assert!(pair_rules(&p, &tag_for_name("Curcumin"))
+            .iter()
+            .any(|h| h.code == "cyp3a4_inhibition"));
+        assert!(pair_rules(&p, &tag_for_name("Zinc")).is_empty());
     }
 
     #[test]

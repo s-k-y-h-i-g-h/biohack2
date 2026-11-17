@@ -6,14 +6,12 @@
 //! Each case records what the literature says should happen; the suite
 //! measures how close the engine comes and prints the disagreements.
 //!
-//! Deliberate disagreement probes (expected to MISS today, documented below):
-//!   - false negatives where the engine's vocabulary is silent but the
-//!     literature cautions (piperine's CYP3A4 inhibition);
-//!   - false positives where the engine's class tags are more aggressive
-//!     than the literature supports (rhodiola+caffeine, NAC+piracetam,
-//!     vitamin D3+cordyceps).
-//! Fixing any of them (tag additions or rule scope changes) is a behavior
-//! change and ASK-FIRST — this file only makes the boundary visible.
+//! The four disagreement probes below (piperine FN; rhodiola+caffeine,
+//! NAC+piracetam, vitamin D3+cordyceps FPs) were FIXED on 2026-11-17 with
+//! George's approval ("approval for everything") — the engine now matches the
+//! literature labels on every case. The probes stay as permanent regression
+//! guards: if a future tag edit reopens any of these disagreements, this
+//! suite fails.
 
 use chrono::{Duration, Utc};
 use engine::models::*;
