@@ -1,0 +1,189 @@
+{
+ "substances": [
+  {
+   "name": "Piracetam",
+   "class": "decay",
+   "verdict": "parameterized",
+   "half_life_hours": 5.8,
+   "half_life_range": [
+    5.1,
+    6.9
+   ],
+   "citation": "pubmed:41851591 — Yan 2026, Drugs R&D",
+   "rationale": "",
+   "params_note": "t½ 5.8±0.7 h fasted / 5.9±1.0 h fed; range = measured group mean±SD spread (5.1–6.9 h), consistent with cited 5–6 h consensus; Tmax ≈0.5 h fasted (1.7 h fed), oral F ≈100%, >98% renal excretion unchanged (pubmed:41851591 — Yan 2026, Drugs R&D)",
+   "secondary_citations": []
+  },
+  {
+   "name": "Ashwagandha",
+   "class": "oral_absorption",
+   "verdict": "parameterized",
+   "half_life_hours": 9.76,
+   "half_life_range": [
+    1.88,
+    9.76
+   ],
+   "citation": "pubmed:38144272 — Kim 2023, Heliyon",
+   "rationale": "Healthy-human crossover PK of total withanolides: Tmax 1.5–2.3 h with distinct absorption and elimination phases. Half-life is strongly extract-dependent (t½ 9.756±0.517 h for WS-35 vs 1.882±0.03 h for WS-2.5, same study); point value uses WS-35 (high-glycoside, better-exposed formulation), range spans both extracts.",
+   "params_note": "Tmax 1.5–2.3 h; MRT ~14.5 h (WS-35) (pubmed:38144272 — Kim 2023, Heliyon)",
+   "secondary_citations": []
+  },
+  {
+   "name": "Rhodiola Rosea",
+   "class": "none",
+   "verdict": "none",
+   "half_life_hours": null,
+   "half_life_range": null,
+   "citation": "",
+   "rationale": "No elimination half-life for salidroside or rosavins has been published in indexed human literature; PubMed-indexed human-side data are preclinical (rat) disposition or a first-in-human study of a synthetic salidroside prodrug candidate (SHPL-49) whose elimination parameters do not describe salidroside from standardized Rhodiola extract (pubmed:39033613 — Li 2024, J Pharm Biomed Anal). No defensible one-compartment curve for the supplement.",
+   "params_note": "",
+   "secondary_citations": []
+  },
+  {
+   "name": "Lion's Mane",
+   "class": "none",
+   "verdict": "none",
+   "half_life_hours": null,
+   "half_life_range": null,
+   "citation": "",
+   "rationale": "No published human pharmacokinetics (absorption, distribution, or elimination) for the hericenones/erinacines or for any Hericium erinaceus extract; human evidence consists of small clinical-endpoint trials while disposition data remain preclinical (pubmed:40959699 — Menon 2025, Front Nutr). There is no curve to model.",
+   "params_note": "",
+   "secondary_citations": []
+  },
+  {
+   "name": "Cordyceps",
+   "class": "none",
+   "verdict": "none",
+   "half_life_hours": null,
+   "half_life_range": null,
+   "citation": "",
+   "rationale": "Cordycepin (3'-deoxyadenosine) is destroyed by circulating adenosine deaminase, giving poor bioavailability and no usable oral human PK profile; its clinical development was only revived as the metabolically stabilized proTide prodrug NUC-7738 (pubmed:34497073 — Schwenzer 2021, Clin Cancer Res). No citable human half-life exists for cordycepin itself, and hot-water/extract preparations add unquantified mixtures.",
+   "params_note": "",
+   "secondary_citations": []
+  },
+  {
+   "name": "Reishi Mushroom",
+   "class": "oral_absorption",
+   "verdict": "parameterized",
+   "half_life_hours": 0.66,
+   "half_life_range": null,
+   "citation": "pubmed:27747224 — Tawasri 2016, Biomed Res Int",
+   "rationale": "The only indexed human PK study: Ling Zhi (Reishi) preparation in healthy adults (n=12) with ganoderic acid A as marker — rapid absorption (Tmax 0.54±0.10 h) and very short elimination (t½ 0.66±0.33 h), ng/mL-scale exposure. Range left null: single study, only within-group SD reported. Extract standardization varies, so treat as marker-compound kinetics.",
+   "params_note": "Cmax 2.24±1.31 ng/mL; t½ 0.66±0.33 h; ascorbic acid coadministration raised ganoderic acid A exposure (pubmed:27747224 — Tawasri 2016, Biomed Res Int)",
+   "secondary_citations": []
+  },
+  {
+   "name": "Umcka (Pelargonium)",
+   "class": "none",
+   "verdict": "none",
+   "half_life_hours": null,
+   "half_life_range": null,
+   "citation": "",
+   "rationale": "No human PK parameter set is established for EPs 7630 (Umckaloabo): the active constituents are not fully identified and plasma levels of extract markers are not measurable at therapeutic doses. The only indexed human quantitation is of marker compounds given in an ultra-low-exposure combination product, where epicatechin (the PSE marker) showed erratic trace kinetics (t½ 2.10 h fasting / 9.33 h fed, ng/L Cmax) that do not characterize the extract (pubmed:35419311 — Park 2022, Transl Clin Pharmacol).",
+   "params_note": "",
+   "secondary_citations": []
+  },
+  {
+   "name": "Berberine",
+   "class": "oral_absorption",
+   "verdict": "parameterized",
+   "half_life_hours": 5.0,
+   "half_life_range": [
+    5.0,
+    5.77
+   ],
+   "citation": "pubmed:35419311 — Park 2022, Transl Clin Pharmacol",
+   "rationale": "Indexed human oral PK with clear absorption phase (Tmax ~1–2 h) and terminal elimination t½ 5.00±2.17 h (fed) / 5.77 h (fasting); apparent CL/F ~1070–1460 L/h and ng/L–low-µg/L exposures reflect extensive first-pass metabolism and very low systemic availability. Caveat: values come from a berberine-containing combination product (UI026) in healthy subjects — the only citable human parameter set found.",
+   "params_note": "Tmax ~1.0–1.3 h; CL/F 1069–1458 L/h (pubmed:35419311 — Park 2022, Transl Clin Pharmacol)",
+   "secondary_citations": []
+  },
+  {
+   "name": "NAC (N-Acetyl Cysteine)",
+   "class": "oral_absorption",
+   "verdict": "parameterized",
+   "half_life_hours": 6.25,
+   "half_life_range": [
+    2.27,
+    6.25
+   ],
+   "citation": "pubmed:2029805 — Holdiness 1991, Clin Pharmacokinet",
+   "rationale": "Oral absorption with extensive first-pass metabolism (intact NAC systemic availability low; decline poly-exponential), so the full curve needs absorption + elimination phases. Reported human terminal half-lives vary by study/phase: oral terminal t½ 6.25 h; a separate study reports late-elimination phase 2.27 h; IV terminal 5.6 h. Range = 2.27–6.25 h.",
+   "params_note": "IV terminal t½ 5.6 h, CL 0.11 L/h/kg, ~30% renal (label: FDA prescribing information — Acetylcysteine injection); oral late-phase t½ 2.27 h (pubmed:3803419 — Borgström 1986, Eur J Clin Pharmacol)",
+   "secondary_citations": [
+    "pubmed:3803419 — Borgström 1986, Eur J Clin Pharmacol",
+    "label: FDA prescribing information — Acetylcysteine injection"
+   ]
+  },
+  {
+   "name": "CBD",
+   "class": "accumulation",
+   "verdict": "parameterized",
+   "half_life_hours": 56.0,
+   "half_life_range": [
+    56,
+    61
+   ],
+   "citation": "label: FDA prescribing information — EPIDIOLEX (cannabidiol) oral solution",
+   "rationale": "Highly lipophilic with enormous apparent volume of distribution (20,963–42,849 L) and >94% protein binding; plasma concentrations accumulate with repeated dosing and label-reported plasma half-life is 56–61 h after twice-daily dosing for 7 days — tissue loading to steady state over days, not a same-day decay curve. Single-dose half-lives are shorter, but the accumulation profile governs any dosing model.",
+   "params_note": "Tmax 2.5–5 h at steady state; high-fat meal increases Cmax ~5-fold / AUC ~4-fold; sublinear dose-proportional rise in exposure (label: FDA prescribing information — EPIDIOLEX)",
+   "secondary_citations": [
+    "pubmed:12648025 — Grotenhermen 2003, Clin Pharmacokinet"
+   ]
+  },
+  {
+   "name": "Alcohol",
+   "class": "none",
+   "verdict": "none",
+   "half_life_hours": null,
+   "half_life_range": null,
+   "citation": "",
+   "rationale": "Ethanol elimination is capacity-limited, not first-order: ADH is saturated across the social-to-intoxication concentration range, so blood levels fall at an essentially constant amount per time (zero-order / Michaelis-Menten) and an 'elimination half-life' is mathematically undefined and grows as concentration declines (pubmed:12489977 — Norberg 2003, Clin Pharmacokinet; pubmed:20304569 — Jones 2010, Forensic Sci Int). The literature recommends multicompartment Michaelis-Menten models, not a half-life curve.",
+   "params_note": "",
+   "secondary_citations": [
+    "pubmed:20304569 — Jones 2010, Forensic Sci Int"
+   ]
+  },
+  {
+   "name": "Kratom",
+   "class": "accumulation",
+   "verdict": "parameterized",
+   "half_life_hours": 23.2,
+   "half_life_range": [
+    23.2,
+    67.9
+   ],
+   "citation": "pubmed:25995615 — Trakulsrichai 2015, Drug Des Devel Ther",
+   "rationale": "Mitragynine (the dominant alkaloid) shows a deep second compartment: first human PK (n=9) gives terminal t½ 23.24±16.07 h with apparent Vd 38.04±24.32 L/kg (two-compartment oral model). Repeated-dose work reports mean half-lives rising to 43.4 h (single) and 67.9 h (multiple doses), with possible enzyme saturation at higher doses — tissue-loading behavior reaching steady state over days of daily use, so modeled as accumulation.",
+   "params_note": "Tmax ~0.8–1.7 h; range = single-dose terminal 23.2 h to multiple-dose mean 67.9 h (pubmed:38474495 — Huestis 2024, Molecules); nonlinear/saturation caveat (pubmed:42266029 — 2026, J Anal Toxicol)",
+   "secondary_citations": [
+    "pubmed:38474495 — Huestis 2024, Molecules",
+    "pubmed:42266029 — 2026, J Anal Toxicol"
+   ]
+  },
+  {
+   "name": "Memantine",
+   "class": "decay",
+   "verdict": "parameterized",
+   "half_life_hours": 70.0,
+   "half_life_range": [
+    60,
+    80
+   ],
+   "citation": "label: FDA prescribing information — Memantine Hydrochloride Tablets (current generic PI, 2026)",
+   "rationale": "",
+   "params_note": "Linear kinetics over therapeutic range; ~48% renal excretion unchanged; terminal t½ increases +95% in severe renal impairment (label: FDA prescribing information — Memantine Hydrochloride Tablets)",
+   "secondary_citations": []
+  },
+  {
+   "name": "Estradiol Enanthate",
+   "class": "oral_absorption",
+   "verdict": "parameterized",
+   "half_life_hours": 133.7,
+   "half_life_range": null,
+   "citation": "pubmed:3814225 — Wiemeyer 1986, Arzneimittelforschung",
+   "rationale": "IM depot ester with flip-flop (absorption-rate-controlled) kinetics in menopausal women after 10 mg i.m.: elimination rate constant K = 0.12445 d⁻¹ → t½(elim) = 5.57 d = 133.7 h, while depot absorption half-life ≈ 0.46 d (Kabs = 1.5050 d⁻¹); serum estradiol stayed elevated through ~day 31. Oral bioavailability is irrelevant — the recorded profile is the injection. Range null: single primary study; model with the two-rate absorption+elimination structure.",
+   "params_note": "Depot absorption t½ ≈0.46 d; serum estradiol measured elevated on days 1–31 post-injection (pubmed:3814225 — Wiemeyer 1986, Arzneimittelforschung)",
+   "secondary_citations": []
+  }
+ ]
+}

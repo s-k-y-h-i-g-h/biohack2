@@ -169,7 +169,7 @@ pub fn latest_mention<'a>(notes: &'a [Note], substance: &str) -> Option<&'a Note
         .iter()
         .filter(|n| mentions(&n.content.to_lowercase(), &name_lower))
         .collect();
-    hits.sort_by(|a, b| (a.timestamp, a.id).cmp(&(b.timestamp, b.id)));
+    hits.sort_by_key(|a| (a.timestamp, a.id));
     hits.last().copied()
 }
 
@@ -207,7 +207,7 @@ pub fn generate_candidates(
 
     // Deterministic note order: oldest first, id breaks timestamp ties.
     let mut ordered: Vec<&Note> = notes.iter().collect();
-    ordered.sort_by(|a, b| (a.timestamp, a.id).cmp(&(b.timestamp, b.id)));
+    ordered.sort_by_key(|a| (a.timestamp, a.id));
 
     for item in catalog {
         let name_lower = item.name.to_lowercase();

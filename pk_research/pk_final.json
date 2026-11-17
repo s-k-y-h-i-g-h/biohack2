@@ -1,0 +1,109 @@
+{
+  "substances": [
+    {
+      "name": "Magnesium glycinate",
+      "class": "plateau",
+      "verdict": "parameterized",
+      "half_life_hours": 6.7,
+      "half_life_range": null,
+      "citation": "pubmed:32642964 \u2014 da Costa 2020, Drugs R D",
+      "rationale": "Serum Mg is homeostatically clamped, not first-order: regulated intestinal absorption (TRPM6/7), renal reabsorption with a tubular threshold, and bone buffering hold blood Mg in a narrow flat band across doses (pubmed:25540137 \u2014 de Baaij 2015, Physiol Rev). After single-dose oral Mg salts plasma shows a blunted, prolonged elevation without a clean terminal log-linear phase over the observation window (pubmed:11550076 \u2014 Ranade 2001, Am J Ther). Modeled as a plateau; the reported half-life is an elimination-side proxy from the only rigorous popPK available (IV MgSO4, one-compartment, CL 1.38 L/h, V 13.3 L, t1/2 = ln2*V/CL = 6.7 h; pubmed:32642964 \u2014 da Costa 2020, Drugs R D).",
+      "params_note": "Proxy half-life computed from CL 1.38 L/h and V 13.3 L in women with pre-eclampsia; creatinine and body-weight covariates shift Mg handling vs healthy oral dosing (pubmed:32642964 \u2014 da Costa 2020, Drugs R D).",
+      "secondary_citations": [
+        "pubmed:25540137 \u2014 de Baaij 2015, Physiol Rev",
+        "pubmed:11550076 \u2014 Ranade 2001, Am J Ther"
+      ]
+    },
+    {
+      "name": "Zinc",
+      "class": "accumulation",
+      "verdict": "parameterized",
+      "half_life_hours": 4488,
+      "half_life_range": [
+        2688,
+        6288
+      ],
+      "citation": "pubmed:3565500 \u2014 Muirhead 1986, Am J Nephrol",
+      "rationale": "Zinc does not follow a single-compartment plasma decay: absorption (~20 +/- 5% of a meal dose) and whole-body retention are homeostatically regulated and tracer kinetics require at least two compartments (pubmed:10612077 \u2014 Watson 1999, J Trace Elem Med Biol). The dosing-relevant curve is slow tissue loading to steady state over months, whose rate constant is the whole-body 65Zn turnover half-life: 187 +/- 75 days = 4488 h in healthy controls (pubmed:3565500 \u2014 Muirhead 1986, Am J Nephrol). Hours-scale plasma falls reflect redistribution between compartments, not elimination.",
+      "params_note": "Half-life is whole-body 65Zn retention in healthy controls; range = mean +/- 1 SD (112-262 days; pubmed:3565500 \u2014 Muirhead 1986, Am J Nephrol); meal-zinc absorption ~20 +/- 5% with fractional absorption falling as intake rises (pubmed:10612077 \u2014 Watson 1999, J Trace Elem Med Biol).",
+      "secondary_citations": [
+        "pubmed:10612077 \u2014 Watson 1999, J Trace Elem Med Biol"
+      ]
+    },
+    {
+      "name": "Boron",
+      "class": "decay",
+      "verdict": "parameterized",
+      "half_life_hours": 21.0,
+      "half_life_range": [
+        16.1,
+        25.9
+      ],
+      "citation": "pubmed:6732506 \u2014 Jansen 1984, Arch Toxicol",
+      "rationale": "",
+      "params_note": "t1/2-beta 21.0 +/- 4.9 h (mean +/- SD) after 562-611 mg boric acid by 20-min IV infusion; 98.7 +/- 9.1% of dose recovered in urine by 120 h, i.e. near-quantitative renal first-order elimination (pubmed:6732506 \u2014 Jansen 1984, Arch Toxicol); oral 10-mg dose shows 84% urinary recovery (pubmed:10050922 \u2014 Samman 1998, Biol Trace Elem Res).",
+      "secondary_citations": [
+        "pubmed:10050922 \u2014 Samman 1998, Biol Trace Elem Res"
+      ]
+    },
+    {
+      "name": "B-Complex",
+      "class": "decay",
+      "verdict": "parameterized",
+      "half_life_hours": 1.5,
+      "half_life_range": [
+        1.0,
+        2.0
+      ],
+      "citation": "pubmed:29629048 \u2014 Talebian 2018, Electron Physician",
+      "rationale": "",
+      "params_note": "Representative member: riboflavin, plasma half-life ~1-2 h (pubmed:29629048 \u2014 Talebian 2018, Electron Physician). Absorption half-life 1.1 h with two-compartment kinetics; carrier-mediated absorption saturates near 27 mg absorbed per dose and ~50% of plasma clearance is urinary (pubmed:8604671 \u2014 Zempleni 1996, Am J Clin Nutr).",
+      "secondary_citations": [
+        "pubmed:8604671 \u2014 Zempleni 1996, Am J Clin Nutr"
+      ]
+    },
+    {
+      "name": "Creatine monohydrate",
+      "class": "plateau",
+      "verdict": "parameterized",
+      "half_life_hours": 1109,
+      "half_life_range": [
+        832,
+        1664
+      ],
+      "citation": "pubmed:28615996 \u2014 Kreider 2017, J Int Soc Sports Nutr",
+      "rationale": "Muscle creatine is a saturable pool with a hard ceiling of about 160 mmol/kg dry muscle mass that a normal diet fills only to 60-80%, so repeated dosing drives the pool to the ceiling and no further; the dose-response tracks pool enrichment, not plasma concentration (pubmed:28615996 \u2014 Kreider 2017, J Int Soc Sports Nutr). Plasma creatine is cleared rapidly into muscle and urine, so a plasma half-life does not describe the effect time course; the value given is whole-pool turnover: 1-2% of intramuscular creatine degrades to creatinine and is excreted per day, t1/2 = ln2/(0.01-0.02/day) = 34.7-69.3 days, midpoint ~46.2 days = 1109 h (pubmed:28615996 \u2014 Kreider 2017, J Int Soc Sports Nutr).",
+      "params_note": "Storage ceiling ~160 mmol/kg dry muscle; 3-5 g/day maintains saturation; 4-6 weeks for elevated stores to return to baseline (all pubmed:28615996 \u2014 Kreider 2017, J Int Soc Sports Nutr); oral tmax ~2-3 h (pubmed:41809290 \u2014 Aggarwal 2026, Cureus).",
+      "secondary_citations": [
+        "pubmed:41809290 \u2014 Aggarwal 2026, Cureus"
+      ]
+    },
+    {
+      "name": "Collagen peptides",
+      "class": "none",
+      "verdict": "none",
+      "half_life_hours": null,
+      "half_life_range": null,
+      "citation": "",
+      "rationale": "Collagen peptides are a digestible mixture of gelatin-derived peptides, not a single drug-like analyte. Only specific food-derived di-/tri-peptides (Pro-Hyp, Gly-Pro-Hyp) transiently appear in plasma and are excreted unchanged in urine - a transient absorbed peptide flux rather than a persistent compartment (pubmed:26934933 \u2014 Yamamoto 2016, Biol Pharm Bull; pubmed:16076145 \u2014 Iwai 2005, J Agric Food Chem). The bulk of the dose is hydrolyzed to ordinary amino acids whose kinetics belong to the general amino-acid pool, so no defensible one-compartment curve exists for collagen peptides as such.",
+      "params_note": "",
+      "secondary_citations": [
+        "pubmed:26934933 \u2014 Yamamoto 2016, Biol Pharm Bull",
+        "pubmed:16076145 \u2014 Iwai 2005, J Agric Food Chem"
+      ]
+    },
+    {
+      "name": "Probiotic",
+      "class": "none",
+      "verdict": "none",
+      "half_life_hours": null,
+      "half_life_range": null,
+      "citation": "",
+      "rationale": "A live organism, not a molecule: probiotic persistence is decided by the host's baseline microbiome and immune status (not a rate constant), and detection tracks transient gut passage/turnover over days rather than exponential elimination (pubmed:30193112 \u2014 Zmora 2018, Cell). Any single half-life would be strain-, product-, host-, and matrix-dependent to the point of being meaningless; survival through gastric acid/bile and strain-specific growth add non-pharmacokinetic nonlinearities.",
+      "params_note": "",
+      "secondary_citations": [
+        "pubmed:30193112 \u2014 Zmora 2018, Cell"
+      ]
+    }
+  ]
+}

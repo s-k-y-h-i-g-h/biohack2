@@ -425,15 +425,17 @@ fn benchmark_interaction_flagging_accuracy() {
                 c.label, c.a, c.b, alerts[0].message, c.why
             ));
         } else if c.expect_flag {
-            if let Some(sev) = c.severity.as_ref() {
-                if !alerts.iter().any(|a| &a.severity == sev) {
-                    fired_wrong_severity.push(format!(
-                        "{}: expected {:?}, got {:?}",
-                        c.label,
-                        sev,
-                        alerts.iter().map(|a| &a.severity).collect::<Vec<_>>()
-                    ));
-                }
+            let wrong_severity = c
+                .severity
+                .as_ref()
+                .filter(|sev| !alerts.iter().any(|a| &a.severity == *sev));
+            if let Some(sev) = wrong_severity {
+                fired_wrong_severity.push(format!(
+                    "{}: expected {:?}, got {:?}",
+                    c.label,
+                    sev,
+                    alerts.iter().map(|a| &a.severity).collect::<Vec<_>>()
+                ));
             }
         }
     }

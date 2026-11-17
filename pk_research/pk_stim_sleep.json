@@ -1,0 +1,103 @@
+{
+  "substances": [
+    {
+      "name": "Caffeine",
+      "class": "oral_absorption",
+      "verdict": "parameterized",
+      "half_life_hours": 5.0,
+      "half_life_range": [
+        1.5,
+        9.5
+      ],
+      "citation": "pubmed:27100333 — White et al. 2016, Clinical Toxicology",
+      "rationale": "Oral dose gives a distinct absorption peak (Tmax ~30 min, Cmax ~19 mg/L after 5 mg/kg) before first-order CYP1A2-mediated elimination, so absorption + elimination phases are both needed; single-half-life decay alone would misplace the early curve.",
+      "secondary_citations": [
+        "pubmed:6832208 — Blanchard & Sawers 1983, European Journal of Clinical Pharmacology",
+        "pubmed:10049999 — Fredholm et al. 1999, Pharmacological Reviews"
+      ],
+      "params_note": "Tmax 29.8 +/- 8.1 min; absolute oral bioavailability ~108% (AUC oral/IV ratio); individual elimination t1/2 2.7-9.9 h in 10 healthy subjects (pubmed:6832208 — Blanchard & Sawers 1983, Eur J Clin Pharmacol); 4-6 h is the 'generally reported' mean range with adult extremes 1.5-9.5 h (pubmed:27100333)"
+    },
+    {
+      "name": "L-Theanine",
+      "class": "oral_absorption",
+      "verdict": "parameterized",
+      "half_life_hours": 1.2,
+      "half_life_range": [
+        1.2,
+        1.8
+      ],
+      "citation": "pubmed:23096008 — Scheid et al. 2012, The Journal of Nutrition",
+      "rationale": "Rapid absorption to a clear peak (Tmax 0.8 h after 100 mg; 45 min after 300 mg) followed by first-order terminal decline; two human studies report t1/2 1.2 h and 1.8 h, so the absorption phase must be modeled explicitly.",
+      "secondary_citations": [
+        "pubmed:41845544 — Yamaura et al. 2026, Journal of Pharmaceutical Health Care and Sciences"
+      ],
+      "params_note": "100 mg capsule: Tmax 0.8 h, Cmax 24.3 umol/L, terminal t1/2 1.2 h (pubmed:23096008 — Scheid et al. 2012, J Nutr, terminal t1/2 as cited in pubmed:41845544); 300 mg: Tmax 45 min, t1/2 1.8 h (pubmed:41845544 — Yamaura et al. 2026, J Pharm Health Care Sci)"
+    },
+    {
+      "name": "L-Tyrosine",
+      "class": "none",
+      "verdict": "none",
+      "half_life_hours": null,
+      "half_life_range": null,
+      "citation": "",
+      "rationale": "Endogenous amino acid; PubMed/PMC/ClinicalTrials.gov searches on 2026-11-17 (terms: 'tyrosine pharmacokinetics oral plasma humans', 'plasma tyrosine AND kinetics', author-scoped Lieberman/Nedeau queries) found no human study deriving an elimination half-life or one-compartment fit after a pharmacological oral dose. Plasma disappearance after an oral load reflects hepatic transamination, protein-pool incorporation and saturable renal handling, not one clean exponential: the human amino-acid infusion study derives per-amino-acid clearances (2.5-28 mL/s) rather than a reproducible single decay constant (pubmed:6809468 — Vilstrup et al. 1982, Eur J Clin Invest), and loading studies use downstream metabolites as absorption proxies with no tyrosine kinetics (pubmed:27577098 — Jontez et al. 2016, J Inherited Metabolic Disease). No defensible one-compartment curve; class none.",
+      "secondary_citations": [
+        "pubmed:6809468 — Vilstrup et al. 1982, European Journal of Clinical Investigation",
+        "pubmed:27577098 — Jontez et al. 2016, Journal of Inherited Metabolic Disease"
+      ],
+      "params_note": ""
+    },
+    {
+      "name": "Melatonin",
+      "class": "oral_absorption",
+      "verdict": "parameterized",
+      "half_life_hours": 0.75,
+      "half_life_range": [
+        0.47,
+        2.1
+      ],
+      "citation": "pubmed:26008214 — Harpsoe et al. 2015, European Journal of Clinical Pharmacology",
+      "rationale": "~85% first-pass metabolism makes oral bioavailability only ~15% (9-33%), so post-dose plasma levels are dominated by an absorption/first-pass phase (Tmax ~50 min) ahead of a short first-order elimination (T1/2 45 min; 28-126 min across studies); an oral_absorption model is required.",
+      "secondary_citations": [
+        "label: EMA Circadin (prolonged-release melatonin 2 mg) SmPC"
+      ],
+      "params_note": "oral Tmax 50 min (range 15-210 min); T1/2 45 min after oral and iv; oral bioavailability 15% (9-33%) (pubmed:26008214 — Harpsoe et al. 2015, Eur J Clin Pharmacol); label: complete absorption, first-pass ~85%, F ~15%, Tmax 0.75 h fasted (label: EMA Circadin SmPC)"
+    },
+    {
+      "name": "Cyclazodone",
+      "class": "none",
+      "verdict": "none",
+      "half_life_hours": null,
+      "half_life_range": null,
+      "citation": "",
+      "rationale": "No human PK evidence exists at any level: PubMed (eutils, 2026-11-17) returns 0 records for 'cyclazodine' with wildcard (no title/abstract mention anywhere in MEDLINE), ClinicalTrials.gov totalCount=0, and PubChem PUG REST has no compound record for the name (HTTP 404). With no bioanalytical or clinical study indexed, no half-life or compartment model can be constructed; honest verdict is none.",
+      "secondary_citations": [],
+      "params_note": ""
+    },
+    {
+      "name": "N-Methyl-Cyclazodone",
+      "class": "none",
+      "verdict": "none",
+      "half_life_hours": null,
+      "half_life_range": null,
+      "citation": "",
+      "rationale": "Worse-evidenced N-methyl analogue of cyclazodone: PubMed wildcard search returns 0 records (2026-11-17) and ClinicalTrials.gov totalCount=0. No PK reported in any species, no human dosing, no indexed preclinical literature from which an allometric estimate could even be derived; class none.",
+      "secondary_citations": [],
+      "params_note": ""
+    },
+    {
+      "name": "9-Me-BC",
+      "class": "none",
+      "verdict": "none",
+      "half_life_hours": null,
+      "half_life_range": null,
+      "citation": "",
+      "rationale": "All indexed literature is preclinical: mesencephalic cell-culture and rodent dopaminergic neuroprotection/differentiation work (pubmed:21651332 — Polanski et al. 2011, Expert Rev Neurother) and astrocyte MAO-inhibition/MPP+ models (pubmed:32285253 — Keller et al. 2020, J Neural Transm); PubMed queries '9-methyl-beta-carboline' and '9-Me-BC' (2026-11-17) return no human study, and ClinicalTrials.gov totalCount=0. No human PK studies found and no published animal PK disposition data to extrapolate from; class none.",
+      "secondary_citations": [
+        "pubmed:21651332 — Polanski et al. 2011, Expert Review of Neurotherapeutics",
+        "pubmed:32285253 — Keller et al. 2020, Journal of Neural Transmission"
+      ],
+      "params_note": ""
+    }
+  ]
+}

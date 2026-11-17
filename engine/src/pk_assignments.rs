@@ -24,96 +24,179 @@ use crate::models::ModelClass;
 use crate::pk_params::SubstanceModel;
 
 /// (exact catalog name, class, rationale — `""` allowed only for `decay`)
+/// Researched PK integration (spec 003 Phase 6, pk_research/*.json 2026-11-17):
+/// classes and rationales derive from the cited parameter tables; substances
+/// whose verdict was `none` carry the documented non-verdict rationale.
 const SEED_MODEL_CLASSES: &[(&str, ModelClass, &str)] = &[
-    // ── Vitamins & minerals ──────────────────────────────────────────────
     (
         "Vitamin D3",
         ModelClass::Accumulation,
-        "Fat-soluble; sequestered in adipose and re-released — serum 25(OH)D reaches steady state over ~6-8 weeks of daily dosing, so a 24h plasma figure massively understates persistence.",
+        "D3 acts through the accumulating 25-hydroxylated pool: large distribution volume with DBP sequestration means body status, not a plasma decay curve, tracks effect; the 15-day 25(OH)D3 half-life reflects pool turnover over weeks.",
     ),
     (
         "Vitamin K2",
         ModelClass::Accumulation,
-        "Fat-soluble menaquinone; hepatic and extrahepatic tissue storage with slow clearance (days), steady state over weeks.",
+        "MK-7 is the canonical accumulating vitamin K: multi-day plasma retention plus documented 7-8-fold serum accumulation on chronic dosing; effect (osteocalcin/MGP carboxylation) is sustained over days rather than tracking a decay limb.",
     ),
     ("B-Complex", ModelClass::Decay, ""),
-    ("Magnesium Glycinate", ModelClass::Decay, ""),
-    ("Zinc", ModelClass::Decay, ""),
+    (
+        "Magnesium Glycinate",
+        ModelClass::Plateau,
+        "Serum Mg is homeostatically clamped, not first-order: regulated intestinal absorption (TRPM6/7), renal reabsorption with a tubular threshold, and bone buffering hold blood Mg in a narrow flat band across doses (pubmed:25540137 — de Baaij 2015, Physiol Rev). After single-dose oral Mg salts plasma shows a blunted, prolonged elevation without a clean terminal log-linear phase over the observation window (pubmed:11550076 — Ranade 2001, Am J Ther). Modeled as a plateau; the reported half-life is an elimination-side proxy from the only rigorous popPK available (IV MgSO4, one-compartment, CL 1.38 L/h, V 13.3 L, t1/2 = ln2*V/CL = 6.7 h; pubmed:32642964 — da Costa 2020, Drugs R D).",
+    ),
+    (
+        "Zinc",
+        ModelClass::Accumulation,
+        "Zinc does not follow a single-compartment plasma decay: absorption (~20 +/- 5% of a meal dose) and whole-body retention are homeostatically regulated and tracer kinetics require at least two compartments (pubmed:10612077 — Watson 1999, J Trace Elem Med Biol). The dosing-relevant curve is slow tissue loading to steady state over months, whose rate constant is the whole-body 65Zn turnover half-life: 187 +/- 75 days = 4488 h in healthy controls (pubmed:3565500 — Muirhead 1986, Am J Nephrol). Hours-scale plasma falls reflect redistribution between compartments, not elimination.",
+    ),
     ("Boron", ModelClass::Decay, ""),
-    // ── Amino acids & derivatives ────────────────────────────────────────
-    ("L-Theanine", ModelClass::Decay, ""),
-    ("L-Tyrosine", ModelClass::Decay, ""),
-    // ── Lipids & membrane actives ────────────────────────────────────────
     (
         "Omega-3 Fish Oil",
         ModelClass::Accumulation,
-        "EPA/DHA incorporate into membrane phospholipids over weeks (RBC omega-3 index turnover ~120 days); the effect curve tracks tissue enrichment, not the plasma clearance of a single dose.",
+        "Effect (membrane enrichment / omega-3 index) tracks tissue incorporation and phospholipid turnover over days-to-weeks, not the ~2-day plasma decay limb; plasma clearance is fast relative to the slow loading of cell membranes, so model as accumulation with plasma half-lives only as the distribution limb.",
     ),
-    ("Phosphatidylserine", ModelClass::Decay, ""),
+    (
+        "L-Theanine",
+        ModelClass::OralAbsorption,
+        "Rapid absorption to a clear peak (Tmax 0.8 h after 100 mg; 45 min after 300 mg) followed by first-order terminal decline; two human studies report t1/2 1.2 h and 1.8 h, so the absorption phase must be modeled explicitly.",
+    ),
+    (
+        "Lion's Mane",
+        ModelClass::None,
+        "No published human pharmacokinetics (absorption, distribution, or elimination) for the hericenones/erinacines or for any Hericium erinaceus extract; human evidence consists of small clinical-endpoint trials while disposition data remain preclinical (pubmed:40959699 — Menon 2025, Front Nutr). There is no curve to model.",
+    ),
+    (
+        "Phosphatidylserine",
+        ModelClass::None,
+        "Documented non-verdict for a one-compartment curve: dietary/supplemental PS is hydrolyzed in the gut to lysophospholipid/base before absorption and reassembled into host phospholipid pools; there is no established, citable human plasma elimination half-life for oral PS, and circulating PS effect is structural/membrane-based rather than a plasma concentration curve. Parameterizing 'PS plasma t1/2' would be invented.",
+    ),
+    (
+        "L-Tyrosine",
+        ModelClass::None,
+        "Endogenous amino acid; PubMed/PMC/ClinicalTrials.gov searches on 2026-11-17 (terms: 'tyrosine pharmacokinetics oral plasma humans', 'plasma tyrosine AND kinetics', author-scoped Lieberman/Nedeau queries) found no human study deriving an elimination half-life or one-compartment fit after a pharmacological oral dose. Plasma disappearance after an oral load reflects hepatic transamination, protein-pool incorporation and saturable renal handling, not one clean exponential: the human amino-acid infusion study derives per-amino-acid clearances (2.5-28 mL/s) rather than a reproducible single decay constant (pubmed:6809468 — Vilstrup et al. 1982, Eur J Clin Invest), and loading studies use downstream metabolites as absorption proxies with no tyrosine kinetics (pubmed:27577098 — Jontez et al. 2016, J Inherited Metabolic Disease). No defensible one-compartment curve; class none.",
+    ),
+    ("Piracetam", ModelClass::Decay, ""),
+    (
+        "Ashwagandha",
+        ModelClass::OralAbsorption,
+        "Healthy-human crossover PK of total withanolides: Tmax 1.5–2.3 h with distinct absorption and elimination phases. Half-life is strongly extract-dependent (t½ 9.756±0.517 h for WS-35 vs 1.882±0.03 h for WS-2.5, same study); point value uses WS-35 (high-glycoside, better-exposed formulation), range spans both extracts.",
+    ),
+    (
+        "Rhodiola Rosea",
+        ModelClass::None,
+        "No elimination half-life for salidroside or rosavins has been published in indexed human literature; PubMed-indexed human-side data are preclinical (rat) disposition or a first-in-human study of a synthetic salidroside prodrug candidate (SHPL-49) whose elimination parameters do not describe salidroside from standardized Rhodiola extract (pubmed:39033613 — Li 2024, J Pharm Biomed Anal). No defensible one-compartment curve for the supplement.",
+    ),
+    (
+        "Cordyceps",
+        ModelClass::None,
+        "Cordycepin (3'-deoxyadenosine) is destroyed by circulating adenosine deaminase, giving poor bioavailability and no usable oral human PK profile; its clinical development was only revived as the metabolically stabilized proTide prodrug NUC-7738 (pubmed:34497073 — Schwenzer 2021, Clin Cancer Res). No citable human half-life exists for cordycepin itself, and hot-water/extract preparations add unquantified mixtures.",
+    ),
+    (
+        "Reishi Mushroom",
+        ModelClass::OralAbsorption,
+        "The only indexed human PK study: Ling Zhi (Reishi) preparation in healthy adults (n=12) with ganoderic acid A as marker — rapid absorption (Tmax 0.54±0.10 h) and very short elimination (t½ 0.66±0.33 h), ng/mL-scale exposure. Range left null: single study, only within-group SD reported. Extract standardization varies, so treat as marker-compound kinetics.",
+    ),
+    (
+        "Umcka (Pelargonium)",
+        ModelClass::None,
+        "No human PK parameter set is established for EPs 7630 (Umckaloabo): the active constituents are not fully identified and plasma levels of extract markers are not measurable at therapeutic doses. The only indexed human quantitation is of marker compounds given in an ultra-low-exposure combination product, where epicatechin (the PSE marker) showed erratic trace kinetics (t½ 2.10 h fasting / 9.33 h fed, ng/L Cmax) that do not characterize the extract (pubmed:35419311 — Park 2022, Transl Clin Pharmacol).",
+    ),
+    (
+        "Curcumin",
+        ModelClass::OralAbsorption,
+        "Curve is dominated by slow, poor absorption plus glucuronidation/enterohepatic recycling: Cmax at 1-2 h (Cheng) yet terminal slope of ~25 h is flip-flop-like absorption-controlled decline, not a clean one-compartment elimination; absorption+elimination model required.",
+    ),
+    (
+        "Quercetin",
+        ModelClass::OralAbsorption,
+        "Plasma contains virtually only conjugated metabolites, and the oral terminal half-life (~11 h) far exceeds the IV half-life (0.7-2.4 h) — classic absorption/conjugation-controlled (flip-flop-prone) kinetics; absorption+elimination two-limb model is mandatory.",
+    ),
+    (
+        "Apigenin",
+        ModelClass::OralAbsorption,
+        "No primary human elimination study; modeled as a short half-life absorption-limited flavone from review-compiled data, with enteroheptic biliary recycling prolonging mucosal exposure; treat the half-life as provisional and rodent-derived.",
+    ),
+    (
+        "Resveratrol",
+        ModelClass::OralAbsorption,
+        ">=70% absorbed but almost entirely sulfate/glucuronide-hydrogenated metabolites in plasma — the measured 9.2 h limb is metabolite disposition after very rapid intestinal first-pass, so a plain one-compartment decay on parent drug is invalid; absorption+metabolite model needed.",
+    ),
+    (
+        "Berberine",
+        ModelClass::OralAbsorption,
+        "Indexed human oral PK with clear absorption phase (Tmax ~1–2 h) and terminal elimination t½ 5.00±2.17 h (fed) / 5.77 h (fasting); apparent CL/F ~1070–1460 L/h and ng/L–low-µg/L exposures reflect extensive first-pass metabolism and very low systemic availability. Caveat: values come from a berberine-containing combination product (UI026) in healthy subjects — the only citable human parameter set found.",
+    ),
+    (
+        "NAC (N-Acetyl Cysteine)",
+        ModelClass::OralAbsorption,
+        "Oral absorption with extensive first-pass metabolism (intact NAC systemic availability low; decline poly-exponential), so the full curve needs absorption + elimination phases. Reported human terminal half-lives vary by study/phase: oral terminal t½ 6.25 h; a separate study reports late-elimination phase 2.27 h; IV terminal 5.6 h. Range = 2.27–6.25 h.",
+    ),
     (
         "CoQ10",
         ModelClass::Accumulation,
-        "Plasma half-life ~24-33h but tissue/mitochondrial saturation builds over 2-4 weeks of daily dosing; single-dose decay understates the steady-state rise.",
+        "Lipoprotein/liver handling and lipophilic tissue loading (biphasic curve, 24-h second peak) mean plasma level is a redistribution proxy while mitochondrial pools load over weeks of dosing — tissue-loading model with steady state over days-weeks, plasma t1/2 noted in params.",
     ),
-    // ── Creatine ─────────────────────────────────────────────────────────
     (
         "Creatine Monohydrate",
         ModelClass::Plateau,
-        " Muscle creatine pool saturates via the SAT1 transporter (total pool ~160 mmol/kg dry mass); above saturation, additional dose is oxidised to creatinine and excreted — more dose ≠ more active.",
+        "Muscle creatine is a saturable pool with a hard ceiling of about 160 mmol/kg dry muscle mass that a normal diet fills only to 60-80%, so repeated dosing drives the pool to the ceiling and no further; the dose-response tracks pool enrichment, not plasma concentration (pubmed:28615996 — Kreider 2017, J Int Soc Sports Nutr). Plasma creatine is cleared rapidly into muscle and urine, so a plasma half-life does not describe the effect time course; the value given is whole-pool turnover: 1-2% of intramuscular creatine degrades to creatinine and is excreted per day, t1/2 = ln2/(0.01-0.02/day) = 34.7-69.3 days, midpoint ~46.2 days = 1109 h (pubmed:28615996 — Kreider 2017, J Int Soc Sports Nutr).",
     ),
-    // ── Botanicals & adaptogens (linear kinetics) ────────────────────────
-    ("Lion's Mane", ModelClass::Decay, ""),
-    ("Ashwagandha", ModelClass::Decay, ""),
-    ("Rhodiola Rosea", ModelClass::Decay, ""),
-    ("Cordyceps", ModelClass::Decay, ""),
-    ("Reishi Mushroom", ModelClass::Decay, ""),
-    ("Umcka (Pelargonium)", ModelClass::Decay, ""),
-    ("Curcumin", ModelClass::Decay, ""),
-    ("Quercetin", ModelClass::Decay, ""),
-    ("Apigenin", ModelClass::Decay, ""),
-    ("Resveratrol", ModelClass::Decay, ""),
-    ("Berberine", ModelClass::Decay, ""),
-    // ── Antioxidants / thiol precursors ──────────────────────────────────
-    ("NAC (N-Acetyl Cysteine)", ModelClass::Decay, ""),
-    // ── Proteins ─────────────────────────────────────────────────────────
-    ("Collagen Peptides", ModelClass::Decay, ""),
-    // ── Live organisms ───────────────────────────────────────────────────
+    (
+        "Collagen Peptides",
+        ModelClass::None,
+        "Collagen peptides are a digestible mixture of gelatin-derived peptides, not a single drug-like analyte. Only specific food-derived di-/tri-peptides (Pro-Hyp, Gly-Pro-Hyp) transiently appear in plasma and are excreted unchanged in urine - a transient absorbed peptide flux rather than a persistent compartment (pubmed:26934933 — Yamamoto 2016, Biol Pharm Bull; pubmed:16076145 — Iwai 2005, J Agric Food Chem). The bulk of the dose is hydrolyzed to ordinary amino acids whose kinetics belong to the general amino-acid pool, so no defensible one-compartment curve exists for collagen peptides as such.",
+    ),
     (
         "Probiotic",
         ModelClass::None,
-        "Not a chemical dose curve: effect comes from transient colonisation and immune signalling, not a circulating compound. A one-compartment model would be fake precision.",
+        "A live organism, not a molecule: probiotic persistence is decided by the host's baseline microbiome and immune status (not a rate constant), and detection tracks transient gut passage/turnover over days rather than exponential elimination (pubmed:30193112 — Zmora 2018, Cell). Any single half-life would be strain-, product-, host-, and matrix-dependent to the point of being meaningless; survival through gastric acid/bile and strain-specific growth add non-pharmacokinetic nonlinearities.",
     ),
-    // ── Hormones & neuropeptides ─────────────────────────────────────────
-    ("Melatonin", ModelClass::Decay, ""),
-    ("Estradiol Enanthate", ModelClass::Decay, ""), // depot release-rate-limited but approximately first-order over the ~8d window; decay is the honest v1 model
-    // ── Stimulants ───────────────────────────────────────────────────────
-    ("Caffeine", ModelClass::Decay, ""),
-    // ── Designer / research compounds ────────────────────────────────────
-    ("Cyclazodone", ModelClass::Decay, ""),
-    ("N-Methyl-Cyclazodone", ModelClass::Decay, ""),
     (
-        "9-Me-BC",
-        ModelClass::None,
-        "No reliable half-life in the catalog ('unknown') and thin human PK data — refuse to model rather than invent a curve.",
+        "Melatonin",
+        ModelClass::OralAbsorption,
+        "~85% first-pass metabolism makes oral bioavailability only ~15% (9-33%), so post-dose plasma levels are dominated by an absorption/first-pass phase (Tmax ~50 min) ahead of a short first-order elimination (T1/2 45 min; 28-126 min across studies); an oral_absorption model is required.",
     ),
-    // ── Cannabinoids ─────────────────────────────────────────────────────
+    (
+        "Caffeine",
+        ModelClass::OralAbsorption,
+        "Oral dose gives a distinct absorption peak (Tmax ~30 min, Cmax ~19 mg/L after 5 mg/kg) before first-order CYP1A2-mediated elimination, so absorption + elimination phases are both needed; single-half-life decay alone would misplace the early curve.",
+    ),
+    (
+        "Cyclazodone",
+        ModelClass::None,
+        "No human PK evidence exists at any level: PubMed (eutils, 2026-11-17) returns 0 records for 'cyclazodine' with wildcard (no title/abstract mention anywhere in MEDLINE), ClinicalTrials.gov totalCount=0, and PubChem PUG REST has no compound record for the name (HTTP 404). With no bioanalytical or clinical study indexed, no half-life or compartment model can be constructed; honest verdict is none.",
+    ),
+    (
+        "N-Methyl-Cyclazodone",
+        ModelClass::None,
+        "Worse-evidenced N-methyl analogue of cyclazodone: PubMed wildcard search returns 0 records (2026-11-17) and ClinicalTrials.gov totalCount=0. No PK reported in any species, no human dosing, no indexed preclinical literature from which an allometric estimate could even be derived; class none.",
+    ),
     (
         "CBD",
         ModelClass::Accumulation,
-        "Highly lipophilic with substantial tissue redistribution; chronic dosing shows multi-day apparent half-life and rising steady-state plasma levels — single-dose decay understates persistence.",
+        "Highly lipophilic with enormous apparent volume of distribution (20,963–42,849 L) and >94% protein binding; plasma concentrations accumulate with repeated dosing and label-reported plasma half-life is 56–61 h after twice-daily dosing for 7 days — tissue loading to steady state over days, not a same-day decay curve. Single-dose half-lives are shorter, but the accumulation profile governs any dosing model.",
     ),
-    // ── Depressants ──────────────────────────────────────────────────────
     (
         "Alcohol",
         ModelClass::None,
-        "Zero-order elimination (~7 g/h, capacity-limited ADH) — a first-order decay curve would be wrong exactly where it matters (the descending limb). Linear-elimination model is a separate Phase 2 decision, not a decay-with-parameters hack.",
+        "Ethanol elimination is capacity-limited, not first-order: ADH is saturated across the social-to-intoxication concentration range, so blood levels fall at an essentially constant amount per time (zero-order / Michaelis-Menten) and an 'elimination half-life' is mathematically undefined and grows as concentration declines (pubmed:12489977 — Norberg 2003, Clin Pharmacokinet; pubmed:20304569 — Jones 2010, Forensic Sci Int). The literature recommends multicompartment Michaelis-Menten models, not a half-life curve.",
     ),
-    // ── Opioid-receptor botanical ────────────────────────────────────────
-    ("Kratom", ModelClass::Decay, ""),
-    // ── Prescription ─────────────────────────────────────────────────────
+    (
+        "Kratom",
+        ModelClass::Accumulation,
+        "Mitragynine (the dominant alkaloid) shows a deep second compartment: first human PK (n=9) gives terminal t½ 23.24±16.07 h with apparent Vd 38.04±24.32 L/kg (two-compartment oral model). Repeated-dose work reports mean half-lives rising to 43.4 h (single) and 67.9 h (multiple doses), with possible enzyme saturation at higher doses — tissue-loading behavior reaching steady state over days of daily use, so modeled as accumulation.",
+    ),
+    (
+        "9-Me-BC",
+        ModelClass::None,
+        "All indexed literature is preclinical: mesencephalic cell-culture and rodent dopaminergic neuroprotection/differentiation work (pubmed:21651332 — Polanski et al. 2011, Expert Rev Neurother) and astrocyte MAO-inhibition/MPP+ models (pubmed:32285253 — Keller et al. 2020, J Neural Transm); PubMed queries '9-methyl-beta-carboline' and '9-Me-BC' (2026-11-17) return no human study, and ClinicalTrials.gov totalCount=0. No human PK studies found and no published animal PK disposition data to extrapolate from; class none.",
+    ),
     ("Memantine", ModelClass::Decay, ""),
-    // ── Nootropics ───────────────────────────────────────────────────────
-    ("Piracetam", ModelClass::Decay, ""),
+    (
+        "Estradiol Enanthate",
+        ModelClass::OralAbsorption,
+        "IM depot ester with flip-flop (absorption-rate-controlled) kinetics in menopausal women after 10 mg i.m.: elimination rate constant K = 0.12445 d⁻¹ → t½(elim) = 5.57 d = 133.7 h, while depot absorption half-life ≈ 0.46 d (Kabs = 1.5050 d⁻¹); serum estradiol stayed elevated through ~day 31. Oral bioavailability is irrelevant — the recorded profile is the injection. Range null: single primary study; model with the two-rate absorption+elimination structure.",
+    ),
 ];
 
 /// Assignment lookup by exact catalog display name.
@@ -142,12 +225,60 @@ pub fn build_models(catalog: &[crate::models::CatalogItem]) -> Vec<SubstanceMode
                 Some(raw) => format!("catalog seed string '{raw}' + T205 assignment table"),
                 None => "catalog item has no half_life string; T205 assignment only".to_string(),
             };
+            // Phase 6 (T251/T256): researched parameters with per-value
+            // citations supersede the seed-string parse. The seed string
+            // stays chained in the provenance so the audit trail shows both
+            // the original catalog origin and the researched source.
+            let researched = crate::pk_parameters::lookup(&item.name);
+            let (half_life_hours, half_life_range, provenance, params) = match researched {
+                Some(p) => {
+                    let mut prov = match (p.half_life_hours, p.half_life_range) {
+                        (Some(_), _) if !p.citation.is_empty() => p.citation.to_string(),
+                        _ => String::new(),
+                    };
+                    if !p.range_citation.is_empty() {
+                        if !prov.is_empty() {
+                            prov.push_str(" | ");
+                        }
+                        prov.push_str(p.range_citation);
+                    }
+                    if !p.params_note.is_empty() {
+                        if !prov.is_empty() {
+                            prov.push_str(" | ");
+                        }
+                        prov.push_str("params: ");
+                        prov.push_str(p.params_note);
+                    }
+                    let params = if p.params_note.is_empty() {
+                        serde_json::Value::Null
+                    } else {
+                        serde_json::json!({ "notes": p.params_note })
+                    };
+                    let provenance = if prov.is_empty() {
+                        provenance
+                    } else {
+                        format!("{prov} (supersedes: {provenance})")
+                    };
+                    (
+                        p.half_life_hours.or(item.half_life_hours),
+                        p.half_life_range.or(item.half_life_range),
+                        provenance,
+                        params,
+                    )
+                }
+                None => (
+                    item.half_life_hours,
+                    item.half_life_range,
+                    provenance,
+                    serde_json::Value::Null,
+                ),
+            };
             SubstanceModel {
                 substance: item.name.clone(),
                 model_class: class,
-                half_life_hours: item.half_life_hours,
-                half_life_range: item.half_life_range,
-                params: serde_json::Value::Null,
+                half_life_hours,
+                half_life_range,
+                params,
                 provenance,
                 catalog_version: item.version,
                 rationale: (!rationale.is_empty()).then(|| rationale.to_string()),
@@ -238,7 +369,7 @@ mod tests {
         );
         assert_eq!(
             assignment_for_name("Caffeine").unwrap().0,
-            ModelClass::Decay
+            ModelClass::OralAbsorption
         );
     }
 

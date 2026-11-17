@@ -78,7 +78,9 @@ async fn substance_models_round_trip_and_are_idempotent(pool: DbPool) -> anyhow:
         }
     }
     let find = |name: &str| models.iter().find(|m| m.substance == name).unwrap();
-    assert_eq!(find("Caffeine").model_class, ModelClass::Decay);
+    // Caffeine is modelled with an absorption phase (researched Phase 6:
+    // oral_absorption, t½ 5 h [1.5–9.5], pubmed:12827215).
+    assert_eq!(find("Caffeine").model_class, ModelClass::OralAbsorption);
     assert_eq!(find("Alcohol").model_class, ModelClass::None);
     // Every assignment class is exercised by the seed catalog.
     let classes: Vec<ModelClass> = models.iter().map(|m| m.model_class).collect();

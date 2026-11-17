@@ -521,6 +521,15 @@ pub fn seed_catalog() -> Vec<CatalogItem> {
     ]
 }
 
+/// Catalog seed release version (T257, FR-006).
+///
+/// Bump this in the SAME commit that changes any seed item's fields —
+/// including half-life strings and `pk_parameters::SEED_PK_PARAMETERS`
+/// rows. Stored per row in `SubstanceModel::catalog_version` and surfaced
+/// in every explain/provenance view, so a bump makes stale PK models
+/// detectable downstream instead of silently drifting.
+pub const CATALOG_VERSION: i32 = 2;
+
 fn make_item(
     name: &str,
     category: ItemType,
@@ -547,7 +556,7 @@ fn make_item(
         mechanism_tags: crate::mechanisms::tag_for_name(name),
         is_custom: false,
         source: Some("biohack CLI seed".to_string()),
-        version: 1,
+        version: CATALOG_VERSION,
     }
 }
 

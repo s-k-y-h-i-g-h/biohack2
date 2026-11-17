@@ -1,0 +1,131 @@
+{
+ "substances": [
+  {
+   "name": "Vitamin D3",
+   "class": "accumulation",
+   "verdict": "parameterized",
+   "half_life_hours": 362.4,
+   "half_life_range": [
+    307.2,
+    374.4
+   ],
+   "citation": "pubmed:24885631 \u2014 Jones et al. 2014, J Clin Endocrinol Metab",
+   "secondary_citations": [
+    "pubmed:24885631 \u2014 Jones et al. 2014, J Clin Endocrinol Metab (25(OH)D2 half-life 13.9 d; DBP-genotype dependence)"
+   ],
+   "params_note": "Half-life is of circulating 25(OH)D3, not parent cholecalciferol: 15.1 +/- 3.1 d overall, 14.7 d Gambia vs 15.6 d UK; 25(OH)D2 13.9 +/- 2.6 d; half-life scales with vitamin-D-binding-protein concentration (pubmed:24885631 \u2014 Jones et al. 2014, J Clin Endocrinol Metab). Steady state of the 25(OH)D pool takes ~2-3 months of daily dosing.",
+   "rationale": "D3 acts through the accumulating 25-hydroxylated pool: large distribution volume with DBP sequestration means body status, not a plasma decay curve, tracks effect; the 15-day 25(OH)D3 half-life reflects pool turnover over weeks."
+  },
+  {
+   "name": "Vitamin K2 (MK-7)",
+   "class": "accumulation",
+   "verdict": "parameterized",
+   "half_life_hours": 72.0,
+   "half_life_range": [
+    72.0,
+    144.0
+   ],
+   "citation": "pubmed:32575901 \u2014 Akbulut et al. 2020, Nutrients",
+   "secondary_citations": [
+    "pubmed:17158229 \u2014 Schurgers et al. 2007, Blood (MK-7 accumulates 7-8-fold vs MK-4 during prolonged intake)"
+   ],
+   "params_note": "MK-7 circulates up to 144 h; 10-fold higher postprandial serum levels than vitamin K1, absorbed within 4 h (pubmed:32575901 \u2014 Akbulut et al. 2020, Nutrients); prolonged MK-7 intake drives serum accumulation to 7-8x baseline with much more stable levels than MK-4 (pubmed:17158229 \u2014 Schurgers et al. 2007, Blood).",
+   "rationale": "MK-7 is the canonical accumulating vitamin K: multi-day plasma retention plus documented 7-8-fold serum accumulation on chronic dosing; effect (osteocalcin/MGP carboxylation) is sustained over days rather than tracking a decay limb."
+  },
+  {
+   "name": "Omega-3 fish oil (EPA/DHA)",
+   "class": "accumulation",
+   "verdict": "parameterized",
+   "half_life_hours": 45.0,
+   "half_life_range": [
+    45.0,
+    66.0
+   ],
+   "citation": "pubmed:39299684 \u2014 Schmieta et al. 2025, Lipids",
+   "secondary_citations": [
+    "pubmed:41956323 \u2014 Symington et al. 2026, Am J Clin Nutr (whole-body n-3 PUFA turnover half-lives: EPA 3.4 +/- 2.7 d, n-3 DPA 6.4 +/- 5.3 d, DHA 6.3 +/- 8.9 d)"
+   ],
+   "params_note": "Point/range are single-dose plasma half-lives of the acid forms: EPA 45 +/- 8 h, DHA 66 +/- 12 h after 2.2-2.3 g ethyl esters (pubmed:39299684 \u2014 Schmieta et al. 2025, Lipids). Tissue (delta-13C traced) half-life is days, not hours: EPA 3.4 d, DHA 6.3 d (pubmed:41956323 \u2014 Symington et al. 2026, Am J Clin Nutr).",
+   "rationale": "Effect (membrane enrichment / omega-3 index) tracks tissue incorporation and phospholipid turnover over days-to-weeks, not the ~2-day plasma decay limb; plasma clearance is fast relative to the slow loading of cell membranes, so model as accumulation with plasma half-lives only as the distribution limb."
+  },
+  {
+   "name": "CoQ10 (ubiquinone-10)",
+   "class": "accumulation",
+   "verdict": "parameterized",
+   "half_life_hours": 33.2,
+   "half_life_range": null,
+   "citation": "pubmed:3781673 \u2014 Tomono et al. 1986, Int J Clin Pharmacol Ther Toxicol",
+   "secondary_citations": [
+    "pubmed:16551570 \u2014 Bhagavan & Chopra 2006, Free Radic Res (Tmax ~6 h, elimination half-life about 33 h; tissue/mitochondrial uptake)"
+   ],
+   "params_note": "Terminal half-life 33.19 +/- 5.32 h after 100 mg d5-CoQ10 (n=16), Tmax 6.5 h, second plasma peak at 24 h from liver->VLDL redistribution (pubmed:3781673 \u2014 Tomono et al. 1986, Int J Clin Pharmacol Ther Toxicol); plasma reference interval 0.40-1.91 umol/L and tissue uptake into heart/brain mitochondria with high dosing (pubmed:16551570 \u2014 Bhagavan & Chopra 2006, Free Radic Res).",
+   "rationale": "Lipoprotein/liver handling and lipophilic tissue loading (biphasic curve, 24-h second peak) mean plasma level is a redistribution proxy while mitochondrial pools load over weeks of dosing \u2014 tissue-loading model with steady state over days-weeks, plasma t1/2 noted in params."
+  },
+  {
+   "name": "Curcumin",
+   "class": "oral_absorption",
+   "verdict": "parameterized",
+   "half_life_hours": 24.92,
+   "half_life_range": [
+    6.74,
+    24.92
+   ],
+   "citation": "pubmed:42225688 \u2014 Kim et al. 2026, Sci Rep",
+   "secondary_citations": [
+    "pubmed:11712783 \u2014 Cheng et al. 2001, Anticancer Res (serum peak 1-2 h, decline within 12 h after dosing up to 8 g/day)",
+    "pubmed:9619120 \u2014 Shoba et al. 1998, Planta Med (piperine raises curcumin bioavailability 2000%; shortens apparent half-life)"
+   ],
+   "params_note": "Terminal t1/2 24.92 h for free curcumin vs 6.74 h for a nano-liposomal formulation; the study itself cautions the long free-curcumin t1/2 is apparent/absorption-linked (pubmed:42225688 \u2014 Kim et al. 2026, Sci Rep). Plain curcumin is often undetectable in serum at <=2 g (pubmed:9619120 \u2014 Shoba et al. 1998, Planta Med).",
+   "rationale": "Curve is dominated by slow, poor absorption plus glucuronidation/enterohepatic recycling: Cmax at 1-2 h (Cheng) yet terminal slope of ~25 h is flip-flop-like absorption-controlled decline, not a clean one-compartment elimination; absorption+elimination model required."
+  },
+  {
+   "name": "Quercetin",
+   "class": "oral_absorption",
+   "verdict": "parameterized",
+   "half_life_hours": 11.0,
+   "half_life_range": null,
+   "citation": "pubmed:11361045 \u2014 Graefe et al. 2001, J Clin Pharmacol",
+   "secondary_citations": [
+    "pubmed:10363620 \u2014 Graefe et al. 1999, Int J Clin Pharmacol Ther (IV elimination half-lives 2.4 h and 0.7 h; oral absorption 0->50% of dose)"
+   ],
+   "params_note": "Terminal elimination half-life ~11 h for all oral treatments (quercetin measured as plasma glucuronides); Tmax 0.7 h for quercetin-4'-glucoside/onion vs 4.3-7.0 h for rutin/buckwheat \u2014 sugar moiety controls rate (pubmed:11361045 \u2014 Graefe et al. 2001, J Clin Pharmacol). IV t1/2 only 0.7-2.4 h (pubmed:10363620 \u2014 Graefe et al. 1999, Int J Clin Pharmacol Ther).",
+   "rationale": "Plasma contains virtually only conjugated metabolites, and the oral terminal half-life (~11 h) far exceeds the IV half-life (0.7-2.4 h) \u2014 classic absorption/conjugation-controlled (flip-flop-prone) kinetics; absorption+elimination two-limb model is mandatory."
+  },
+  {
+   "name": "Apigenin",
+   "class": "oral_absorption",
+   "verdict": "parameterized",
+   "half_life_hours": 2.52,
+   "half_life_range": [
+    1.8,
+    4.2
+   ],
+   "citation": "pubmed:34084146 \u2014 DeRango-Adem & Blay 2021, Front Pharmacol",
+   "secondary_citations": [],
+   "params_note": "Cited oral T1/2 average 2.52 +/- 0.56 h, reported range 1.8-4.2 h, Tmax 0.5-2.5 h, oral bioavailability ~30%; note the half-life estimates in that review derive from rodent PK studies (Wan 2007; Chen 2003) \u2014 human half-life not directly established (pubmed:34084146 \u2014 DeRango-Adem & Blay 2021, Front Pharmacol).",
+   "rationale": "No primary human elimination study; modeled as a short half-life absorption-limited flavone from review-compiled data, with enteroheptic biliary recycling prolonging mucosal exposure; treat the half-life as provisional and rodent-derived."
+  },
+  {
+   "name": "Resveratrol",
+   "class": "oral_absorption",
+   "verdict": "parameterized",
+   "half_life_hours": 9.2,
+   "half_life_range": null,
+   "citation": "pubmed:15333514 \u2014 Walle et al. 2004, Drug Metab Dispos",
+   "secondary_citations": [],
+   "params_note": "Plasma half-life 9.2 +/- 0.6 h refers to total radioactivity (resveratrol + metabolites) after a 25-mg oral 14C dose; parent resveratrol stayed <5 ng/mL; absorption >=70% with peak total levels 491 +/- 90 ng/mL (pubmed:15333514 \u2014 Walle et al. 2004, Drug Metab Dispos).",
+   "rationale": ">=70% absorbed but almost entirely sulfate/glucuronide-hydrogenated metabolites in plasma \u2014 the measured 9.2 h limb is metabolite disposition after very rapid intestinal first-pass, so a plain one-compartment decay on parent drug is invalid; absorption+metabolite model needed."
+  },
+  {
+   "name": "Phosphatidylserine",
+   "class": "none",
+   "verdict": "none",
+   "half_life_hours": null,
+   "half_life_range": null,
+   "citation": "",
+   "secondary_citations": [],
+   "params_note": "",
+   "rationale": "Documented non-verdict for a one-compartment curve: dietary/supplemental PS is hydrolyzed in the gut to lysophospholipid/base before absorption and reassembled into host phospholipid pools; there is no established, citable human plasma elimination half-life for oral PS, and circulating PS effect is structural/membrane-based rather than a plasma concentration curve. Parameterizing 'PS plasma t1/2' would be invented."
+  }
+ ]
+}
