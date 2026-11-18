@@ -109,7 +109,7 @@ const SEED_MODEL_CLASSES: &[(&str, ModelClass, &str)] = &[
     (
         "Quercetin",
         ModelClass::OralAbsorption,
-        "Plasma contains virtually only conjugated metabolites, and the oral terminal half-life (~11 h) far exceeds the IV half-life (0.7-2.4 h) — classic absorption/conjugation-controlled (flip-flop-prone) kinetics; absorption+elimination two-limb model is mandatory.",
+        "Plasma contains virtually only conjugated metabolites, and the oral terminal half-life (~11 h) far exceeds the IV half-life (0.7-2.4 h) — classic absorption/conjugation-controlled (flip-flop-prone) kinetics. Verified primary absorption data exists (pubmed:11151743 — Erlund 2000, n=16 crossover, aglycone Tmax 1.9/2.7/4.8 h at 8/20/50 mg) but no Bateman entry is derivable: at the highest aglycone dose ka/ke collapses to 1.11 (pubmed:18241083 — Moon 2008 terminal t1/2 3.5 h), and plasma curves show enterohepatic re-entry peaks a one-compartment kernel cannot represent. Refuses until the model-class decision in #185 lands.",
     ),
     (
         "Apigenin",
