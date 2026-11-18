@@ -116,6 +116,26 @@ pub const RESEARCH: &[AbsorptionResearch] = &[
         absorption_half_life_hours: 0.5072,
         provenance: "derived: one-compartment Bateman tmax=ln(ka/ke)/(ka-ke) solved at median Tmax 2 h (range 1-3.5; pubmed:37453798 review, PMC10376274 full text, Cetylev n=29 label study) with ke from engine T1/2 6.25 h (Holdiness 1991); band 0.19-1.18 h",
     },
+    AbsorptionResearch {
+        substance: "L-Theanine",
+        // Primary-source abstract verified (pubmed:23096008 — Scheid
+        // et al. 2012, J Nutr; the paper itself is paywalled but the
+        // abstract states the numbers verbatim): randomized crossover,
+        // 100 mg capsule, n=12 — plasma Cmax at 0.8 h (24.3 ± 5.7
+        // umol/L). Terminal t1/2 1.2 h is the engine's own value
+        // (quoted from this study by the open Yamaura 2026 review),
+        // so both limbs trace to the same ingestion event.
+        //     ke = ln2/1.2 = 0.5776/h, ka = 2.311/h
+        //     t½,abs = 0.3000 h   (ka/ke = 4.0, moderate separation)
+        // Second cited data point (300 mg: Tmax 45 min, t1/2 1.8 h,
+        // Yamaura 2026) derives 0.216 h -> band 0.22-0.30 h.
+        // Caveats: terminal t1/2 reaches us second-hand (primary
+        // paywalled, quoted by the citing review the engine already
+        // trusts); abstract-level Tmax point estimate, sampling grid
+        // not visible; 100 mg matches common supplement strength.
+        absorption_half_life_hours: 0.3000,
+        provenance: "derived: one-compartment Bateman tmax=ln(ka/ke)/(ka-ke) solved at Cmax time 0.8 h, 100 mg capsule (pubmed:23096008 — Scheid 2012, J Nutr, abstract-verified) with ke from engine T1/2 1.2 h (same study, quoted by open pubmed:41845544); band 0.22-0.30 h via 300 mg data point",
+    },
 ];
 
 pub fn lookup(name: &str) -> Option<&'static AbsorptionResearch> {
@@ -151,6 +171,7 @@ mod tests {
         assert!(lookup("berberine").is_some());
         assert!(lookup("reishi mushroom").is_some());
         assert!(lookup("nac (n-acetyl cysteine)").is_some());
+        assert!(lookup("l-theanine").is_some());
         assert!(lookup("9-Me-BC").is_none()); // until researched
     }
 
@@ -215,6 +236,13 @@ mod tests {
             (nac.absorption_half_life_hours - nac_solved).abs() < 0.005,
             "nac table says {} but cited inputs derive {nac_solved:.4}",
             nac.absorption_half_life_hours
+        );
+        let the = lookup("L-Theanine").unwrap();
+        let the_solved = solve_bateman_t_half_abs(ln2 / 1.2, 0.8);
+        assert!(
+            (the.absorption_half_life_hours - the_solved).abs() < 0.005,
+            "theanine table says {} but cited inputs derive {the_solved:.4}",
+            the.absorption_half_life_hours
         );
     }
 
@@ -367,6 +395,37 @@ mod tests {
         assert!(
             (1.91..=2.09).contains(&peak_h),
             "peak at t={peak_h:.3} h, label Tmax was 2 h"
+        );
+    }
+
+    #[test]
+    fn theanine_curve_peaks_at_measured_cmax_time() {
+        // Scheid: plasma Cmax at 0.8 h after a 100 mg capsule.
+        // Bateman with ka 2.311 + ke 0.578 must peak there.
+        let items = seed_catalog();
+        let models = build_models(&items);
+        let r = models
+            .iter()
+            .find(|m| m.substance == "L-Theanine")
+            .expect("theanine model built");
+        let d = dose("L-Theanine", 100.0);
+        let start = d.timestamp;
+        let series = sample_series(
+            r,
+            &[d],
+            start,
+            start + chrono::Duration::hours(8),
+            1.0 / 12.0,
+        )
+        .expect("theanine must simulate now that an absorption param exists");
+        let peak = series
+            .iter()
+            .max_by(|a, b| a.expected.total_cmp(&b.expected))
+            .unwrap();
+        let peak_h = (peak.t - start).num_seconds() as f64 / 3600.0;
+        assert!(
+            (0.72..=0.88).contains(&peak_h),
+            "peak at t={peak_h:.3} h, measured Cmax time was 0.8 h"
         );
     }
 }
