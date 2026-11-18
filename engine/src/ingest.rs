@@ -115,12 +115,17 @@ pub fn normalise_timestamp(
         };
         (dt.with_timezone(&Utc), label)
     } else {
-        let naive = NaiveDateTime::parse_from_str(raw, "%Y-%m-%dT%H:%M:%S")
+        let naive = NaiveDateTime::parse_from_str(raw, "%Y-%m-%dT%H:%M:%S%.f")
             .or_else(|_| NaiveDateTime::parse_from_str(raw, "%Y-%m-%dT%H:%M"))
-            .or_else(|_| NaiveDateTime::parse_from_str(raw, "%Y-%m-%d %H:%M:%S"))
+            .or_else(|_| NaiveDateTime::parse_from_str(raw, "%Y-%m-%d %H:%M:%S%.f"))
             .or_else(|_| NaiveDateTime::parse_from_str(raw, "%Y-%m-%d %H:%M"))
             .map_err(|_| TimestampRejection::Unparseable(raw.to_string()))?;
         let label = source_tz.ok_or(TimestampRejection::MissingTimezone)?;
+        // Explicit UTC markers: unambiguous in any feature config, and the
+        // contract records `None` for sources that plainly say UTC/Z.
+        if label.eq_ignore_ascii_case("z") || label.eq_ignore_ascii_case("utc") {
+            return Ok((naive.and_utc(), None));
+        }
         if let Ok(off) = parse_offset(label) {
             let local = off
                 .from_local_datetime(&naive)

@@ -408,6 +408,35 @@ mod tests {
     }
 
     #[test]
+    fn csv_utc_markers_and_fractional_seconds() {
+        // `Z`/`UTC` in the timezone column are explicit-UTC markers (recorded
+        // with offset None); fractional seconds ride on naive timestamps.
+        let csv = "timestamp,metric,value,unit,timezone\n\
+                   2026-11-17T07:30:00,hrv,42,ms,Z\n\
+                   2026-11-17 07:30:00,heart_rate,58,bpm,UTC\n\
+                   2026-11-17T07:30:00.4821,respiratory_rate,14,bpm,Europe/London\n";
+        let out = parse_generic_csv("t.utc", csv, now());
+        assert_eq!(out.readings.len(), 3, "{:?}", out.failures);
+        for r in &out.readings {
+            assert_eq!(
+                r.observed_at
+                    .to_rfc3339_opts(chrono::SecondsFormat::Secs, true),
+                "2026-11-17T07:30:00Z"
+            );
+        }
+        assert_eq!(out.readings[0].source_timezone, None);
+        assert_eq!(out.readings[1].source_timezone, None);
+        assert_eq!(out.readings[2].source_timezone.as_deref(), Some("+00:00"));
+        // Fractional part preserved, not truncated away.
+        assert_eq!(
+            out.readings[2]
+                .observed_at
+                .to_rfc3339_opts(chrono::SecondsFormat::Millis, true),
+            "2026-11-17T07:30:00.482Z"
+        );
+    }
+
+    #[test]
     fn csv_epoch_seconds_and_millis() {
         let csv = "timestamp,metric,value,unit\n\
                    1763466600,heart_rate,61,bpm\n\

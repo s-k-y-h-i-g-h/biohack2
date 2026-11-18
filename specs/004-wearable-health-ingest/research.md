@@ -89,6 +89,11 @@ Smoke-driven decisions:
   `timezone` column carries a name instead of an offset — real exports do
   this. The offset *applied* is recorded per the T306 contract; DST-ambiguous
   instants are rejected and retained, never guessed.
+- **Timestamp grammar**: naive timestamps accept `T`/space separators, optional
+  seconds, and fractional seconds; the `timezone` column accepts fixed offsets
+  (`+00:00`, `+0000`), IANA names, and the explicit-UTC markers `Z`/`UTC`
+  (recorded with offset `None` per the T306 contract).
+
 - **Retained failures** (`ingest_failures`, FR-059) clear in two ways:
   content-keyed rows clear when the same record ingests successfully;
   ordinal-keyed rows (`record-N` from the parser) clear only when a later
