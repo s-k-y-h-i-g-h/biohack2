@@ -21,7 +21,7 @@ jobs:
       - name: Format check
         run: cargo fmt --all --check
       - name: Engine tests
-        run: cargo test -p engine
+        run: cargo test -p engine --features file-ingest
 
   wasm:
     name: WASM parity (spec-003 SC-033 / spec-006 SC-095)

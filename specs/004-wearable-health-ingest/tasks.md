@@ -17,6 +17,11 @@
 
 **Gate before Phase 2**: per-vendor access route documented with its platform-terms basis (FR-060). Do not build against a route whose terms are unreviewed.
 
+<!-- 2026-11-18: GATE CLEARED. research.md §R1 records the route basis for Phase 2:
+file ingest touches no vendor service — the data subject exports with the vendor's
+own export feature and hands over a file. No scraping, no credentials, no programmatic
+vendor access. Phases 5–6 still need their own basis. -->
+
 ---
 
 ## Phase 1: Ingest Abstraction
@@ -50,10 +55,10 @@ storage path, T308 retention-for-retry at the caller edge. -->
 
 **Purpose**: The route that works with no account, no network, no SDK.
 
-- [ ] T310 Record the parser library decision in `research.md` (candidate `fitparser`) with **licence verified** before code
+- [x] T310 Record the parser library decision in `research.md` (candidate `fitparser`) with **licence verified** before code — research.md §R2: fitparser 0.12.0 MIT, csv 1.4.0 Unlicense/MIT, both verified on crates.io 2026-11-18
 - [ ] T311 Implement the inbox watcher: a directory the agent scans for new export files
 - [ ] T312 Implement FIT parsing → `RawReading` set (HR, HRV, sleep stages, SpO₂, temperature, steps as available)
-- [ ] T313 Implement CSV/JSON generic parsing with a documented column contract
+- [x] T313 Implement CSV/JSON generic parsing with a documented column contract — `engine/src/ingest/generic.rs` (feature `file-ingest`): CSV/JSON → `Vec<RawReading>` + per-record `ParseFailure` with verbatim input; epoch s/ms disambiguation, never-guessed definitions, synthesised `fnv1a64` ids (research.md §R3/§R4). 7 new tests
 - [ ] T314 Implement per-vendor field mapping tables as **data** (device → metric + definition), not code branches
 - [ ] T315 Implement the CLI ingest command: `biohack2 ingest <file>` reporting counts, mapping, and failures
 - [ ] T316 Implement the sync-agent mode (watch inbox, ingest, report) runnable on the LAN host

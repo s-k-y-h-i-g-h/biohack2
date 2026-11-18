@@ -34,6 +34,10 @@ pub enum SourceKind {
     Api,
 }
 
+// ── File parsers (T313) ────────────────────────────────────────────────────────
+#[cfg(feature = "file-ingest")]
+pub mod generic;
+
 /// A device/platform we ingest from. `id` is stable per device+platform,
 /// decided at the boundary that creates the source record.
 #[derive(Debug, Clone, Serialize, Deserialize)]
