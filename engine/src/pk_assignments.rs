@@ -114,7 +114,7 @@ const SEED_MODEL_CLASSES: &[(&str, ModelClass, &str)] = &[
     (
         "Apigenin",
         ModelClass::OralAbsorption,
-        "No primary human elimination study; modeled as a short half-life absorption-limited flavone from review-compiled data, with enteroheptic biliary recycling prolonging mucosal exposure; treat the half-life as provisional and rodent-derived.",
+        "Human primary ADME exists but the parent compound is not what circulates: apigenin per se is poorly absorbed (urinary metabolite recovery 0.5%, pubmed:35452808 — Borges 2022, Free Radic Biol Med, NCT03526081), and plasma exposure is apigenin-4'-glucuronide with Cmax time set by the matrix, not an absorption rate constant (2 h chamomile tea upper-GIT; 4 h parsley drink and 6 h parsley+yogurt lower-GIT/colonic release of the apiosylglucoside). No plasma half-life reported — elimination was assessed by urinary excretion. Any ka mined from those Cmax times would encode the food vehicle. Metabolite-driven failure, same class as resveratrol (#185); refuses.",
     ),
     (
         "Resveratrol",
