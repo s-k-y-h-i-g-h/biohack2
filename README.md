@@ -61,6 +61,39 @@ biohack2/
     └── 001-biohacker-tracking-platform/
 ```
 
+## Ingesting wearable exports
+
+The native CLI imports CSV/JSON exports into the SQLite database:
+
+```bash
+cargo build -p biohack2-cli
+biohack2 --db biohack2.db ingest whoop_export.csv --source whoop --user george
+biohack2 failures          # retained bad rows, newest first
+```
+
+`--db` also reads `BIOHACK2_DB`; `--source` defaults to the file stem.
+
+**Column contract (CSV long format):** required `timestamp`, `metric`,
+`value`; optional `unit`, `definition` (e.g. `score_0_100`), `record_id`,
+`timezone`. JSON expects an array of objects with the same field names.
+
+- Timestamps: RFC 3339 (any offset or `Z`), naive + `timezone` column
+  (fixed offset `+00:00`/`+0000`, IANA name `Europe/London`, or `Z`/`UTC`),
+  or epoch seconds/milliseconds. The stored instant is always UTC; the
+  source offset is kept as provenance. DST-ambiguous instants are rejected,
+  never guessed.
+- Metrics matching known definitions map to native columns; everything else
+  lands as custom metrics. Rows whose scale cannot be determined are
+  quarantined rather than silently converted.
+- Re-ingesting the same file is safe: identical records dedupe on a stable
+  id (source `record_id`, else a content hash).
+- Nothing is dropped silently. Unparseable rows are retained verbatim
+  (`biohack2 failures`) and clear once a re-ingest of the fixed file proves
+  that position passes.
+
+See `specs/004-wearable-health-ingest/research.md` (§R3, §R4, §R4b) for the
+decision record behind this contract.
+
 ## Development
 
 The application is local-first. The WASM frontend persists to **localStorage via `gloo-storage`**; SQLite via sqlx is the native/server path (`engine/src/db.rs`, `server/`). OPFS + SQLite-WASM is **not implemented** — see the drift table in `specs/README.md`. No account required, no cloud dependency for v1.
