@@ -1,6 +1,6 @@
 use crate::state::db::{
-    acknowledge_alert, create_alert, create_log_entry, get_log_entries, get_notes,
-    get_vitals_entries, search_catalog,
+    acknowledge_alert, create_alert, create_log_entry, delete_log_entry, get_log_entries,
+    get_notes, get_vitals_entries, search_catalog,
 };
 use crate::state::pk_alerts::refresh_pharmacokinetic_alerts;
 use crate::state::store::AppContext;
@@ -169,6 +169,34 @@ pub fn LogPage() -> impl IntoView {
                             let details = entry.details();
                             let is_vitals = matches!(entry, HistoryEntry::Vitals(_));
                             let is_note = matches!(entry, HistoryEntry::Note(_));
+                            // Only log entries are deletable here; vitals/notes
+                            // have their own pages (no delete_vitals in the store yet).
+                            let delete_id = match &entry {
+                                HistoryEntry::Log(e) => Some(e.id.to_string()),
+                                _ => None,
+                            };
+                            // Two-step delete: first click arms, second deletes.
+                            // Re-render (any version bump) disarms every row.
+                            let armed = RwSignal::new(false);
+                            let armed_for_label = armed;
+                            let id_for_delete = delete_id.clone();
+                            let do_delete = move |_| {
+                                let Some(id) = id_for_delete.clone() else { return };
+                                if !armed.get() {
+                                    armed.set(true);
+                                    return;
+                                }
+                                if let Err(e) = delete_log_entry(&id) {
+                                    eprintln!("Failed to delete entry: {}", e);
+                                } else if let Err(e) =
+                                    refresh_pharmacokinetic_alerts(chrono::Utc::now())
+                                {
+                                    web_sys::console::error_1(
+                                        &format!("PK alert refresh failed: {}", e).into(),
+                                    );
+                                }
+                                refresh();
+                            };
 
                             view! {
                                 <div class=format!("entry-card{}{}",
@@ -181,6 +209,16 @@ pub fn LogPage() -> impl IntoView {
                                             view! { <span class="entry-quantity">{d}</span> }
                                         })}
                                     </div>
+                                    {delete_id.map(|_| view! {
+                                        <button
+                                            type="button"
+                                            class="entry-delete"
+                                            on:click=do_delete
+                                            aria-label="Delete entry"
+                                        >
+                                            {move || if armed_for_label.get() { "Sure?" } else { "×" }}
+                                        </button>
+                                    })}
                                 </div>
                             }
                         }).collect_view()
