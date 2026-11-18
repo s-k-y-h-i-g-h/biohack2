@@ -22,6 +22,8 @@ jobs:
         run: cargo fmt --all --check
       - name: Engine tests
         run: cargo test -p engine --features file-ingest
+      - name: CLI build (T315 ingest command)
+        run: cargo build -p biohack2-cli
 
   wasm:
     name: WASM parity (spec-003 SC-033 / spec-006 SC-095)
