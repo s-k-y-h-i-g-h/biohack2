@@ -68,13 +68,11 @@ async fn dose_survives_sqlite_roundtrip_and_renders_identical_curve(
     db::ensure_substance_models(&pool).await?;
 
     // Model comes from the catalog + Phase 6 assignments, seeded via db.
-    // Substance choice: a Decay-class entry with a parsed half-life. We
-    // deliberately do NOT use Caffeine here: Phase 6 assigned it
-    // OralAbsorption but no absorption parameter exists anywhere in the
-    // crate, so sample_series refuses it — tracked as a GitHub issue
-    // ("OralAbsorption models lack absorption params"), NOT papered over
-    // here: this test guards storage fidelity, and must stay green when
-    // that gap gets its literature-backed fix.
+    // Substance choice: a Decay-class entry with a parsed half-life —
+    // the most deterministic curve to compare bit-for-bit. (Caffeine used
+    // to be refused here when OralAbsorption had no absorption producer;
+    // #182's pk_absorption table fixed that, and its own suite in
+    // pk_absorption.rs covers the OralAbsorption path.)
     let items = db::get_catalog_items(&pool).await?;
     let models = pk_assignments::build_models(&items);
     let simmable = models

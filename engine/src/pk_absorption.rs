@@ -22,19 +22,33 @@ pub struct AbsorptionResearch {
     pub provenance: &'static str,
 }
 
-pub const RESEARCH: &[AbsorptionResearch] = &[AbsorptionResearch {
-    substance: "Melatonin",
-    // Derived from numbers already in pk_parameters::RESEARCH (Harpsoe
-    // 2015 pooled values): one-compartment Bateman time-to-peak,
-    //     tmax = ln(ka/ke) / (ka - ke),  ke = ln2 / 0.75 h
-    // solved at tmax = 50/60 h  ->  ka = 1.526/h  ->  t½,abs = ln2/ka
-    //     = 0.454 h  (rounded 0.45).
-    // The formula is dose- and bioavailability-independent (both cancel),
-    // so the ~15% oral F does not bias it. Sensitivity band from the
-    // review's reported spread: Tmax 40–60 min -> t½,abs 0.30–0.64 h.
-    absorption_half_life_hours: 0.45,
-    provenance: "derived: one-compartment Bateman tmax=ln(ka/ke)/(ka-ke) solved at pooled oral Tmax 50 min with ke from T1/2 45 min (pubmed:26008214 — Harpsoe et al. 2015, Eur J Clin Pharmacol); Tmax 40-60 min -> 0.30-0.64 h band",
-}];
+pub const RESEARCH: &[AbsorptionResearch] = &[
+    AbsorptionResearch {
+        substance: "Melatonin",
+        // Derived from numbers already in pk_parameters::RESEARCH (Harpsoe
+        // 2015 pooled values): one-compartment Bateman time-to-peak,
+        //     tmax = ln(ka/ke) / (ka - ke),  ke = ln2 / 0.75 h
+        // solved at tmax = 50/60 h  ->  ka = 1.526/h  ->  t½,abs = ln2/ka
+        //     = 0.454 h  (rounded 0.45).
+        // The formula is dose- and bioavailability-independent (both cancel),
+        // so the ~15% oral F does not bias it. Sensitivity band from the
+        // review's reported spread: Tmax 40–60 min -> t½,abs 0.30–0.64 h.
+        absorption_half_life_hours: 0.45,
+        provenance: "derived: one-compartment Bateman tmax=ln(ka/ke)/(ka-ke) solved at pooled oral Tmax 50 min with ke from T1/2 45 min (pubmed:26008214 — Harpsoe et al. 2015, Eur J Clin Pharmacol); Tmax 40-60 min -> 0.30-0.64 h band",
+    },
+    AbsorptionResearch {
+        substance: "Caffeine",
+        // Same method, same provenance discipline: Blanchard & Sawers 1983
+        // measured Tmax 29.8 +/- 8.1 min in healthy adults (already cited in
+        // pk_parameters params_note); ke from the engine's 5.0 h elimination.
+        //     ka = 8.40/h  ->  t½,abs = ln2/ka = 0.0815 h (4.9 min)
+        // Band from the SD on Tmax (21.7-37.9 min): 0.055-0.113 h.
+        // Consistent with Magkos 2005 (pubmed:16371327): "rapidly and
+        // completely absorbed"; absolute F ~108% so no first-pass distortion.
+        absorption_half_life_hours: 0.0815,
+        provenance: "derived: one-compartment Bateman tmax=ln(ka/ke)/(ka-ke) solved at measured Tmax 29.8 min (pubmed:6832208 — Blanchard & Sawers 1983, Eur J Clin Pharmacol) with ke from T1/2 5.0 h (pubmed:27100333); Tmax 21.7-37.9 min -> 0.055-0.113 h band",
+    },
+];
 
 pub fn lookup(name: &str) -> Option<&'static AbsorptionResearch> {
     RESEARCH
@@ -64,34 +78,43 @@ mod tests {
     #[test]
     fn lookup_is_case_insensitive() {
         assert!(lookup("melatonin").is_some());
-        assert!(lookup("Melatonin").is_some());
-        assert!(lookup("Caffeine").is_none()); // until researched
+        assert!(lookup("Caffeine").is_some());
+        assert!(lookup("Ashwagandha").is_none()); // until researched
     }
 
-    #[test]
-    fn derived_melatonin_absorption_reproduces_from_cited_numbers() {
-        // Independent re-solve of the Bateman equation against the cited
-        // inputs: if someone edits the table value without editing the
-        // derivation, this fails.
-        let ln2 = 2f64.ln();
-        let ke = ln2 / 0.75;
-        let target = 50f64 / 60.0;
-        let tmax = |ka: f64| (ka / ke).ln() / (ka - ke);
-        let (mut lo, mut hi) = (ke * 1.001, 50.0);
+    fn solve_bateman_t_half_abs(ke_per_hour: f64, tmax_hours: f64) -> f64 {
+        let tmax = |ka: f64| (ka / ke_per_hour).ln() / (ka - ke_per_hour);
+        let (mut lo, mut hi) = (ke_per_hour * 1.001, 200.0);
         for _ in 0..200 {
             let mid = (lo + hi) / 2.0;
-            if tmax(mid) > target {
+            if tmax(mid) > tmax_hours {
                 lo = mid;
             } else {
                 hi = mid;
             }
         }
-        let t_half_abs = ln2 / ((lo + hi) / 2.0);
-        let table = lookup("Melatonin").unwrap();
+        2f64.ln() / ((lo + hi) / 2.0)
+    }
+
+    #[test]
+    fn derived_absorption_values_reproduce_from_cited_numbers() {
+        // Independent re-solve of the Bateman equation against each entry's
+        // cited inputs: if someone edits a table value without editing the
+        // derivation, this fails.
+        let ln2 = 2f64.ln();
+        let mel = lookup("Melatonin").unwrap();
+        let mel_solved = solve_bateman_t_half_abs(ln2 / 0.75, 50.0 / 60.0);
         assert!(
-            (table.absorption_half_life_hours - t_half_abs).abs() < 0.01,
-            "table says {} but cited inputs derive {t_half_abs:.3}",
-            table.absorption_half_life_hours
+            (mel.absorption_half_life_hours - mel_solved).abs() < 0.01,
+            "melatonin table says {} but cited inputs derive {mel_solved:.3}",
+            mel.absorption_half_life_hours
+        );
+        let caf = lookup("Caffeine").unwrap();
+        let caf_solved = solve_bateman_t_half_abs(ln2 / 5.0, 29.8 / 60.0);
+        assert!(
+            (caf.absorption_half_life_hours - caf_solved).abs() < 0.005,
+            "caffeine table says {} but cited inputs derive {caf_solved:.4}",
+            caf.absorption_half_life_hours
         );
     }
 
@@ -139,15 +162,47 @@ mod tests {
         // unresearched OralAbsorption substances with guessed numbers.
         let items = seed_catalog();
         let models = build_models(&items);
+        let ash = models
+            .iter()
+            .find(|m| m.substance == "Ashwagandha")
+            .expect("ashwagandha model built");
+        assert_eq!(ash.model_class, ModelClass::OralAbsorption);
+        let d = dose("Ashwagandha", 600.0);
+        let t0 = d.timestamp;
+        let err = sample_series(ash, &[d], t0, t0 + chrono::Duration::hours(6), 1.0)
+            .expect_err("ashwagandha has no absorption param yet — must stay an honest refusal");
+        assert!(err.contains("absorption"), "{err}");
+    }
+
+    #[test]
+    fn caffeine_curve_peaks_at_measured_tmax() {
+        // Biovalidation: with t½,abs derived from Blanchard & Sawers Tmax
+        // and the 5 h elimination, the simulated peak must land at the
+        // measured 29.8 min — on a 5-min grid.
+        let items = seed_catalog();
+        let models = build_models(&items);
         let caf = models
             .iter()
             .find(|m| m.substance == "Caffeine")
             .expect("caffeine model built");
-        assert_eq!(caf.model_class, ModelClass::OralAbsorption);
         let d = dose("Caffeine", 200.0);
-        let t0 = d.timestamp;
-        let err = sample_series(caf, &[d], t0, t0 + chrono::Duration::hours(6), 1.0)
-            .expect_err("caffeine has no absorption param yet — must stay an honest refusal");
-        assert!(err.contains("absorption"), "{err}");
+        let start = d.timestamp;
+        let series = sample_series(
+            caf,
+            &[d],
+            start,
+            start + chrono::Duration::hours(6),
+            1.0 / 12.0,
+        )
+        .expect("caffeine must simulate now that an absorption param exists");
+        let peak = series
+            .iter()
+            .max_by(|a, b| a.expected.total_cmp(&b.expected))
+            .unwrap();
+        let peak_h = (peak.t - start).num_seconds() as f64 / 3600.0;
+        assert!(
+            (0.35..=0.67).contains(&peak_h),
+            "peak at t={peak_h:.3} h, measured Tmax was 0.497 h (29.8 min)"
+        );
     }
 }
