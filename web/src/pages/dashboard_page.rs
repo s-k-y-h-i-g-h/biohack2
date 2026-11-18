@@ -1,7 +1,9 @@
 use crate::components::{ActiveDosePanel, TargetBandEditor};
+use crate::pages::food_page::fmt_amount;
 use crate::state::db::{get_log_entries, get_target_bands, search_catalog};
 use crate::state::store::AppContext;
 use engine::dashboard::{PanelView, panel_view};
+use engine::food;
 use engine::pk_assignments::build_models;
 use engine::pk_params::SubstanceModel;
 use leptos::prelude::*;
@@ -33,8 +35,45 @@ pub fn DashboardPage() -> impl IntoView {
         })
     };
 
+    // spec 007 T007: today's food strip — kcal + protein from cached
+    // per-entry nutrition (offline-capable; recomputed on every write).
+    let nutrition_today = move || {
+        version.get();
+        let entries = get_log_entries().unwrap_or_default();
+        food::aggregate_day(&entries, chrono::Utc::now().date_naive())
+    };
+
     view! {
         <div class="dashboard-page">
+            <div class="food-today">
+                <h3><a href="#/food">"Today's food"</a></h3>
+                {move || {
+                    let day = nutrition_today();
+                    let chips: Vec<_> = ["Energy", "Protein"]
+                        .iter()
+                        .filter_map(|name| day.total_for(name))
+                        .map(|t| view! { <span class="food-total-chip">{fmt_amount(t)}</span> })
+                        .collect();
+                    let empty = day.entry_count == 0 && day.entries_without_nutrition == 0;
+                    let incomplete = day.entries_without_nutrition;
+                    view! {
+                        <div class="food-totals">
+                            {chips}
+                            <Show when=move || empty>
+                                <span class="food-empty">
+                                    "No food logged today — "
+                                    <a href="#/food">"log something"</a>
+                                </span>
+                            </Show>
+                            <Show when=move || incomplete != 0>
+                                <span class="food-incomplete">
+                                    {format!("{incomplete} without nutrition data")}
+                                </span>
+                            </Show>
+                        </div>
+                    }
+                }}
+            </div>
             <h2>"Active doses"</h2>
             <p class="dashboard-sub">
                 "Modelled levels for substances you track — shaded band is the low/high range, dashed lines are target edges."

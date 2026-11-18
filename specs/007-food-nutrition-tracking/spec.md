@@ -47,6 +47,6 @@ closes that gap on the web architecture.
 - [X] T003 engine wasm gate (`--no-default-features` wasm_vectors build) green
 - [X] T004 `server/src/food_lookup.rs` — OFF/USDA proxy, TTL cache, fixture-parsing tests (no network in CI)
 - [X] T005 routes `GET /api/food/search`, `GET /api/food/details/{id}` + `USDA_API_KEY` env gate
-- [ ] T006 web: food page — search → pick → grams → log (nutrition cached via `set_nutrition`), day summary card (macros + %DV chips, "incomplete day" badge when `entries_without_nutrition > 0`)
+- [X] T006 web: food page — search → pick → grams → log (nutrition cached via `set_nutrition`), day summary card (macros + %DV chips, "incomplete day" badge when `entries_without_nutrition > 0`)
 - [ ] T007 dashboard: today's kcal/protein strip on the existing dashboard
 - [ ] T008 e2e: live search smoke test against OFF (keyless) + full-stack build

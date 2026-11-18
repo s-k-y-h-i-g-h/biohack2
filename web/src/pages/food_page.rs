@@ -46,7 +46,7 @@ fn headline_nutrients(day: &DailyNutrition) -> Vec<NutrientInfo> {
 }
 
 /// Compact amount rendering: integers stay integers, else 1 decimal.
-fn fmt_amount(n: &NutrientInfo) -> String {
+pub(crate) fn fmt_amount(n: &NutrientInfo) -> String {
     let v = if n.amount.abs() >= 100.0 {
         n.amount.round()
     } else {
