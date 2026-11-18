@@ -73,6 +73,28 @@ pub fn SettingsPage() -> impl IntoView {
         }
     };
 
+    // FR-020/FR-021: cloud data lifecycle. Status text doubles as the busy
+    // flag — actions are disabled while a request is in flight.
+    let cloud_status = RwSignal::new(String::new());
+    let cloud_armed = RwSignal::new(false);
+    let cloud_busy = move || {
+        let s = cloud_status.get();
+        s.starts_with("Exporting") || s.starts_with("Deleting")
+    };
+
+    let handle_cloud_export = move |_| {
+        crate::state::sync::cloud_export(cloud_status);
+    };
+
+    let handle_cloud_delete = move |_| {
+        if !cloud_armed.get_untracked() {
+            cloud_armed.set(true);
+            return;
+        }
+        cloud_armed.set(false);
+        crate::state::sync::cloud_delete(cloud_status);
+    };
+
     view! {
         <div class="page">
             <div class="settings-section">
@@ -100,6 +122,35 @@ pub fn SettingsPage() -> impl IntoView {
                     "Export CSV"
                 </button>
                 <p class="help-text">"Exports all log entries and vitals as CSV."</p>
+            </div>
+            <div class="settings-section">
+                <h3>"Cloud data"</h3>
+                <div class="toggle-row">
+                    <button
+                        type="button"
+                        class="export-btn"
+                        on:click=handle_cloud_export
+                        disabled=cloud_busy
+                        aria-label="Export all cloud data as JSON"
+                    >
+                        "Export cloud JSON"
+                    </button>
+                    <button
+                        type="button"
+                        class="export-btn danger"
+                        on:click=handle_cloud_delete
+                        disabled=cloud_busy
+                        aria-label="Delete all cloud data"
+                    >
+                        {move || if cloud_armed.get() { "Sure?" } else { "Delete cloud data" }}
+                    </button>
+                </div>
+                <p class="help-text">
+                    "Export downloads the complete server dataset as JSON — everything needed to
+                     run local-only. Deletion erases your account's rows on the server and cannot
+                     be undone; local data is untouched."
+                </p>
+                <p class="help-text" aria-live="polite">{move || cloud_status.get()}</p>
             </div>
         </div>
     }

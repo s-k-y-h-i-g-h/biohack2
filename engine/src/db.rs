@@ -1136,6 +1136,30 @@ pub async fn delete_note(pool: &DbPool, id: &Uuid) -> anyhow::Result<()> {
     Ok(())
 }
 
+/// Erase every user-generated collection (FR-020 cloud data deletion).
+/// Shared seed content (catalog, substance models) is deliberately kept so a
+/// wipe-and-migrate restart still has a working app; `stack_items` disappears
+/// via its ON DELETE CASCADE from `stacks`. Returns the number of rows deleted.
+pub async fn delete_all_user_data(pool: &DbPool, user_id: &str) -> anyhow::Result<u64> {
+    let mut total = 0u64;
+    for sql in [
+        "DELETE FROM log_entries WHERE user_id = ?1",
+        "DELETE FROM vitals_entries WHERE user_id = ?1",
+        "DELETE FROM alerts WHERE user_id = ?1",
+        "DELETE FROM insights WHERE user_id = ?1",
+        "DELETE FROM notes WHERE user_id = ?1",
+        "DELETE FROM target_bands WHERE user_id = ?1",
+        "DELETE FROM stacks WHERE user_id = ?1",
+    ] {
+        total += sqlx::query(sql)
+            .bind(user_id)
+            .execute(pool)
+            .await?
+            .rows_affected();
+    }
+    Ok(total)
+}
+
 fn row_to_insight(row: SqliteRow) -> Insight {
     Insight {
         id: Uuid::parse_str(&row.try_get::<String, _>("id").unwrap_or_default())

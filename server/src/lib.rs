@@ -364,7 +364,12 @@ async fn health() -> Json<serde_json::Value> {
 }
 
 async fn sync_pull(State(state): State<AppState>) -> Result<Json<serde_json::Value>, Response> {
-    // Full-state pull for frontend hydration and localStorage migration.
+    Ok(Json(full_state(&state).await.map_err(internal)?))
+}
+
+/// Full-state payload: frontend hydration, localStorage migration (sync pull)
+/// and FR-021 cloud export all consume the identical document.
+async fn full_state(state: &AppState) -> anyhow::Result<serde_json::Value> {
     let log_filter = LogEntryFilter {
         user_id: Some(DEFAULT_USER_ID.into()),
         ..Default::default()
@@ -384,17 +389,46 @@ async fn sync_pull(State(state): State<AppState>) -> Result<Json<serde_json::Val
         db::get_stacks(&state.pool, DEFAULT_USER_ID),
         db::get_notes(&state.pool, DEFAULT_USER_ID),
         db::get_catalog_items(&state.pool),
-    )
-    .map_err(internal)?;
+    )?;
 
-    Ok(Json(serde_json::json!({
+    Ok(serde_json::json!({
         "log_entries": entries,
         "vitals_entries": vitals,
         "alerts": alerts,
         "stacks": stacks,
         "notes": notes,
         "catalog": catalog,
-    })))
+    }))
+}
+
+/// FR-021: complete cloud data as a standard JSON document so the user can
+/// migrate to local-only mode. Deliberately the same shape as `/sync/pull` —
+/// what the client can re-ingest is exactly what it can take away.
+async fn export_data(State(state): State<AppState>) -> Result<Json<serde_json::Value>, Response> {
+    full_state(&state).await.map(Json).map_err(internal)
+}
+
+#[derive(Deserialize)]
+struct WipeQuery {
+    confirm: Option<String>,
+}
+
+/// FR-020: user-initiated deletion of all cloud data. Explicit confirmation
+/// is required server-side; a bare DELETE is refused so accidents and
+/// drive-by calls cannot erase the account.
+async fn delete_all_data(
+    State(state): State<AppState>,
+    Query(q): Query<WipeQuery>,
+) -> Result<Json<serde_json::Value>, Response> {
+    if q.confirm.as_deref() != Some("yes") {
+        return Err(bad_request(
+            "deletion must be confirmed: DELETE /data?confirm=yes",
+        ));
+    }
+    let deleted = db::delete_all_user_data(&state.pool, DEFAULT_USER_ID)
+        .await
+        .map_err(internal)?;
+    Ok(Json(serde_json::json!({ "deleted": deleted })))
 }
 
 async fn sync_push(
@@ -576,6 +610,8 @@ pub fn build_router(pool: DbPool, dist_dir: Option<&str>) -> Router {
         .route("/safety/check-vitals", post(check_vitals_safety))
         .route("/sync/pull", get(sync_pull))
         .route("/sync/push", post(sync_push))
+        .route("/export", get(export_data))
+        .route("/data", delete(delete_all_data))
         .route("/food/search", get(food_search))
         .route("/food/details/{id}", get(food_details))
         .route("/health", get(health));

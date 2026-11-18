@@ -240,3 +240,73 @@ async fn target_band_crud(pool: DbPool) -> anyhow::Result<()> {
     assert!(!engine::db::delete_target_band(&pool, "u1", "Magnesium").await?);
     Ok(())
 }
+
+#[sqlx::test]
+async fn test_delete_all_user_data_wipes_user_and_keeps_others(pool: DbPool) -> anyhow::Result<()> {
+    use engine::models::LogEntryFilter;
+    use engine::models::{ItemType, Note};
+
+    migrate(&pool).await?;
+    db_seed_catalog(&pool, &seed_catalog()).await?;
+
+    for user in ["alice", "bob"] {
+        let entry = LogEntry {
+            id: Uuid::new_v4(),
+            user_id: user.to_string(),
+            item_type: ItemType::Supplement,
+            item_id: None,
+            name: "Test Substance".to_string(),
+            quantity: Some(100.0),
+            unit: Some("mg".to_string()),
+            route: None,
+            timestamp: chrono::Utc::now(),
+            stack_id: None,
+            notes: None,
+            acknowledged_interaction: false,
+            custom_fields: None,
+        };
+        engine::db::create_log_entry(&pool, &entry).await?;
+        let note = Note {
+            id: Uuid::new_v4(),
+            user_id: user.to_string(),
+            content: "a private note".to_string(),
+            timestamp: chrono::Utc::now(),
+            linked_entry_id: None,
+        };
+        engine::db::create_note(&pool, &note).await?;
+    }
+
+    let deleted = engine::db::delete_all_user_data(&pool, "alice").await?;
+    assert_eq!(deleted, 2, "both alice rows (log + note) must be counted");
+
+    let alice_logs = engine::db::get_log_entries(
+        &pool,
+        &LogEntryFilter {
+            user_id: Some("alice".into()),
+            ..Default::default()
+        },
+    )
+    .await?;
+    let alice_notes = engine::db::get_notes(&pool, "alice").await?;
+    assert!(alice_logs.is_empty() && alice_notes.is_empty());
+
+    let bob_logs = engine::db::get_log_entries(
+        &pool,
+        &LogEntryFilter {
+            user_id: Some("bob".into()),
+            ..Default::default()
+        },
+    )
+    .await?;
+    let bob_notes = engine::db::get_notes(&pool, "bob").await?;
+    assert_eq!(bob_logs.len(), 1, "bob's log must survive");
+    assert_eq!(bob_notes.len(), 1, "bob's note must survive");
+
+    // Shared seed content survives: wipe-and-migrate restarts keep a catalog.
+    let catalog = engine::db::get_catalog_items(&pool).await?;
+    assert_eq!(catalog.len(), 37);
+
+    // Idempotent: a second wipe deletes nothing and reports 0.
+    assert_eq!(engine::db::delete_all_user_data(&pool, "alice").await?, 0);
+    Ok(())
+}

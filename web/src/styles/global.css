@@ -1262,3 +1262,19 @@ nav::-webkit-scrollbar {
   font-size: 0.8rem;
   color: var(--text-secondary);
 }
+
+/* Danger actions (cloud data deletion) */
+.export-btn.danger {
+  border-color: #c62828;
+  color: #c62828;
+}
+
+.export-btn.danger:hover:not(:disabled) {
+  background: #c62828;
+  color: #fff;
+}
+
+.export-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

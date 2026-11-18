@@ -312,3 +312,64 @@ fn merge_stacks(local: Vec<Stack>, server: Vec<Stack>) -> Vec<Stack> {
 fn already_synced() -> bool {
     LocalStorage::get::<bool>(SYNCED_FLAG).unwrap_or(false)
 }
+
+// ── Cloud data lifecycle (FR-020 / FR-021) ─────────────────────────────────
+
+/// Download the complete server-side dataset as one JSON document.
+/// Deliberately the same shape as a sync pull: what the client can re-ingest
+/// is exactly what it can take away.
+pub fn cloud_export(status: leptos::prelude::RwSignal<String>) {
+    use leptos::prelude::Set;
+    spawn_local(async move {
+        status.set("Exporting cloud data…".into());
+        match fetch_safe("GET", "api/export", None).await {
+            Ok(resp) if resp.ok() => match resp.text().await {
+                Ok(text) => {
+                    download_text_as_file(&text, "biohack_export.json");
+                    status.set("Cloud export downloaded (biohack_export.json).".into());
+                }
+                Err(_) => status.set("Cloud export failed: unreadable response.".into()),
+            },
+            Ok(resp) => status.set(format!("Cloud export failed: HTTP {}.", resp.status())),
+            Err(_) => status.set("Cloud export failed: server unreachable.".into()),
+        }
+    });
+}
+
+/// Erase all user data on the server. The confirmation gate is the arm →
+/// "Sure?" button pattern in the UI; the server additionally requires
+/// `confirm=yes`, so this call is the single deliberate deletion path.
+pub fn cloud_delete(status: leptos::prelude::RwSignal<String>) {
+    use leptos::prelude::Set;
+    spawn_local(async move {
+        status.set("Deleting cloud data…".into());
+        match fetch_safe("DELETE", "api/data?confirm=yes", None).await {
+            Ok(resp) if resp.ok() => {
+                status.set("Cloud data deleted. Local data untouched.".into());
+            }
+            Ok(resp) => status.set(format!("Cloud deletion refused: HTTP {}.", resp.status())),
+            Err(_) => status.set("Cloud deletion failed: server unreachable.".into()),
+        }
+    });
+}
+
+fn download_text_as_file(text: &str, filename: &str) {
+    let Some(win) = web_sys::window() else { return };
+    let Some(doc) = win.document() else { return };
+    let array = js_sys::Array::new();
+    array.push(&js_sys::JsString::from(text));
+    let Ok(blob) = web_sys::Blob::new_with_str_sequence(&array) else {
+        return;
+    };
+    let Ok(url) = web_sys::Url::create_object_url_with_blob(&blob) else {
+        return;
+    };
+    if let Ok(a) = doc.create_element("a")
+        && let Ok(anchor) = a.dyn_into::<web_sys::HtmlElement>()
+    {
+        let _ = anchor.set_attribute("href", &url);
+        let _ = anchor.set_attribute("download", filename);
+        anchor.click();
+        let _ = web_sys::Url::revoke_object_url(&url);
+    }
+}
