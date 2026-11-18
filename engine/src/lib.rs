@@ -19,6 +19,7 @@ pub mod insights;
 pub mod mechanisms;
 pub mod models;
 pub mod pharmacokinetics;
+pub mod pk_absorption;
 pub mod pk_assignments;
 pub mod pk_parameters;
 pub mod pk_params;

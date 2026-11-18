@@ -273,6 +273,22 @@ pub fn build_models(catalog: &[crate::models::CatalogItem]) -> Vec<SubstanceMode
                     serde_json::Value::Null,
                 ),
             };
+            // #182: OralAbsorption models need a resorption parameter to
+            // simulate. SEED table is the single producer; substances not
+            // in it keep refusing to simulate (honest FR-036 refusal,
+            // never a guessed rate).
+            let mut provenance = provenance;
+            let mut params = params;
+            if let Some(abs) = crate::pk_absorption::lookup(&item.name)
+                .filter(|_| class == ModelClass::OralAbsorption)
+            {
+                if !params.is_object() {
+                    params = serde_json::Value::Object(serde_json::Map::new());
+                }
+                params["absorption_half_life_hours"] = serde_json::json!(abs.absorption_half_life_hours);
+                provenance.push_str(" | absorption: ");
+                provenance.push_str(abs.provenance);
+            }
             SubstanceModel {
                 substance: item.name.clone(),
                 model_class: class,
