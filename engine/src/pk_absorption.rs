@@ -96,6 +96,26 @@ pub const RESEARCH: &[AbsorptionResearch] = &[
         absorption_half_life_hours: 0.2323,
         provenance: "derived: one-compartment Bateman tmax=ln(ka/ke)/(ka-ke) solved at measured Tmax 0.54 h (pubmed:27747224 — Tawasri 2016, Biomed Res Int, PMC5055913 full text) with ke from ga-T1/2 0.66 h (same study); ka/ke ~2.8 modest separation, band 0.23-0.28 h",
     },
+    AbsorptionResearch {
+        substance: "NAC (N-Acetyl Cysteine)",
+        // Full-text-confirmed (PMC10376274): Cetylev 11 g oral solution
+        // (dissolved effervescent tablets), n=29 healthy adults — the
+        // label study the review summarizes: Cmax 26.5 (CV 29%) ug/mL,
+        // AUCinf 186, Tmax median 2 h (range 1-3.5 h). IV terminal
+        // half-life in the same review: 5.6 h; the engine runs 6.25 h
+        // (Holdiness 1991), and ke uses the engine value for internal
+        // consistency of the model limbs.
+        //     ke = ln2/6.25 = 0.1109/h, ka = 1.367/h
+        //     t½,abs = 0.5072 h   (ka/ke = 12.3, clean separation)
+        // Band across the observed Tmax range 1-3.5 h: 0.19-1.18 h.
+        // Honest caveats: 11 g loading dose (APAP-overdose strength)
+        // far above 600-1200 mg supplement use; effervescent solution,
+        // so solid-tablet disintegration is not represented; sparse-
+        // sampling median. First-order absorption is still supported
+        // by the clean ka/ke separation.
+        absorption_half_life_hours: 0.5072,
+        provenance: "derived: one-compartment Bateman tmax=ln(ka/ke)/(ka-ke) solved at median Tmax 2 h (range 1-3.5; pubmed:37453798 review, PMC10376274 full text, Cetylev n=29 label study) with ke from engine T1/2 6.25 h (Holdiness 1991); band 0.19-1.18 h",
+    },
 ];
 
 pub fn lookup(name: &str) -> Option<&'static AbsorptionResearch> {
@@ -130,6 +150,7 @@ mod tests {
         assert!(lookup("ashwagandha").is_some());
         assert!(lookup("berberine").is_some());
         assert!(lookup("reishi mushroom").is_some());
+        assert!(lookup("nac (n-acetyl cysteine)").is_some());
         assert!(lookup("9-Me-BC").is_none()); // until researched
     }
 
@@ -187,6 +208,13 @@ mod tests {
             (rei.absorption_half_life_hours - rei_solved).abs() < 0.005,
             "reishi table says {} but cited inputs derive {rei_solved:.4}",
             rei.absorption_half_life_hours
+        );
+        let nac = lookup("NAC (N-Acetyl Cysteine)").unwrap();
+        let nac_solved = solve_bateman_t_half_abs(ln2 / 6.25, 2.0);
+        assert!(
+            (nac.absorption_half_life_hours - nac_solved).abs() < 0.005,
+            "nac table says {} but cited inputs derive {nac_solved:.4}",
+            nac.absorption_half_life_hours
         );
     }
 
@@ -308,6 +336,37 @@ mod tests {
         assert!(
             (0.41..=0.71).contains(&peak_h),
             "peak at t={peak_h:.3} h, measured Tmax was 0.54 h"
+        );
+    }
+
+    #[test]
+    fn nac_curve_peaks_at_label_tmax() {
+        // The Cetylev label study peaked at median 2 h (PMC10376274).
+        // Bateman with ka 1.367 + ke 0.111 must peak there.
+        let items = seed_catalog();
+        let models = build_models(&items);
+        let r = models
+            .iter()
+            .find(|m| m.substance == "NAC (N-Acetyl Cysteine)")
+            .expect("nac model built");
+        let d = dose("NAC (N-Acetyl Cysteine)", 600.0);
+        let start = d.timestamp;
+        let series = sample_series(
+            r,
+            &[d],
+            start,
+            start + chrono::Duration::hours(24),
+            1.0 / 12.0,
+        )
+        .expect("nac must simulate now that an absorption param exists");
+        let peak = series
+            .iter()
+            .max_by(|a, b| a.expected.total_cmp(&b.expected))
+            .unwrap();
+        let peak_h = (peak.t - start).num_seconds() as f64 / 3600.0;
+        assert!(
+            (1.91..=2.09).contains(&peak_h),
+            "peak at t={peak_h:.3} h, label Tmax was 2 h"
         );
     }
 }
