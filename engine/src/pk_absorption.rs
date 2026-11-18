@@ -79,6 +79,23 @@ pub const RESEARCH: &[AbsorptionResearch] = &[
         absorption_half_life_hours: 0.2093,
         provenance: "derived: one-compartment Bateman tmax=ln(ka/ke)/(ka-ke) solved at fasted Tmax median 1.00 h (pubmed:35419311 — Park 2022, Transl Clin Pharmacol, PMC8979756 full text) with ke from engine T1/2 5.0 h (same source); Tmax IQR to 1.33 h -> 0.209-0.311 h band",
     },
+    AbsorptionResearch {
+        substance: "Reishi Mushroom",
+        // Full-text-confirmed (PMC5055913): ganoderic acid A (marker
+        // compound) after Ling Zhi MG2FB-WE preparation, n=12 healthy
+        // males, Reishi-only phase of a crossover: Tmax 0.54 ± 0.10 h,
+        // t1/2 0.66 ± 0.33 h — the exact rows the catalog cites.
+        //     ke = ln2/0.66 = 1.0502/h, ka = 2.984/h
+        //     t½,abs = 0.2323 h
+        // Band 0.23-0.28 h across Tmax ± SD x t1/2 ± SD corners.
+        // Honest caveats: ka/ke is only ~2.8 (one-compartment oral
+        // approximation is usable but the absorption/elimination limbs
+        // are not cleanly separated — at the fast-t1/2 corner the ratio
+        // drops to ~1.2); marker-compound kinetics for a variable
+        // extract; t1/2 SD is half its mean.
+        absorption_half_life_hours: 0.2323,
+        provenance: "derived: one-compartment Bateman tmax=ln(ka/ke)/(ka-ke) solved at measured Tmax 0.54 h (pubmed:27747224 — Tawasri 2016, Biomed Res Int, PMC5055913 full text) with ke from ga-T1/2 0.66 h (same study); ka/ke ~2.8 modest separation, band 0.23-0.28 h",
+    },
 ];
 
 pub fn lookup(name: &str) -> Option<&'static AbsorptionResearch> {
@@ -112,6 +129,7 @@ mod tests {
         assert!(lookup("Caffeine").is_some());
         assert!(lookup("ashwagandha").is_some());
         assert!(lookup("berberine").is_some());
+        assert!(lookup("reishi mushroom").is_some());
         assert!(lookup("9-Me-BC").is_none()); // until researched
     }
 
@@ -162,6 +180,13 @@ mod tests {
             (ber.absorption_half_life_hours - ber_solved).abs() < 0.005,
             "berberine table says {} but cited inputs derive {ber_solved:.4}",
             ber.absorption_half_life_hours
+        );
+        let rei = lookup("Reishi Mushroom").unwrap();
+        let rei_solved = solve_bateman_t_half_abs(ln2 / 0.66, 0.54);
+        assert!(
+            (rei.absorption_half_life_hours - rei_solved).abs() < 0.005,
+            "reishi table says {} but cited inputs derive {rei_solved:.4}",
+            rei.absorption_half_life_hours
         );
     }
 
@@ -251,6 +276,38 @@ mod tests {
         assert!(
             (0.35..=0.67).contains(&peak_h),
             "peak at t={peak_h:.3} h, measured Tmax was 0.497 h (29.8 min)"
+        );
+    }
+
+    #[test]
+    fn reishi_curve_peaks_near_marker_tmax() {
+        // Ganoderic acid A peaked at 0.54 ± 0.10 h in the Reishi-only
+        // phase (PMC5055913). With ka 2.98/h + ke 1.05/h the Bateman
+        // hump must peak there on a 5-min grid.
+        let items = seed_catalog();
+        let models = build_models(&items);
+        let r = models
+            .iter()
+            .find(|m| m.substance == "Reishi Mushroom")
+            .expect("reishi model built");
+        let d = dose("Reishi Mushroom", 1.0);
+        let start = d.timestamp;
+        let series = sample_series(
+            r,
+            &[d],
+            start,
+            start + chrono::Duration::hours(6),
+            1.0 / 12.0,
+        )
+        .expect("reishi must simulate now that an absorption param exists");
+        let peak = series
+            .iter()
+            .max_by(|a, b| a.expected.total_cmp(&b.expected))
+            .unwrap();
+        let peak_h = (peak.t - start).num_seconds() as f64 / 3600.0;
+        assert!(
+            (0.41..=0.71).contains(&peak_h),
+            "peak at t={peak_h:.3} h, measured Tmax was 0.54 h"
         );
     }
 }
