@@ -26,9 +26,12 @@ use tower_http::services::ServeDir;
 pub const DEFAULT_USER_ID: &str = "local-device";
 pub const DEFAULT_DB_FILE: &str = "biohack.db";
 
+pub mod food_lookup;
+
 #[derive(Clone)]
 pub struct AppState {
     pub pool: DbPool,
+    pub food: food_lookup::FoodLookup,
 }
 
 // ── helpers ───────────────────────────────────────────────────────────────────
@@ -496,10 +499,52 @@ async fn serve_index(State(state): State<AppState>) -> Response {
     }
 }
 
+// ── food DB proxy (spec 007) ────────────────────────────────────────────────
+
+#[derive(Deserialize)]
+pub struct FoodSearchQuery {
+    pub q: Option<String>,
+}
+
+/// GET /api/food/search?q=… — proxy to OpenFoodFacts (+USDA when keyed).
+/// Upstream failure is a 502 with the joined source errors; a source that
+/// merely has no results yields 200 with a shorter list.
+async fn food_search(
+    State(state): State<AppState>,
+    Query(params): Query<FoodSearchQuery>,
+) -> Result<Json<Vec<engine::food::FoodSearchResult>>, Response> {
+    let q = params.q.unwrap_or_default();
+    if q.trim().is_empty() {
+        return Err(bad_request("q is required"));
+    }
+    state
+        .food
+        .search(&q)
+        .await
+        .map(Json)
+        .map_err(|e| err_response(StatusCode::BAD_GATEWAY, &format!("{e:#}")))
+}
+
+/// GET /api/food/details/{id} — barcode (8-14 digits) → OFF, else USDA FDC.
+async fn food_details(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+) -> Result<Json<engine::food::FoodSearchResult>, Response> {
+    state
+        .food
+        .details(&id)
+        .await
+        .map(Json)
+        .map_err(|e| err_response(StatusCode::BAD_GATEWAY, &format!("{e:#}")))
+}
+
 // ── router ────────────────────────────────────────────────────────────────────
 
 pub fn build_router(pool: DbPool, dist_dir: Option<&str>) -> Router {
-    let state = AppState { pool };
+    let state = AppState {
+        pool,
+        food: food_lookup::FoodLookup::from_env(),
+    };
 
     let api = Router::new()
         .route("/log-entries", get(list_log_entries).post(create_log_entry))
@@ -519,6 +564,8 @@ pub fn build_router(pool: DbPool, dist_dir: Option<&str>) -> Router {
         .route("/safety/check-vitals", post(check_vitals_safety))
         .route("/sync/pull", get(sync_pull))
         .route("/sync/push", post(sync_push))
+        .route("/food/search", get(food_search))
+        .route("/food/details/{id}", get(food_details))
         .route("/health", get(health));
 
     let mut app = Router::new().nest("/api", api);
