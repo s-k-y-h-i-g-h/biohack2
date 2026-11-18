@@ -285,22 +285,30 @@ mod tests {
     }
 
     #[test]
-    fn substances_without_absorption_research_still_refuse() {
-        // #182 discipline: adding table entries must not silently unblock
-        // unresearched OralAbsorption substances with guessed numbers.
-        // Self-maintaining: picks whatever OralAbsorption model currently
-        // has no table row and asserts it still refuses honestly.
+    fn oral_absorption_catalog_has_no_unresearched_entries() {
+        // #182 discipline, completed by the #185 decision: every substance
+        // labeled OralAbsorption carries a researched absorption parameter.
+        // Substances the class cannot represent are refused at the class
+        // level (ModelClass::None — pinned in pk_assignments tests), so an
+        // OralAbsorption label without a row is now a bug, not a known gap.
         let items = seed_catalog();
         let models = build_models(&items);
-        let un = models
+        let un: Vec<String> = models
             .iter()
-            .find(|m| m.model_class == ModelClass::OralAbsorption && lookup(&m.substance).is_none())
-            .expect("catalog still contains OralAbsorption substances with no absorption research");
-        let d = dose(&un.substance, 500.0);
-        let t0 = d.timestamp;
-        let err = sample_series(un, &[d], t0, t0 + chrono::Duration::hours(6), 1.0)
-            .expect_err("unresearched OralAbsorption substance must stay an honest refusal");
-        assert!(err.contains("absorption"), "{err}");
+            .filter(|m| {
+                m.model_class == ModelClass::OralAbsorption && lookup(&m.substance).is_none()
+            })
+            .map(|m| m.substance.clone())
+            .collect();
+        assert!(
+            un.is_empty(),
+            "OralAbsorption substances without absorption research: {un:?}"
+        );
+        // A refused substance must also leave nothing to guess from:
+        // demotion to None must never strand an absorption row behind it.
+        for name in ["Quercetin", "Resveratrol", "Apigenin", "Curcumin"] {
+            assert!(lookup(name).is_none(), "{name} must have no absorption row");
+        }
     }
 
     #[test]

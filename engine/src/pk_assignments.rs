@@ -108,18 +108,18 @@ const SEED_MODEL_CLASSES: &[(&str, ModelClass, &str)] = &[
     ),
     (
         "Quercetin",
-        ModelClass::OralAbsorption,
-        "Plasma contains virtually only conjugated metabolites, and the oral terminal half-life (~11 h) far exceeds the IV half-life (0.7-2.4 h) — classic absorption/conjugation-controlled (flip-flop-prone) kinetics. Verified primary absorption data exists (pubmed:11151743 — Erlund 2000, n=16 crossover, aglycone Tmax 1.9/2.7/4.8 h at 8/20/50 mg) but no Bateman entry is derivable: at the highest aglycone dose ka/ke collapses to 1.11 (pubmed:18241083 — Moon 2008 terminal t1/2 3.5 h), and plasma curves show enterohepatic re-entry peaks a one-compartment kernel cannot represent. Refuses until the model-class decision in #185 lands.",
+        ModelClass::None,
+        "Model-class failure, refused per #185 decision (no speculative enterohepatic class for one substance). Plasma contains virtually only conjugated metabolites, and the oral terminal half-life (~11 h) far exceeds the IV half-life (0.7-2.4 h) — classic absorption/conjugation-controlled (flip-flop-prone) kinetics. Verified primary absorption data exists (pubmed:11151743 — Erlund 2000, n=16 crossover, aglycone Tmax 1.9/2.7/4.8 h at 8/20/50 mg) but no Bateman entry is derivable: at the highest aglycone dose ka/ke collapses to 1.11 (pubmed:18241083 — Moon 2008 terminal t1/2 3.5 h), and plasma curves show enterohepatic re-entry peaks a one-compartment kernel cannot represent. The measurement records stay in pk_parameters as disclaimed data.",
     ),
     (
         "Apigenin",
-        ModelClass::OralAbsorption,
-        "Human primary ADME exists but the parent compound is not what circulates: apigenin per se is poorly absorbed (urinary metabolite recovery 0.5%, pubmed:35452808 — Borges 2022, Free Radic Biol Med, NCT03526081), and plasma exposure is apigenin-4'-glucuronide with Cmax time set by the matrix, not an absorption rate constant (2 h chamomile tea upper-GIT; 4 h parsley drink and 6 h parsley+yogurt lower-GIT/colonic release of the apiosylglucoside). No plasma half-life reported — elimination was assessed by urinary excretion. Any ka mined from those Cmax times would encode the food vehicle. Metabolite-driven failure, same class as resveratrol (#185); refuses.",
+        ModelClass::None,
+        "Metabolite-driven failure, refused per #185 decision. Human primary ADME exists but the parent compound is not what circulates: apigenin per se is poorly absorbed (urinary metabolite recovery 0.5%, pubmed:35452808 — Borges 2022, Free Radic Biol Med, NCT03526081), and plasma exposure is apigenin-4'-glucuronide with Cmax time set by the matrix, not an absorption rate constant (2 h chamomile tea upper-GIT; 4 h parsley drink and 6 h parsley+yogurt lower-GIT/colonic release of the apiosylglucoside). No plasma half-life reported — elimination was assessed by urinary excretion. Any ka mined from those Cmax times would encode the food vehicle.",
     ),
     (
         "Resveratrol",
-        ModelClass::OralAbsorption,
-        ">=70% absorbed but almost entirely sulfate/glucuronide-hydrogenated metabolites in plasma — the measured 9.2 h limb is metabolite disposition after very rapid intestinal first-pass, so a plain one-compartment decay on parent drug is invalid; absorption+metabolite model needed.",
+        ModelClass::None,
+        "Metabolite-driven failure, refused per #185 decision (no speculative metabolite class for one substance). >=70% absorbed but almost entirely sulfate/glucuronide-hydrogenated metabolites in plasma — the measured 9.2 h limb is metabolite disposition after very rapid intestinal first-pass, so a plain one-compartment decay on parent drug is invalid. Parent plasma levels are low-ng/mL; a Bateman ka would fit the conjugate and call it absorption. The measurement records stay in pk_parameters as disclaimed data.",
     ),
     (
         "Berberine",
@@ -436,5 +436,31 @@ mod tests {
         assert_eq!(class, ModelClass::None);
         assert!(rationale.contains("flip kinetics"));
         assert!(rationale.contains("24.92"));
+    }
+
+    #[test]
+    fn model_class_failures_refused_not_simulated() {
+        // #185 decision: quercetin/resveratrol/apigenin exceed what a
+        // one-compartment kernel can represent. Refusing is the model —
+        // a new class needs at least two justified substances before
+        // implementation, and none of these three can share a kernel.
+        // If this test fails, a degenerate curve has been re-enabled.
+        for (name, marker) in [
+            ("Quercetin", "Model-class failure"),
+            ("Resveratrol", "Metabolite-driven failure"),
+            ("Apigenin", "Metabolite-driven failure"),
+        ] {
+            let (class, rationale) =
+                assignment_for_name(name).unwrap_or_else(|| panic!("{name} assigned"));
+            assert_eq!(class, ModelClass::None, "{name} must stay refused");
+            assert!(
+                rationale.contains(marker),
+                "{name} rationale lost its refusal class"
+            );
+            assert!(
+                rationale.contains("#185"),
+                "{name} rationale lost its decision anchor"
+            );
+        }
     }
 }
