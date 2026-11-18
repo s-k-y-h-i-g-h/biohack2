@@ -77,7 +77,28 @@ a "likely" value.** An HRV export without a `definition` column lands in
 custom metrics flagged `unspecified` rather than silently polluting the RMSSD
 column (FR-055).
 
+## R4b — CLI ingest, IANA zones, failure retention (T315) — 2026-11-18
+
+`cli/src/main.rs` gained `biohack2 ingest <file.csv|.json> --source <id> [--user]`.
+Engine features `csv` and `chrono-tz` are both behind `file-ingest`, so the
+WASM bundle stays lean (`cargo tree -p web --target wasm32-unknown-unknown`
+contains neither).
+
+Smoke-driven decisions:
+- **IANA zone names** (`Europe/London`) are resolved via `chrono-tz` when the
+  `timezone` column carries a name instead of an offset — real exports do
+  this. The offset *applied* is recorded per the T306 contract; DST-ambiguous
+  instants are rejected and retained, never guessed.
+- **Retained failures** (`ingest_failures`, FR-059) clear in two ways:
+  content-keyed rows clear when the same record ingests successfully;
+  ordinal-keyed rows (`record-N` from the parser) clear only when a later
+  ingest of the same source re-examined position N and it passed
+  (`ParseOutcome::records_seen` proves coverage). Positions beyond a shorter
+  re-export stay retained. Verified end-to-end: keep / keep-dedupe / clear /
+  shorter-file-keeps.
+
 ## R5 — WASM/IndexedDB persistence path (T304 remainder) — open
+
 
 Investigation pending: web crate currently persists via server SQLite over the
 sync API; a browser-local ingest path would need the ledger in IndexedDB with

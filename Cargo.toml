@@ -1,5 +1,5 @@
 [workspace]
-members = ["engine", "web", "server"]
+members = ["engine", "web", "server", "cli"]
 resolver = "2"
 
 [workspace.package]
@@ -12,6 +12,7 @@ description = "Biohacker tracking platform with local-first storage"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 csv = "1"
+chrono-tz = "0.10"
 chrono = { version = "0.4", default-features = false, features = ["serde", "alloc", "now", "wasmbind", "clock"] }
 # Note: chrono trimmed but `wasmbind`+`now` are REQUIRED — without them
 # Utc::now() compiles to unreachable on wasm32 and every save silently panics.

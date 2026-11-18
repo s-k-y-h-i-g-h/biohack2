@@ -120,15 +120,39 @@ pub fn normalise_timestamp(
             .or_else(|_| NaiveDateTime::parse_from_str(raw, "%Y-%m-%d %H:%M:%S"))
             .or_else(|_| NaiveDateTime::parse_from_str(raw, "%Y-%m-%d %H:%M"))
             .map_err(|_| TimestampRejection::Unparseable(raw.to_string()))?;
-        let tz = source_tz
-            .map(parse_offset)
-            .transpose()?
-            .ok_or(TimestampRejection::MissingTimezone)?;
-        let local = tz
-            .from_local_datetime(&naive)
-            .single()
-            .ok_or(TimestampRejection::Unparseable(raw.to_string()))?;
-        (local.with_timezone(&Utc), Some(tz.to_string()))
+        let label = source_tz.ok_or(TimestampRejection::MissingTimezone)?;
+        if let Ok(off) = parse_offset(label) {
+            let local = off
+                .from_local_datetime(&naive)
+                .single()
+                .ok_or(TimestampRejection::Unparseable(raw.to_string()))?;
+            (local.with_timezone(&Utc), Some(off.to_string()))
+        } else {
+            // Not a fixed offset — try an IANA name (`Europe/London`), the
+            // form real wearable exports actually use. Only linked where
+            // file parsing runs (native), never in the WASM bundle.
+            #[cfg(feature = "file-ingest")]
+            {
+                let tz: chrono_tz::Tz = label
+                    .trim()
+                    .parse()
+                    .map_err(|_| TimestampRejection::Unparseable(label.to_string()))?;
+                let local = tz.from_local_datetime(&naive).single().ok_or_else(|| {
+                    TimestampRejection::Unparseable(format!(
+                        "{raw} ambiguous in {label} (DST transition)"
+                    ))
+                })?;
+                let utc = local.with_timezone(&Utc);
+                // Record the offset actually applied (contract T306); the
+                // IANA name itself lives in the row's timezone provenance.
+                let off_secs = naive.and_utc().signed_duration_since(utc).num_seconds();
+                (utc, Some(format_offset_secs(off_secs)))
+            }
+            #[cfg(not(feature = "file-ingest"))]
+            {
+                return Err(TimestampRejection::Unparseable(label.to_string()));
+            }
+        }
     };
 
     if utc > naive_upper_limit {
@@ -143,6 +167,14 @@ pub fn normalise_timestamp(
         return Err(TimestampRejection::ImplausiblePast);
     }
     Ok((utc, offset_label))
+}
+
+/// Render an offset in seconds as `+HH:MM` (or `-HH:MM`).
+#[cfg(feature = "file-ingest")]
+fn format_offset_secs(secs: i64) -> String {
+    let sign = if secs < 0 { '-' } else { '+' };
+    let a = secs.abs();
+    format!("{sign}{:02}:{:02}", a / 3600, (a % 3600) / 60)
 }
 
 /// Parse `+HH:MM`, `-HHMM`, or `+HH` timezone offsets.

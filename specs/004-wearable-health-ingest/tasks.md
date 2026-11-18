@@ -60,7 +60,7 @@ storage path, T308 retention-for-retry at the caller edge. -->
 - [ ] T312 Implement FIT parsing → `RawReading` set (HR, HRV, sleep stages, SpO₂, temperature, steps as available)
 - [x] T313 Implement CSV/JSON generic parsing with a documented column contract — `engine/src/ingest/generic.rs` (feature `file-ingest`): CSV/JSON → `Vec<RawReading>` + per-record `ParseFailure` with verbatim input; epoch s/ms disambiguation, never-guessed definitions, synthesised `fnv1a64` ids (research.md §R3/§R4). 7 new tests
 - [ ] T314 Implement per-vendor field mapping tables as **data** (device → metric + definition), not code branches
-- [ ] T315 Implement the CLI ingest command: `biohack2 ingest <file>` reporting counts, mapping, and failures
+- [x] T315 Implement the CLI ingest command — `cli/src/main.rs` `biohack2 ingest <file.csv|.json> --source <id>`: counts (ingested/dupes/quarantined/custom/vitals), per-line parse failures with verbatim raw, ordinal-keyed retention cleared only on proven re-examination (research.md §R4b); smoke-verified incl. IANA zones, dedupe, retention lifecycle
 - [ ] T316 Implement the sync-agent mode (watch inbox, ingest, report) runnable on the LAN host
 - [ ] T317 Fixture tests: real-format sample files → expected `VitalsEntry` rows (no network, no device)
 - [ ] T318 Idempotency test on a real fixture re-ingested twice (SC-051)

@@ -18,6 +18,7 @@ thiserror.workspace = true
 # Generic CSV/JSON parsers (T313) — opt-in so the WASM bundle never pays
 # for parsing machinery only the native file-ingest path uses.
 csv = { workspace = true, optional = true }
+chrono-tz = { workspace = true, optional = true }
 anyhow.workspace = true
 # SQLite (only for native builds, not WASM)
 sqlx = { workspace = true, features = ["runtime-tokio", "sqlite", "chrono", "uuid", "json", "macros", "migrate"], optional = true }
@@ -27,7 +28,7 @@ sqlx = { workspace = true, features = ["runtime-tokio", "sqlite", "chrono", "uui
 [features]
 default = ["db"]
 db = ["sqlx"]
-file-ingest = ["dep:csv"]
+file-ingest = ["dep:csv", "dep:chrono-tz"]
 
 # uuid v4 on wasm32 needs getrandom's JS backend; the web crate only got it
 # through feature unification, so anything building `engine` alone for

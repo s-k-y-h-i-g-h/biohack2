@@ -35,6 +35,10 @@ pub struct ParseFailure {
 pub struct ParseOutcome {
     pub readings: Vec<RawReading>,
     pub failures: Vec<ParseFailure>,
+    /// Highest record ordinal this run actually examined (CSV: line number
+    /// incl. header; JSON: 1-based item index). Lets callers prove that a
+    /// previously-failed ordinal has been re-checked and now passes.
+    pub records_seen: usize,
 }
 
 impl ParseOutcome {
@@ -191,6 +195,7 @@ pub fn parse_generic_csv(source_id: &str, text: &str, now: DateTime<Utc>) -> Par
 
     for (idx, rec) in rdr.records().enumerate() {
         let record = idx + 2; // header is line 1
+        out.records_seen = out.records_seen.max(record);
         let rec = match rec {
             Ok(r) => r,
             Err(e) => {
@@ -270,6 +275,7 @@ pub fn parse_generic_json(source_id: &str, text: &str, now: DateTime<Utc>) -> Pa
 
     for (idx, item) in items.iter().enumerate() {
         let record = idx + 1;
+        out.records_seen = out.records_seen.max(record);
         let raw = item.to_string();
         let get = |k: &str| {
             item.get(k).and_then(|v| match v {
@@ -375,6 +381,30 @@ mod tests {
             "{:?}",
             out.failures[0].reason
         );
+    }
+
+    #[test]
+    fn csv_iana_timezone_names_resolve() {
+        // Real wearable exports ship IANA zone names, not numeric offsets.
+        // Nov 2026: London is GMT (+00:00), New York is EST (-05:00).
+        let csv = "timestamp,metric,value,unit,timezone\n\
+                   2026-11-17 07:30:00,hrv,42,ms,Europe/London\n\
+                   2026-11-17 07:30:00,heart_rate,58,bpm,America/New_York\n\
+                   2026-11-17 07:30:00,heart_rate,59,bpm,Mars/Olympus_Mons\n";
+        let out = parse_generic_csv("t.iana", csv, now());
+        assert_eq!(out.readings.len(), 2, "{:?}", out.failures);
+        let utc = |i: usize| {
+            out.readings[i]
+                .observed_at
+                .to_rfc3339_opts(chrono::SecondsFormat::Secs, true)
+        };
+        assert_eq!(utc(0), "2026-11-17T07:30:00Z");
+        assert_eq!(out.readings[0].source_timezone.as_deref(), Some("+00:00"));
+        assert_eq!(utc(1), "2026-11-17T12:30:00Z");
+        assert_eq!(out.readings[1].source_timezone.as_deref(), Some("-05:00"));
+        // Unknown zone: refused with the zone as the unparseable value.
+        assert_eq!(out.failures.len(), 1);
+        assert!(out.failures[0].reason.contains("Mars/Olympus_Mons"));
     }
 
     #[test]

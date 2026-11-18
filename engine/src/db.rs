@@ -1575,6 +1575,51 @@ pub async fn ingest_readings(
     Ok(report)
 }
 
+/// Retain a record that failed **before** it could become a `RawReading`
+/// (parser-level failure: unparseable timestamp, unknown definition, …).
+/// `ingest_readings` can only persist failures for records that parsed —
+/// this closes the last silent-drop path for file ingest (FR-059).
+pub async fn retain_ingest_failure(
+    pool: &DbPool,
+    source_id: &str,
+    source_record_id: &str,
+    reason: &str,
+    payload: &str,
+) -> anyhow::Result<()> {
+    let failed_at = chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
+    sqlx::query(
+        "INSERT INTO ingest_failures (source_id, source_record_id, reason, payload, failed_at)
+         VALUES (?, ?, ?, ?, ?)
+         ON CONFLICT(source_id, source_record_id) DO UPDATE SET
+            reason = excluded.reason,
+            payload = excluded.payload,
+            failed_at = excluded.failed_at",
+    )
+    .bind(source_id)
+    .bind(source_record_id)
+    .bind(reason)
+    .bind(payload)
+    .bind(failed_at)
+    .execute(pool)
+    .await?;
+    Ok(())
+}
+
+/// Delete one retained failure by its exact key. Callers clear ordinal-keyed
+/// parse failures only after re-examining the same position successfully.
+pub async fn delete_ingest_failure(
+    pool: &DbPool,
+    source_id: &str,
+    source_record_id: &str,
+) -> anyhow::Result<()> {
+    sqlx::query("DELETE FROM ingest_failures WHERE source_id = ? AND source_record_id = ?")
+        .bind(source_id)
+        .bind(source_record_id)
+        .execute(pool)
+        .await?;
+    Ok(())
+}
+
 /// List retained ingest failures, newest first (FR-059 review surface).
 pub async fn list_ingest_failures(
     pool: &DbPool,
