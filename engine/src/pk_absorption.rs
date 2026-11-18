@@ -63,6 +63,22 @@ pub const RESEARCH: &[AbsorptionResearch] = &[
         absorption_half_life_hours: 0.5056,
         provenance: "derived: one-compartment Bateman tmax=ln(ka/ke)/(ka-ke) solved at measured Tmax 2.277 h (pubmed:38144272 — Kim 2023, Heliyon, PMC10746415 full text) with ke from WS-35 total-withanolide T1/2 9.756 h (same study); Tmax 2.187-2.367 h -> 0.478-0.534 h band",
     },
+    AbsorptionResearch {
+        substance: "Berberine",
+        // Full-text-confirmed (PMC8979756): berberine under FASTED
+        // conditions, n=12 healthy males, UI026 syrup (Coptis extract),
+        // Tmax median 1.00 h (IQR 1.00-1.33), t1/2 5.77 h. ke kept as the
+        // engine's own 5.0 h (same cited table row family) so absorption
+        // and elimination stay internally consistent in the model.
+        //     ka = 3.312/h  ->  t½,abs = 0.2093 h
+        // Band from the Tmax IQR upper bound (1.33 h): 0.209-0.311 h.
+        // Honest caveats: single small food-effect study; NCA with sparse
+        // sampling (Tmax quantised to the 1.00/1.33 h grid points);
+        // absolute F <1% - irrelevant here, Bateman tmax is F-independent;
+        // ka 3.31/h >> ke 0.139/h so no flip-flop.
+        absorption_half_life_hours: 0.2093,
+        provenance: "derived: one-compartment Bateman tmax=ln(ka/ke)/(ka-ke) solved at fasted Tmax median 1.00 h (pubmed:35419311 — Park 2022, Transl Clin Pharmacol, PMC8979756 full text) with ke from engine T1/2 5.0 h (same source); Tmax IQR to 1.33 h -> 0.209-0.311 h band",
+    },
 ];
 
 pub fn lookup(name: &str) -> Option<&'static AbsorptionResearch> {
@@ -95,6 +111,7 @@ mod tests {
         assert!(lookup("melatonin").is_some());
         assert!(lookup("Caffeine").is_some());
         assert!(lookup("ashwagandha").is_some());
+        assert!(lookup("berberine").is_some());
         assert!(lookup("9-Me-BC").is_none()); // until researched
     }
 
@@ -138,6 +155,13 @@ mod tests {
             (ash.absorption_half_life_hours - ash_solved).abs() < 0.005,
             "ashwagandha table says {} but cited inputs derive {ash_solved:.4}",
             ash.absorption_half_life_hours
+        );
+        let ber = lookup("Berberine").unwrap();
+        let ber_solved = solve_bateman_t_half_abs(ln2 / 5.0, 1.00);
+        assert!(
+            (ber.absorption_half_life_hours - ber_solved).abs() < 0.005,
+            "berberine table says {} but cited inputs derive {ber_solved:.4}",
+            ber.absorption_half_life_hours
         );
     }
 
