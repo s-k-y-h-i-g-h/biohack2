@@ -48,6 +48,21 @@ pub const RESEARCH: &[AbsorptionResearch] = &[
         absorption_half_life_hours: 0.0815,
         provenance: "derived: one-compartment Bateman tmax=ln(ka/ke)/(ka-ke) solved at measured Tmax 29.8 min (pubmed:6832208 — Blanchard & Sawers 1983, Eur J Clin Pharmacol) with ke from T1/2 5.0 h (pubmed:27100333); Tmax 21.7-37.9 min -> 0.055-0.113 h band",
     },
+    AbsorptionResearch {
+        substance: "Ashwagandha",
+        // Full-text-confirmed (PMC10746415): total withanolides after WS-35,
+        // Tmax 2.277 +/- 0.09 h, t½ 9.756 +/- 0.517 h — the same study row
+        // the engine's 9.76 h half-life came from. ke = ln2/9.756 =
+        // 0.0710/h;  ka = 1.371/h  ->  t½,abs = 0.5056 h.
+        // ka >> ke so no flip-flop: the 9.76 h is genuinely elimination.
+        // Band from the SD on Tmax (2.187-2.367 h): 0.478-0.534 h.
+        // Caveat kept honest: "total withanolides" is an LC-MS/MS mixture
+        // measure; per-analyte Tmax (withanolide A 1.83, withaferin A 2.28,
+        // withanoside IV 1.76) cluster within the band, so the
+        // one-compartment approximation is defensible for the lumped entry.
+        absorption_half_life_hours: 0.5056,
+        provenance: "derived: one-compartment Bateman tmax=ln(ka/ke)/(ka-ke) solved at measured Tmax 2.277 h (pubmed:38144272 — Kim 2023, Heliyon, PMC10746415 full text) with ke from WS-35 total-withanolide T1/2 9.756 h (same study); Tmax 2.187-2.367 h -> 0.478-0.534 h band",
+    },
 ];
 
 pub fn lookup(name: &str) -> Option<&'static AbsorptionResearch> {
@@ -79,7 +94,8 @@ mod tests {
     fn lookup_is_case_insensitive() {
         assert!(lookup("melatonin").is_some());
         assert!(lookup("Caffeine").is_some());
-        assert!(lookup("Ashwagandha").is_none()); // until researched
+        assert!(lookup("ashwagandha").is_some());
+        assert!(lookup("9-Me-BC").is_none()); // until researched
     }
 
     fn solve_bateman_t_half_abs(ke_per_hour: f64, tmax_hours: f64) -> f64 {
@@ -115,6 +131,13 @@ mod tests {
             (caf.absorption_half_life_hours - caf_solved).abs() < 0.005,
             "caffeine table says {} but cited inputs derive {caf_solved:.4}",
             caf.absorption_half_life_hours
+        );
+        let ash = lookup("Ashwagandha").unwrap();
+        let ash_solved = solve_bateman_t_half_abs(ln2 / 9.756, 2.277);
+        assert!(
+            (ash.absorption_half_life_hours - ash_solved).abs() < 0.005,
+            "ashwagandha table says {} but cited inputs derive {ash_solved:.4}",
+            ash.absorption_half_life_hours
         );
     }
 
@@ -158,19 +181,20 @@ mod tests {
 
     #[test]
     fn substances_without_absorption_research_still_refuse() {
-        // #182 discipline: adding the table must not silently unblock
+        // #182 discipline: adding table entries must not silently unblock
         // unresearched OralAbsorption substances with guessed numbers.
+        // Self-maintaining: picks whatever OralAbsorption model currently
+        // has no table row and asserts it still refuses honestly.
         let items = seed_catalog();
         let models = build_models(&items);
-        let ash = models
+        let un = models
             .iter()
-            .find(|m| m.substance == "Ashwagandha")
-            .expect("ashwagandha model built");
-        assert_eq!(ash.model_class, ModelClass::OralAbsorption);
-        let d = dose("Ashwagandha", 600.0);
+            .find(|m| m.model_class == ModelClass::OralAbsorption && lookup(&m.substance).is_none())
+            .expect("catalog still contains OralAbsorption substances with no absorption research");
+        let d = dose(&un.substance, 500.0);
         let t0 = d.timestamp;
-        let err = sample_series(ash, &[d], t0, t0 + chrono::Duration::hours(6), 1.0)
-            .expect_err("ashwagandha has no absorption param yet — must stay an honest refusal");
+        let err = sample_series(un, &[d], t0, t0 + chrono::Duration::hours(6), 1.0)
+            .expect_err("unresearched OralAbsorption substance must stay an honest refusal");
         assert!(err.contains("absorption"), "{err}");
     }
 
