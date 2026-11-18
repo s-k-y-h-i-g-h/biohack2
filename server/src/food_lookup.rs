@@ -21,7 +21,7 @@ use std::collections::HashMap;
 use std::sync::OnceLock;
 use std::time::{Duration, Instant};
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result, anyhow};
 use engine::food::{FoodSearchResult, FoodSource, NutrientInfo};
 use engine::nutrient_ref::build_reference_map;
 use tokio::sync::RwLock;
@@ -162,7 +162,11 @@ impl FoodLookup {
     /// `USDA_API_KEY` env var gates the USDA source; OFF works keyless.
     pub fn from_env() -> Self {
         let http = reqwest::Client::builder()
-            .user_agent(concat!("biohack2/", env!("CARGO_PKG_VERSION"), " (tracking app)"))
+            .user_agent(concat!(
+                "biohack2/",
+                env!("CARGO_PKG_VERSION"),
+                " (tracking app)"
+            ))
             .timeout(Duration::from_secs(15))
             .build()
             .expect("reqwest client");
@@ -254,8 +258,7 @@ impl FoodLookup {
                         last_err = anyhow!("OpenFoodFacts HTTP {}", resp.status());
                         continue;
                     }
-                    let body: serde_json::Value =
-                        resp.json().await.context("OFF parse")?;
+                    let body: serde_json::Value = resp.json().await.context("OFF parse")?;
                     return Ok(parse_off_search(&body));
                 }
                 Err(e) => last_err = anyhow!("OpenFoodFacts request failed: {e}"),
@@ -289,8 +292,7 @@ impl FoodLookup {
     /// Details by id: 8-14 digit numeric → OFF barcode, else USDA FDC id.
     pub async fn details(&self, id: &str) -> Result<FoodSearchResult> {
         let id = id.trim();
-        let is_barcode =
-            id.len() >= 8 && id.len() <= 14 && id.chars().all(|c| c.is_ascii_digit());
+        let is_barcode = id.len() >= 8 && id.len() <= 14 && id.chars().all(|c| c.is_ascii_digit());
         if is_barcode {
             let resp = self
                 .http
@@ -321,8 +323,9 @@ impl FoodLookup {
                     .and_then(|v| v.as_str())
                     .map(|s| s.to_string()),
                 source: FoodSource::OpenFoodFacts,
-                nutrients_per_100g: (!off_nutriments_to_infos(product.get("nutriments")).is_empty())
-                    .then(|| off_nutriments_to_infos(product.get("nutriments"))),
+                nutrients_per_100g: (!off_nutriments_to_infos(product.get("nutriments"))
+                    .is_empty())
+                .then(|| off_nutriments_to_infos(product.get("nutriments"))),
             })
         } else {
             let api_key = self
@@ -370,7 +373,11 @@ pub fn parse_off_search(body: &serde_json::Value) -> Vec<FoodSearchResult> {
                     }
                     let infos = off_nutriments_to_infos(p.get("nutriments"));
                     Some(FoodSearchResult {
-                        id: p.get("code").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+                        id: p
+                            .get("code")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("")
+                            .to_string(),
                         description: name.to_string(),
                         brand: p
                             .get("brands")
@@ -395,9 +402,7 @@ pub fn parse_usda_search(body: &serde_json::Value) -> Vec<FoodSearchResult> {
                     let description = f.get("description")?.as_str()?.to_string();
                     let infos = usda_nutrients_to_infos(f.get("foodNutrients"));
                     Some(FoodSearchResult {
-                        id: f.get("fdcId")
-                            .map(|v| v.to_string())
-                            .unwrap_or_default(),
+                        id: f.get("fdcId").map(|v| v.to_string()).unwrap_or_default(),
                         description,
                         brand: None,
                         source: FoodSource::Usda,
@@ -468,7 +473,10 @@ mod tests {
         assert!(n.iter().any(|x| x.name == "Total Fat"));
         assert!(!n.iter().any(|x| x.name == "Total lipid (fat)"));
         // `value` alias honored; negative dropped; unknown id kept under raw name.
-        assert!(n.iter().any(|x| x.name == "Energy" && (x.amount - 143.0).abs() < 1e-9));
+        assert!(
+            n.iter()
+                .any(|x| x.name == "Energy" && (x.amount - 143.0).abs() < 1e-9)
+        );
         assert_eq!(n.len(), 2);
     }
 

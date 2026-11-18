@@ -21,7 +21,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::models::{ItemType, LogEntry};
 use crate::nutrient_ref::{
-    calculate_nutrient_status, get_nutrient_references, DailyNutrientStatus, NutrientStatus,
+    DailyNutrientStatus, NutrientStatus, calculate_nutrient_status, get_nutrient_references,
 };
 
 /// Which external food database a result came from.
@@ -150,7 +150,8 @@ impl DailyNutrition {
             .totals
             .iter()
             .filter_map(|t| {
-                refs_.iter()
+                refs_
+                    .iter()
                     .find(|r| r.name == t.name && (r.unit == t.unit || t.unit.is_empty()))
                     .map(|r| calculate_nutrient_status(t.amount, r))
             })
@@ -215,7 +216,16 @@ mod tests {
             quantity: None,
             unit: None,
             route: None,
-            timestamp: Utc.with_ymd_and_hms(ymd[..4].parse().unwrap(), ymd[5..7].parse().unwrap(), ymd[8..10].parse().unwrap(), 12, 0, 0).unwrap(),
+            timestamp: Utc
+                .with_ymd_and_hms(
+                    ymd[..4].parse().unwrap(),
+                    ymd[5..7].parse().unwrap(),
+                    ymd[8..10].parse().unwrap(),
+                    12,
+                    0,
+                    0,
+                )
+                .unwrap(),
             stack_id: None,
             notes: None,
             acknowledged_interaction: false,
@@ -228,7 +238,11 @@ mod tests {
     }
 
     fn ni(name: &str, amount: f64, unit: &str) -> NutrientInfo {
-        NutrientInfo { name: name.into(), amount, unit: unit.into() }
+        NutrientInfo {
+            name: name.into(),
+            amount,
+            unit: unit.into(),
+        }
     }
 
     fn date(s: &str) -> chrono::NaiveDate {
@@ -253,7 +267,12 @@ mod tests {
         e.custom_fields = Some(serde_json::json!({"mood": 4}));
         set_nutrition(&mut e, &vec![ni("Energy", 208.0, "kcal")]);
         assert_eq!(
-            e.custom_fields.as_ref().unwrap().get("mood").unwrap().as_i64(),
+            e.custom_fields
+                .as_ref()
+                .unwrap()
+                .get("mood")
+                .unwrap()
+                .as_i64(),
             Some(4)
         );
         let got = nutrition_of(&e).unwrap();
@@ -268,7 +287,11 @@ mod tests {
         e.custom_fields = Some(serde_json::json!({"nutrition": "not-a-list"}));
         assert!(nutrition_of(&e).is_none());
         // Non-food entry with a nutrition payload is ignored by design.
-        let mut s = food_entry("Creatine", "2026-11-18", Some(vec![ni("Energy", 1.0, "kcal")]));
+        let mut s = food_entry(
+            "Creatine",
+            "2026-11-18",
+            Some(vec![ni("Energy", 1.0, "kcal")]),
+        );
         s.item_type = ItemType::Supplement;
         assert!(nutrition_of(&s).is_none());
     }
@@ -276,11 +299,26 @@ mod tests {
     #[test]
     fn aggregate_day_sums_names_and_isolates_days_and_types() {
         let entries = vec![
-            food_entry("Eggs", "2026-11-18", Some(vec![ni("Energy", 143.0, "kcal"), ni("Protein", 12.6, "g")])),
-            food_entry("Rice", "2026-11-18", Some(vec![ni("Energy", 130.0, "kcal"), ni("Carbohydrate", 28.0, "g")])),
-            food_entry("Snack", "2026-11-17", Some(vec![ni("Energy", 999.0, "kcal")])), // other day
-            food_entry("NoData", "2026-11-18", None),                                    // no nutrition
-            food_entry("Whey", "2026-11-18", Some(vec![ni("Protein", 24.0, "g")])),      // no time-of-day overlap issue
+            food_entry(
+                "Eggs",
+                "2026-11-18",
+                Some(vec![ni("Energy", 143.0, "kcal"), ni("Protein", 12.6, "g")]),
+            ),
+            food_entry(
+                "Rice",
+                "2026-11-18",
+                Some(vec![
+                    ni("Energy", 130.0, "kcal"),
+                    ni("Carbohydrate", 28.0, "g"),
+                ]),
+            ),
+            food_entry(
+                "Snack",
+                "2026-11-17",
+                Some(vec![ni("Energy", 999.0, "kcal")]),
+            ), // other day
+            food_entry("NoData", "2026-11-18", None), // no nutrition
+            food_entry("Whey", "2026-11-18", Some(vec![ni("Protein", 24.0, "g")])), // no time-of-day overlap issue
         ];
         let d = aggregate_day(&entries, date("2026-11-18"));
         assert_eq!(d.entry_count, 3);
@@ -312,10 +350,17 @@ mod tests {
         let entries = vec![food_entry(
             "Big day",
             "2026-11-18",
-            Some(vec![ni("Energy", 2500.0, "kcal"), ni("Mystery-X", 7.0, "zz")]),
+            Some(vec![
+                ni("Energy", 2500.0, "kcal"),
+                ni("Mystery-X", 7.0, "zz"),
+            ]),
         )];
         let st = aggregate_day(&entries, date("2026-11-18")).status();
-        assert_eq!(st.nutrients.len(), 1, "unknown nutrient must not gain a status");
+        assert_eq!(
+            st.nutrients.len(),
+            1,
+            "unknown nutrient must not gain a status"
+        );
         assert_eq!(st.nutrients[0].name, "Energy");
         assert!(st.nutrients[0].percent_rdi > 100.0);
     }

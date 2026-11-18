@@ -537,7 +537,11 @@ mod tests {
         let n = ids.len();
         ids.sort();
         ids.dedup();
-        assert_eq!(ids.len(), n, "duplicate USDA nutrient id in reference table");
+        assert_eq!(
+            ids.len(),
+            n,
+            "duplicate USDA nutrient id in reference table"
+        );
         assert!(n >= 30, "reference table lost nutrients (have {n})");
     }
 
