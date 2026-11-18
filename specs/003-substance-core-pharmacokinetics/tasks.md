@@ -119,13 +119,15 @@
 
 **Purpose**: Coverage. A model that only covers 4 substances is a demo.
 
-- [ ] T251 Research and record reference parameters for the stimulant class (caffeine, theobromine, tyrosine, etc.) with source cited per value
-- [ ] T252 [P] Research and record parameters for minerals/electrolytes (magnesium, creatine plateau, etc.)
-- [ ] T253 [P] Research and record parameters for fat-soluble vitamins and accumulation cases
-- [ ] T254 [P] Research and record parameters for the serotonergic/nootropic classes
-- [ ] T255 Mark every item without a defensible parameter set as `none` (FR-040) — absence is a deliverable, not a gap
-- [ ] T256 Record parameter sources in the catalog with citation strings (FR-036 provenance)
-- [ ] T257 Add a catalog-release version bump path for parameter updates (FR-006 consistency)
+- [x] T251 Research and record reference parameters for the stimulant class (caffeine, theobromine, tyrosine, etc.) with source cited per value
+- [x] T252 [P] Research and record parameters for minerals/electrolytes (magnesium, creatine plateau, etc.)
+- [x] T253 [P] Research and record parameters for fat-soluble vitamins and accumulation cases
+- [x] T254 [P] Research and record parameters for the serotonergic/nootropic classes
+- [x] T255 Mark every item without a defensible parameter set as `none` (FR-040) — absence is a deliverable, not a gap
+
+> Done 2026-11-18: verified by `engine/tests/integration_tests.rs::test_every_catalog_substance_has_an_assigned_model_class` (guards that no catalog item is silently unassigned). Per-value pubmed citations live in `pk_assignments.rs` rationale/provenance; staleness bump path = `CATALOG_VERSION` in `catalog.rs` → `SubstanceModel.catalog_version`.
+- [x] T256 Record parameter sources in the catalog with citation strings (FR-036 provenance)
+- [x] T257 Add a catalog-release version bump path for parameter updates (FR-006 consistency)
 
 **Checkpoint**: Every catalog item is either modelled with cited parameters or explicitly `none`.
 

@@ -381,3 +381,17 @@ async fn test_expired_tombstones_are_pruned(pool: DbPool) -> anyhow::Result<()> 
     assert_eq!(remaining, 1, "pruning physically deletes expired rows");
     Ok(())
 }
+
+#[test]
+fn test_every_catalog_substance_has_an_assigned_model_class() {
+    let cat: Vec<String> = engine::catalog::seed_catalog()
+        .iter()
+        .map(|c| c.name.clone())
+        .collect();
+    let missing: Vec<&String> = cat
+        .iter()
+        .filter(|n| engine::pk_assignments::assignment_for_name(n).is_none())
+        .collect();
+    println!("COVERAGE catalog={} missing={:?}", cat.len(), missing);
+    assert!(missing.is_empty());
+}
