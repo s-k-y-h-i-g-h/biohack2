@@ -231,14 +231,16 @@ impl FoodLookup {
 
     async fn search_off(&self, query: &str) -> Result<Vec<FoodSearchResult>> {
         // OFF's search.pl 503s intermittently (~50% under light load; verified
-        // 2026-11-18 with plain curl, client-independent). Bounded retry with
-        // small backoff is the difference between a working and a coin-flip
-        // food search.
-        const OFF_ATTEMPTS: usize = 3;
+        // 2026-11-18 with plain curl, client-independent). The 503 bursts last
+        // seconds, not milliseconds (live smoke: 2/3 calls failed at ~1s
+        // spacing), so the retry budget is exponential 0.5/1/2s — a ~3.5s
+        // window that still feels instant when OFF is healthy (first attempt
+        // usually succeeds outright).
+        const OFF_ATTEMPTS: usize = 4;
         let mut last_err = anyhow!("OpenFoodFacts: not attempted");
         for attempt in 0..OFF_ATTEMPTS {
             if attempt > 0 {
-                tokio::time::sleep(Duration::from_millis(400 * attempt as u64)).await;
+                tokio::time::sleep(Duration::from_millis(250 * (1 << attempt))).await;
             }
             match self
                 .http
