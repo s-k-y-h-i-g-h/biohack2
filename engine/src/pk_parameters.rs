@@ -146,7 +146,7 @@ pub const SEED_PK_PARAMETERS: &[Parameterized] = &[
         half_life_range: None,
         citation: "pubmed:11361045 — Graefe et al. 2001, J Clin Pharmacol",
         range_citation: "",
-        params_note: "Terminal elimination half-life ~11 h for all oral treatments (quercetin measured as plasma glucuronides); Tmax 0.7 h for quercetin-4'-glucoside/onion vs 4.3-7.0 h for rutin/buckwheat — sugar moiety controls rate (pubmed:11361045 — Graefe et al. 2001, J Clin Pharmacol). IV t1/2 only 0.7-2.4 h (pubmed:10363620 — Graefe et al. 1999, Int J Clin Pharmacol Ther).",
+        params_note: "Terminal elimination half-life ~11 h for all oral treatments (quercetin measured as plasma glucuronides); Tmax 0.7 h for quercetin-4'-glucoside/onion vs 4.3-7.0 h for rutin/buckwheat — sugar moiety controls rate (pubmed:11361045 — Graefe et al. 2001, J Clin Pharmacol). IV t1/2 only 0.7-2.4 h (pubmed:10363620 — Graefe et al. 1999, Int J Clin Pharmacol Ther). The 11 h oral slope vs 0.7-2.4 h IV is the input-rate-control signature — conjugate formation/clearance, not aglycone elimination; treat 11 h as an apparent whole-body constant, never as ke in a Bateman fit (#185).",
     },
     Parameterized {
         name: "Apigenin",
@@ -154,7 +154,7 @@ pub const SEED_PK_PARAMETERS: &[Parameterized] = &[
         half_life_range: Some((1.8, 4.2)),
         citation: "pubmed:34084146 — DeRango-Adem & Blay 2021, Front Pharmacol",
         range_citation: "pubmed:34084146 — DeRango-Adem & Blay 2021, Front Pharmacol",
-        params_note: "Cited oral T1/2 average 2.52 +/- 0.56 h, reported range 1.8-4.2 h, Tmax 0.5-2.5 h, oral bioavailability ~30%; note the half-life estimates in that review derive from rodent PK studies (Wan 2007; Chen 2003) — human half-life not directly established (pubmed:34084146 — DeRango-Adem & Blay 2021, Front Pharmacol).",
+        params_note: "Cited oral T1/2 average 2.52 +/- 0.56 h, reported range 1.8-4.2 h, Tmax 0.5-2.5 h, oral bioavailability ~30%; note the half-life estimates in that review derive from rodent PK studies (Wan 2007; Chen 2003) — human half-life not directly established (pubmed:34084146 — DeRango-Adem & Blay 2021, Front Pharmacol). It stays rodent-derived because the human ADME primary reports no plasma t1/2 at all: exposure is apigenin-4'-glucuronide with food-vehicle-dependent Cmax times (pubmed:35452808 — Borges et al. 2022, Free Radic Biol Med).",
     },
     Parameterized {
         name: "Resveratrol",

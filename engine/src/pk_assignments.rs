@@ -103,8 +103,8 @@ const SEED_MODEL_CLASSES: &[(&str, ModelClass, &str)] = &[
     ),
     (
         "Curcumin",
-        ModelClass::OralAbsorption,
-        "No unformulated primary exists — exhaustive 2026-11-18 sweep: every human study with quantifiable plasma curcumin used an enhancer formulation (nanoparticle THERACURMIN: Cmax 189 ng/mL, t1/2 9.7 +/- 2.1 h, pubmed:21603867 Kanai 2012; IV liposomal: undetectable post-infusion, pubmed:30074076). Plain oral curcumin at gram doses stays at/below the limit of quantitation in plasma (Kanai 2012 background, consistent with all pre-2010 trials), so no primary tmax/t1/2 for the supplement-as-taken can ever be mined. Any ka here is formulation-bound by construction; cite the formulation, never 'curcumin'.",
+        ModelClass::None,
+        "Refused on both sides of the curve. Absorption: no unformulated primary can exist — plain oral curcumin stays at/below the limit of quantitation in plasma (low-ng/mL detections in pubmed:11712783 Cheng 2001 are at assay floor; a 12 g plain-dose study found none at all, PMC3925623), so every tmax/t1/2 in the literature belongs to an enhancer formulation (nanoparticle THERACURMIN t½ 9.7 h pubmed:21603867; IV liposomal undetectable post-infusion pubmed:30074076). Elimination: the seed 24.92 h tail (pubmed:42225688 — Kim 2026, Sci Rep) is explicitly flagged by its own source as apparent/absorption-linked flip kinetics (depot-like release), not elimination — #184. A one-compartment curve would be built entirely from artifacts; a formulation-named model ('curcumin (nanoparticle)') is the only honest parameterization, pending a modeling decision. [see issues #184/#185]",
     ),
     (
         "Quercetin",
@@ -424,5 +424,17 @@ mod tests {
         assert_eq!(alcohol.half_life_range, Some((4.0, 6.0))); // parsed but not modelled — both facts kept
         let nine = models.iter().find(|m| m.substance == "9-Me-BC").unwrap();
         assert!(!nine.has_numeric_half_life());
+    }
+
+    #[test]
+    fn curcumin_refused_not_flip_kinetics_simulated() {
+        // #184: the seed 24.92 h tail is an apparent flip-kinetics artifact
+        // (depot-like release, own source's caveat). Simulating it as ke
+        // would encode absorption into elimination. If this test ever fails,
+        // a provenance-free tail has crept back into a curve.
+        let (class, rationale) = assignment_for_name("Curcumin").expect("curcumin assigned");
+        assert_eq!(class, ModelClass::None);
+        assert!(rationale.contains("flip kinetics"));
+        assert!(rationale.contains("24.92"));
     }
 }
