@@ -239,6 +239,11 @@ pub enum ModelClass {
     Decay,
     /// Absorption (lag/rise) phase followed by decay.
     OralAbsorption,
+    /// Injectable depot (IM/SC): first-order depot release followed by
+    /// decay. Shares the Bateman kernel with `OralAbsorption` but the
+    /// release parameter is depot residence, not gut absorption — the
+    /// two must never share a provenance table (#183).
+    ImDepotAbsorption,
     /// Saturating uptake with a ceiling (e.g. creatine).
     Plateau,
     /// Multi-day rise toward steady state (e.g. SSRIs, fat-soluble vitamins).

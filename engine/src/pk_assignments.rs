@@ -194,7 +194,7 @@ const SEED_MODEL_CLASSES: &[(&str, ModelClass, &str)] = &[
     ("Memantine", ModelClass::Decay, ""),
     (
         "Estradiol Enanthate",
-        ModelClass::OralAbsorption,
+        ModelClass::ImDepotAbsorption,
         "IM depot ester with flip-flop (absorption-rate-controlled) kinetics in menopausal women after 10 mg i.m.: elimination rate constant K = 0.12445 d⁻¹ → t½(elim) = 5.57 d = 133.7 h, while depot absorption half-life ≈ 0.46 d (Kabs = 1.5050 d⁻¹); serum estradiol stayed elevated through ~day 31. Oral bioavailability is irrelevant — the recorded profile is the injection. Range null: single primary study; model with the two-rate absorption+elimination structure.",
     ),
 ];
@@ -288,6 +288,18 @@ pub fn build_models(catalog: &[crate::models::CatalogItem]) -> Vec<SubstanceMode
                 params["absorption_half_life_hours"] = serde_json::json!(abs.absorption_half_life_hours);
                 provenance.push_str(" | absorption: ");
                 provenance.push_str(abs.provenance);
+            }
+            // #183: the depot twin. Oral rates must never be injected
+            // here; DEPOT_RESEARCH is measured-after-injection only.
+            if let Some(dep) = crate::pk_depot::lookup(&item.name)
+                .filter(|_| class == ModelClass::ImDepotAbsorption)
+            {
+                if !params.is_object() {
+                    params = serde_json::Value::Object(serde_json::Map::new());
+                }
+                params["absorption_half_life_hours"] = serde_json::json!(dep.absorption_half_life_hours);
+                provenance.push_str(" | depot release: ");
+                provenance.push_str(dep.provenance);
             }
             SubstanceModel {
                 substance: item.name.clone(),

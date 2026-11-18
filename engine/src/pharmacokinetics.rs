@@ -476,6 +476,34 @@ impl SimShape {
                     ceiling: None,
                 })
             }
+            // #183: same Bateman kernel, different provenance discipline —
+            // the release limb is depot residence (often ~days), so an
+            // oral-derived absorption rate must NEVER be substituted here.
+            ModelClass::ImDepotAbsorption => {
+                let abs_hl = param_f64(p, "absorption_half_life_hours").or_else(|| {
+                    param_f64(p, "ka_per_hour").map(|ka| if ka > 0.0 { LN2 / ka } else { -1.0 })
+                });
+                let abs_hl = abs_hl
+                    .filter(|v| *v > 0.0 && v.is_finite())
+                    .ok_or_else(|| {
+                        format!(
+                            "{}: im_depot_absorption needs an explicit depot-release parameter \
+                             (absorption_half_life_hours or ka_per_hour) measured after the \
+                             injection — refusing rather than guessing a depot rate",
+                            model.substance
+                        )
+                    })?;
+                let lag = param_f64(p, "lag_hours").unwrap_or(0.0);
+                if !lag.is_finite() || lag < 0.0 {
+                    return Err(format!("{}: lag_hours {lag} is invalid", model.substance));
+                }
+                Ok(SimShape {
+                    lag_hours: lag,
+                    absorption_half_life_hours: Some(abs_hl),
+                    rise_time_hours: None,
+                    ceiling: None,
+                })
+            }
             ModelClass::Plateau => {
                 let rise = param_f64(p, "rise_time_hours")
                     .filter(|v| *v > 0.0 && v.is_finite())
@@ -524,13 +552,15 @@ fn curve_at(
             ModelClass::Decay => {
                 total += d.amount * 0.5f64.powf(dt / half_life_hours);
             }
-            ModelClass::OralAbsorption => {
+            ModelClass::OralAbsorption | ModelClass::ImDepotAbsorption => {
                 let dt = (dt - shape.lag_hours).max(0.0);
                 if dt == 0.0 {
                     continue;
                 }
                 // Bateman function: rises, peaks near the absorption time,
                 // then the elimination half-life dominates the tail.
+                // Valid for ka < ke too (flip-flop depots): the quotient
+                // stays positive when both terms swap sign.
                 let ke = LN2 / half_life_hours;
                 let ka = LN2 / shape.absorption_half_life_hours.unwrap_or(1.0);
                 let frac = if (ka - ke).abs() < 1e-9 {
