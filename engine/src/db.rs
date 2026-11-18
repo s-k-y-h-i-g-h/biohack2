@@ -294,7 +294,13 @@ pub async fn create_log_entry(pool: &DbPool, entry: &LogEntry) -> anyhow::Result
     .bind(entry.stack_id.map(|u| u.to_string()))
     .bind(entry.notes.clone())
     .bind(entry.acknowledged_interaction as i32)
-    .bind(serde_json::to_string(&entry.custom_fields)?)
+    // None must persist as SQL NULL, never the four-byte string "null":
+    // a stored "null" came back as Some(Value::Null) and broke round-trip
+    // fidelity (cross_module_tests, 2026-11-18).
+    .bind(match &entry.custom_fields {
+        Some(v) => Some(serde_json::to_string(v)?),
+        None => None,
+    })
     .execute(pool)
     .await?;
     Ok(())
@@ -942,7 +948,10 @@ fn row_to_log_entry(row: SqliteRow) -> LogEntry {
         custom_fields: row
             .try_get::<Option<String>, _>("custom_fields")
             .unwrap_or(None)
-            .and_then(|s| serde_json::from_str(&s).ok()),
+            // Deserialize as Option<Value> so a legacy stored "null" reads
+            // back as None rather than Some(Value::Null).
+            .and_then(|s| serde_json::from_str::<Option<serde_json::Value>>(&s).ok())
+            .flatten(),
     }
 }
 
