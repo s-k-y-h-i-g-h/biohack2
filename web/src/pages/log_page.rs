@@ -1,6 +1,6 @@
 use crate::state::db::{
-    acknowledge_alert, create_alert, create_log_entry, delete_log_entry, get_log_entries,
-    get_notes, get_vitals_entries, search_catalog,
+    acknowledge_alert, create_alert, create_log_entry, delete_log_entry, delete_note,
+    delete_vitals_entry, get_log_entries, get_notes, get_vitals_entries, search_catalog,
 };
 use crate::state::pk_alerts::refresh_pharmacokinetic_alerts;
 use crate::state::store::AppContext;
@@ -8,6 +8,14 @@ use crate::types::HistoryEntry;
 use engine::models::{Alert, AlertSeverity, LogEntry};
 use engine::safety::SafetyEngine;
 use leptos::prelude::*;
+
+/// Which store delete the row's button should call.
+#[derive(Clone, Copy)]
+enum DeleteKind {
+    Log,
+    Vitals,
+    Note,
+}
 
 #[component]
 pub fn LogPage() -> impl IntoView {
@@ -169,31 +177,44 @@ pub fn LogPage() -> impl IntoView {
                             let details = entry.details();
                             let is_vitals = matches!(entry, HistoryEntry::Vitals(_));
                             let is_note = matches!(entry, HistoryEntry::Note(_));
-                            // Only log entries are deletable here; vitals/notes
-                            // have their own pages (no delete_vitals in the store yet).
-                            let delete_id = match &entry {
-                                HistoryEntry::Log(e) => Some(e.id.to_string()),
-                                _ => None,
+                            // Each kind has its own delete in the store; route
+                            // the row to the right one. PK alerts derive only
+                            // from dosage logs, so they refresh for Log only.
+                            let delete_target = match &entry {
+                                HistoryEntry::Log(e) => Some((e.id.to_string(), DeleteKind::Log)),
+                                HistoryEntry::Vitals(e) => {
+                                    Some((e.id.to_string(), DeleteKind::Vitals))
+                                }
+                                HistoryEntry::Note(e) => {
+                                    Some((e.id.to_string(), DeleteKind::Note))
+                                }
                             };
                             // Two-step delete: first click arms, second deletes.
                             // Re-render (any version bump) disarms every row.
                             let armed = RwSignal::new(false);
                             let armed_for_label = armed;
-                            let id_for_delete = delete_id.clone();
+                            let target_for_delete = delete_target.clone();
                             let do_delete = move |_| {
-                                let Some(id) = id_for_delete.clone() else { return };
+                                let Some((id, kind)) = target_for_delete.clone() else { return };
                                 if !armed.get() {
                                     armed.set(true);
                                     return;
                                 }
-                                if let Err(e) = delete_log_entry(&id) {
+                                let outcome = match kind {
+                                    DeleteKind::Log => delete_log_entry(&id),
+                                    DeleteKind::Vitals => delete_vitals_entry(&id),
+                                    DeleteKind::Note => delete_note(&id),
+                                };
+                                if let Err(e) = outcome {
                                     eprintln!("Failed to delete entry: {}", e);
-                                } else if let Err(e) =
-                                    refresh_pharmacokinetic_alerts(chrono::Utc::now())
-                                {
-                                    web_sys::console::error_1(
-                                        &format!("PK alert refresh failed: {}", e).into(),
-                                    );
+                                } else if matches!(kind, DeleteKind::Log) {
+                                    if let Err(e) =
+                                        refresh_pharmacokinetic_alerts(chrono::Utc::now())
+                                    {
+                                        web_sys::console::error_1(
+                                            &format!("PK alert refresh failed: {}", e).into(),
+                                        );
+                                    }
                                 }
                                 refresh();
                             };
@@ -209,7 +230,7 @@ pub fn LogPage() -> impl IntoView {
                                             view! { <span class="entry-quantity">{d}</span> }
                                         })}
                                     </div>
-                                    {delete_id.map(|_| view! {
+                                    {delete_target.map(|_| view! {
                                         <button
                                             type="button"
                                             class="entry-delete"

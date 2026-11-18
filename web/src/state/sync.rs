@@ -92,6 +92,10 @@ pub(crate) fn push_vitals_entry(entry: &VitalsEntry) {
     push("POST", "vitals", serde_json::to_value(entry).ok());
 }
 
+pub(crate) fn push_vitals_entry_delete(id: &str) {
+    push("DELETE", &format!("vitals/{id}"), None);
+}
+
 pub(crate) fn push_alert(alert: &Alert) {
     push("POST", "alerts", serde_json::to_value(alert).ok());
 }

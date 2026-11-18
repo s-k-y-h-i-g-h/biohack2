@@ -158,6 +158,15 @@ pub fn create_vitals_entry(entry: &VitalsEntry) -> Result<(), String> {
     Ok(())
 }
 
+pub fn delete_vitals_entry(id: &str) -> Result<(), String> {
+    let mut entries = get_vitals_entries(&Default::default())?;
+    entries.retain(|e| e.id.to_string() != id);
+    LocalStorage::set(STORAGE_KEY_VITALS, &entries)
+        .map_err(|e| format!("Failed to delete vitals: {:?}", e))?;
+    crate::state::sync::push_vitals_entry_delete(id);
+    Ok(())
+}
+
 pub fn get_vitals_entries(filter: &VitalsEntryFilter) -> Result<Vec<VitalsEntry>, String> {
     let entries: Vec<VitalsEntry> = LocalStorage::get(STORAGE_KEY_VITALS).unwrap_or_default();
     let mut filtered = entries;

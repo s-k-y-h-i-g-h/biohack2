@@ -713,6 +713,14 @@ pub async fn create_vitals_entry(pool: &DbPool, entry: &VitalsEntry) -> anyhow::
     Ok(())
 }
 
+pub async fn delete_vitals_entry(pool: &DbPool, id: &Uuid) -> anyhow::Result<()> {
+    sqlx::query("DELETE FROM vitals_entries WHERE id = ?1")
+        .bind(id.to_string())
+        .execute(pool)
+        .await?;
+    Ok(())
+}
+
 pub async fn get_vitals_entries(
     pool: &DbPool,
     filter: &VitalsEntryFilter,

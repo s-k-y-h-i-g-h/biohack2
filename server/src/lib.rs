@@ -298,6 +298,17 @@ async fn update_note(
         .map_err(internal)
 }
 
+async fn delete_vitals(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+) -> Result<StatusCode, Response> {
+    let uuid = id.parse().map_err(|_| bad_request("invalid id"))?;
+    db::delete_vitals_entry(&state.pool, &uuid)
+        .await
+        .map(|_| StatusCode::NO_CONTENT)
+        .map_err(internal)
+}
+
 async fn delete_note(
     State(state): State<AppState>,
     Path(id): Path<String>,
@@ -557,6 +568,7 @@ pub fn build_router(pool: DbPool, dist_dir: Option<&str>) -> Router {
         )
         .route("/stacks/{id}", delete(delete_stack))
         .route("/vitals", get(list_vitals).post(create_vitals_entry))
+        .route("/vitals/{id}", delete(delete_vitals))
         .route("/alerts", get(list_alerts).post(create_alert))
         .route("/alerts/{id}/acknowledge", post(acknowledge_alert))
         .route("/notes", get(list_notes).post(create_note).put(update_note))
