@@ -104,7 +104,7 @@ const SEED_MODEL_CLASSES: &[(&str, ModelClass, &str)] = &[
     (
         "Curcumin",
         ModelClass::OralAbsorption,
-        "Curve is dominated by slow, poor absorption plus glucuronidation/enterohepatic recycling: Cmax at 1-2 h (Cheng) yet terminal slope of ~25 h is flip-flop-like absorption-controlled decline, not a clean one-compartment elimination; absorption+elimination model required.",
+        "No unformulated primary exists — exhaustive 2026-11-18 sweep: every human study with quantifiable plasma curcumin used an enhancer formulation (nanoparticle THERACURMIN: Cmax 189 ng/mL, t1/2 9.7 +/- 2.1 h, pubmed:21603867 Kanai 2012; IV liposomal: undetectable post-infusion, pubmed:30074076). Plain oral curcumin at gram doses stays at/below the limit of quantitation in plasma (Kanai 2012 background, consistent with all pre-2010 trials), so no primary tmax/t1/2 for the supplement-as-taken can ever be mined. Any ka here is formulation-bound by construction; cite the formulation, never 'curcumin'.",
     ),
     (
         "Quercetin",
