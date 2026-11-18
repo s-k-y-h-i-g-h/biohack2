@@ -605,3 +605,40 @@ fn test_timestamp_contract_edge_cases() {
     let (utc2, _) = normalise_timestamp("2026-11-18 09:30", Some("+02:00"), now).unwrap();
     assert_eq!(utc2, utc);
 }
+
+#[sqlx::test]
+async fn test_ingest_failure_retention_clears_on_retry(pool: DbPool) -> anyhow::Result<()> {
+    migrate(&pool).await?;
+    // A quarantined record must be retained verbatim, not dropped.
+    let bad = reading(
+        "f1",
+        "heart_rate",
+        "instantaneous",
+        61.0,
+        "bpm",
+        "2099-01-01T00:00:00Z",
+    );
+    engine::db::ingest_readings(&pool, "u1", std::slice::from_ref(&bad)).await?;
+    let fails = engine::db::list_ingest_failures(&pool).await?;
+    assert_eq!(fails.len(), 1);
+    assert_eq!(fails[0].source_record_id, "f1");
+    assert!(
+        fails[0].payload.as_deref().unwrap().contains("f1"),
+        "verbatim payload retained"
+    );
+
+    // The same record, fixed and re-submitted: ingested, and its retained
+    // failure retires automatically (FR-059 retry loop closes).
+    let fixed = reading(
+        "f1",
+        "heart_rate",
+        "instantaneous",
+        61.0,
+        "bpm",
+        "2026-11-18T06:00:00Z",
+    );
+    let rep = engine::db::ingest_readings(&pool, "u1", std::slice::from_ref(&fixed)).await?;
+    assert_eq!(rep.ingested, 1);
+    assert!(engine::db::list_ingest_failures(&pool).await?.is_empty());
+    Ok(())
+}

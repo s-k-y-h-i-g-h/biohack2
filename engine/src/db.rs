@@ -107,6 +107,23 @@ pub async fn migrate(pool: &DbPool) -> anyhow::Result<()> {
     .execute(pool)
     .await;
 
+    // Failure retention (FR-059): quarantined records keep their verbatim
+    // payload here so the caller can surface and retry them — nothing an
+    // ingest run received is ever silently dropped. A successful re-ingest
+    // of the same record clears its retained failure.
+    sqlx::query(
+        "CREATE TABLE IF NOT EXISTS ingest_failures (
+            source_id TEXT NOT NULL,
+            source_record_id TEXT NOT NULL,
+            reason TEXT NOT NULL,
+            payload TEXT,
+            failed_at TEXT NOT NULL,
+            PRIMARY KEY (source_id, source_record_id)
+        )",
+    )
+    .execute(pool)
+    .await?;
+
     // mechanism_tags added 2026-10-02 (mechanism-class taxonomy). SQLite has no
     // IF NOT EXISTS for ADD COLUMN, so tolerate the duplicate-column error.
     let _ = sqlx::query("ALTER TABLE catalog_items ADD COLUMN mechanism_tags TEXT")
@@ -1370,6 +1387,20 @@ pub async fn ingest_readings(
                 r.source_record_id.clone(),
                 "implausible timestamp".to_string(),
             ));
+            // Retain the verbatim input so it can be reviewed and retried
+            // rather than dropped (FR-059).
+            sqlx::query(
+                "INSERT OR REPLACE INTO ingest_failures
+                    (source_id, source_record_id, reason, payload, failed_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5)",
+            )
+            .bind(&r.source_id)
+            .bind(&r.source_record_id)
+            .bind("implausible timestamp")
+            .bind(&r.payload)
+            .bind(now.to_rfc3339())
+            .execute(pool)
+            .await?;
             continue;
         }
         fresh.push(r);
@@ -1527,10 +1558,45 @@ pub async fn ingest_readings(
             .bind(&r.payload)
             .execute(pool)
             .await?;
+            // A successful ingest retires any retained failure for this
+            // record — the retry loop closes here (FR-059).
+            sqlx::query(
+                "DELETE FROM ingest_failures WHERE source_id = ?1 AND source_record_id = ?2",
+            )
+            .bind(&r.source_id)
+            .bind(&r.source_record_id)
+            .execute(pool)
+            .await?;
             report.ingested += 1;
         }
         report.vitals_rows += 1;
     }
 
     Ok(report)
+}
+
+/// List retained ingest failures, newest first (FR-059 review surface).
+pub async fn list_ingest_failures(
+    pool: &DbPool,
+) -> anyhow::Result<Vec<crate::ingest::IngestFailure>> {
+    let rows = sqlx::query_as::<_, (String, String, String, Option<String>, String)>(
+        "SELECT source_id, source_record_id, reason, payload, failed_at
+         FROM ingest_failures ORDER BY failed_at DESC",
+    )
+    .fetch_all(pool)
+    .await?;
+    Ok(rows
+        .into_iter()
+        .map(
+            |(source_id, source_record_id, reason, payload, failed_at)| {
+                crate::ingest::IngestFailure {
+                    source_id,
+                    source_record_id,
+                    reason,
+                    payload,
+                    failed_at,
+                }
+            },
+        )
+        .collect())
 }

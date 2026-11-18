@@ -349,3 +349,15 @@ mod tests {
         assert_eq!(resolve_native("hrv", "rmssd", "bpm", 42.0), None);
     }
 }
+
+/// A retained ingest failure (FR-059): the verbatim payload of a rejected
+/// record with its reason, kept until a successful retry clears it. The
+/// caller (CLI or UI) surfaces these so nothing received is silently lost.
+#[derive(Debug, Clone)]
+pub struct IngestFailure {
+    pub source_id: String,
+    pub source_record_id: String,
+    pub reason: String,
+    pub payload: Option<String>,
+    pub failed_at: String,
+}

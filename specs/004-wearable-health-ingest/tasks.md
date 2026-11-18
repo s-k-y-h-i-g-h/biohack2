@@ -39,8 +39,8 @@ storage path, T308 retention-for-retry at the caller edge. -->
 - [x] T305 Implement idempotency: unique constraint on (`source_id`, `source_record_id`); re-ingest is a no-op, verified by test (FR-052, SC-051)
 - [x] T306 Implement timestamp normalisation: explicit source-timezone → UTC conversion, with the source timezone recorded (edge case; this is the class of bug that broke all write flows 2026-09-09)
 - [x] T307 Implement implausible-timestamp quarantine (future, absurdly old) → quarantined + reported, never stored
-- [ ] T308 Implement failure reporting: file/source + reason, input retained for retry, never silently dropped (FR-059)
-- [ ] T309 Unit tests: mapping, idempotency, timezone conversion, quarantine, failure retention — first four done; failure-retention test waits on T308
+- [x] T308 Implement failure reporting: file/source + reason, input retained for retry, never silently dropped (FR-059) — `ingest_failures` table retains quarantined payloads; successful retry retires them; `list_ingest_failures` surfaces them
+- [x] T309 Unit tests: mapping, idempotency, timezone conversion, quarantine, failure retention
 
 **Checkpoint**: A reading can enter the system through one path, is attributed, is idempotent, and its timezone is explicit.
 
