@@ -48,5 +48,9 @@ closes that gap on the web architecture.
 - [X] T004 `server/src/food_lookup.rs` — OFF/USDA proxy, TTL cache, fixture-parsing tests (no network in CI)
 - [X] T005 routes `GET /api/food/search`, `GET /api/food/details/{id}` + `USDA_API_KEY` env gate
 - [X] T006 web: food page — search → pick → grams → log (nutrition cached via `set_nutrition`), day summary card (macros + %DV chips, "incomplete day" badge when `entries_without_nutrition > 0`)
-- [ ] T007 dashboard: today's kcal/protein strip on the existing dashboard
+- [X] T007 dashboard: today's kcal/protein strip on the existing dashboard
 - [ ] T008 e2e: live search smoke test against OFF (keyless) + full-stack build
+  - 2026-11-18 live smoke: proxy returns real OFF results (canonical nutrient
+    names, per-100g) end-to-end; OFF still 503s intermittently (~2 of 3 calls
+    at ~1s spacing) — retries live inside one call, UI degrades to a toast.
+    TODO: widen retry backoff (currently tight) and add a browser click-through.
