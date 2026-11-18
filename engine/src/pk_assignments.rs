@@ -195,7 +195,7 @@ const SEED_MODEL_CLASSES: &[(&str, ModelClass, &str)] = &[
     (
         "Estradiol Enanthate",
         ModelClass::ImDepotAbsorption,
-        "IM depot ester with flip-flop (absorption-rate-controlled) kinetics in menopausal women after 10 mg i.m.: elimination rate constant K = 0.12445 d⁻¹ → t½(elim) = 5.57 d = 133.7 h, while depot absorption half-life ≈ 0.46 d (Kabs = 1.5050 d⁻¹); serum estradiol stayed elevated through ~day 31. Oral bioavailability is irrelevant — the recorded profile is the injection. Range null: single primary study; model with the two-rate absorption+elimination structure.",
+        "IM depot ester in menopausal women after 10 mg i.m. (pubmed:3814225 — Wiemeyer 1986, RIA days 1-31): absorption rate constant Kabs = 1.5050 d⁻¹ → depot t½ 0.46 d, elimination rate constant K = 0.12445 d⁻¹ → t½(elim) = 5.57 d = 133.7 h; serum estradiol stayed elevated through ~day 31. Kabs/K = 12.1, so the terminal slope is elimination-limited, NOT flip-flop (earlier label corrected). Oral bioavailability is irrelevant — the recorded profile is the injection. Range null: single primary study.",
     ),
 ];
 
