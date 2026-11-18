@@ -61,6 +61,17 @@ pub async fn migrate(pool: &DbPool) -> anyhow::Result<()> {
     .execute(pool)
     .await?;
 
+    // Cross-device delete propagation: ids deleted by the user, so stale
+    // replicas cannot resurrect them (see record_tombstone).
+    sqlx::query(
+        "CREATE TABLE IF NOT EXISTS deleted_tombstones (
+            entry_id TEXT PRIMARY KEY,
+            deleted_at TEXT NOT NULL
+        )",
+    )
+    .execute(pool)
+    .await?;
+
     // mechanism_tags added 2026-10-02 (mechanism-class taxonomy). SQLite has no
     // IF NOT EXISTS for ADD COLUMN, so tolerate the duplicate-column error.
     let _ = sqlx::query("ALTER TABLE catalog_items ADD COLUMN mechanism_tags TEXT")
@@ -375,6 +386,7 @@ pub async fn delete_log_entry(pool: &DbPool, id: &Uuid) -> anyhow::Result<()> {
         .bind(id.to_string())
         .execute(pool)
         .await?;
+    record_tombstone(pool, id).await?;
     Ok(())
 }
 
@@ -684,6 +696,7 @@ pub async fn delete_stack(pool: &DbPool, id: &Uuid) -> anyhow::Result<()> {
         .bind(id.to_string())
         .execute(pool)
         .await?;
+    record_tombstone(pool, id).await?;
     Ok(())
 }
 
@@ -718,6 +731,7 @@ pub async fn delete_vitals_entry(pool: &DbPool, id: &Uuid) -> anyhow::Result<()>
         .bind(id.to_string())
         .execute(pool)
         .await?;
+    record_tombstone(pool, id).await?;
     Ok(())
 }
 
@@ -1133,6 +1147,7 @@ pub async fn delete_note(pool: &DbPool, id: &Uuid) -> anyhow::Result<()> {
         .bind(id.to_string())
         .execute(pool)
         .await?;
+    record_tombstone(pool, id).await?;
     Ok(())
 }
 
@@ -1157,7 +1172,59 @@ pub async fn delete_all_user_data(pool: &DbPool, user_id: &str) -> anyhow::Resul
             .await?
             .rows_affected();
     }
+    // Tombstones are user data too: a wipe is a clean slate, and any later
+    // push is a deliberate act of migration, not a stale replica.
+    total += sqlx::query("DELETE FROM deleted_tombstones")
+        .execute(pool)
+        .await?
+        .rows_affected();
     Ok(total)
+}
+
+// ── deletion tombstones ──────────────────────────────────────────────────────
+//
+// Deletion must win against stale replicas. A device that has never synced
+// (first-run migration push) or sat offline must not resurrect rows the user
+// deleted; every id-delete records a tombstone, upsert paths skip tombstoned
+// ids, and the full-state payload exposes the live set. Retention is bounded:
+// offline longer than TOMBSTONE_RETENTION_DAYS is outside the sync contract.
+
+/// How long a tombstone blocks resurrection (days).
+pub const TOMBSTONE_RETENTION_DAYS: i64 = 90;
+
+pub async fn record_tombstone(pool: &DbPool, entry_id: &Uuid) -> anyhow::Result<()> {
+    sqlx::query(
+        "INSERT INTO deleted_tombstones (entry_id, deleted_at) VALUES (?1, ?2)
+         ON CONFLICT(entry_id) DO UPDATE SET deleted_at = excluded.deleted_at",
+    )
+    .bind(entry_id.to_string())
+    .bind(Utc::now().to_rfc3339())
+    .execute(pool)
+    .await?;
+    Ok(())
+}
+
+pub async fn is_tombstoned(pool: &DbPool, entry_id: &Uuid) -> anyhow::Result<bool> {
+    let row: Option<(String,)> =
+        sqlx::query_as("SELECT entry_id FROM deleted_tombstones WHERE entry_id = ?1")
+            .bind(entry_id.to_string())
+            .fetch_optional(pool)
+            .await?;
+    Ok(row.is_some())
+}
+
+/// Prune expired tombstones, then return the live ids (newest deletion first).
+pub async fn list_tombstones(pool: &DbPool) -> anyhow::Result<Vec<String>> {
+    let cutoff = (Utc::now() - chrono::Duration::days(TOMBSTONE_RETENTION_DAYS)).to_rfc3339();
+    sqlx::query("DELETE FROM deleted_tombstones WHERE deleted_at < ?1")
+        .bind(&cutoff)
+        .execute(pool)
+        .await?;
+    let rows: Vec<(String,)> =
+        sqlx::query_as("SELECT entry_id FROM deleted_tombstones ORDER BY deleted_at DESC")
+            .fetch_all(pool)
+            .await?;
+    Ok(rows.into_iter().map(|r| r.0).collect())
 }
 
 fn row_to_insight(row: SqliteRow) -> Insight {

@@ -310,3 +310,74 @@ async fn test_delete_all_user_data_wipes_user_and_keeps_others(pool: DbPool) -> 
     assert_eq!(engine::db::delete_all_user_data(&pool, "alice").await?, 0);
     Ok(())
 }
+
+#[sqlx::test]
+async fn test_tombstones_record_on_delete_and_clear_on_wipe(pool: DbPool) -> anyhow::Result<()> {
+    use engine::models::Note;
+
+    migrate(&pool).await?;
+    db_seed_catalog(&pool, &seed_catalog()).await?;
+
+    let note = Note {
+        id: Uuid::new_v4(),
+        user_id: "alice".into(),
+        content: "doomed".into(),
+        timestamp: chrono::Utc::now(),
+        linked_entry_id: None,
+    };
+    engine::db::create_note(&pool, &note).await?;
+    assert!(!engine::db::is_tombstoned(&pool, &note.id).await?);
+
+    engine::db::delete_note(&pool, &note.id).await?;
+    assert!(
+        engine::db::is_tombstoned(&pool, &note.id).await?,
+        "id-delete must leave a tombstone"
+    );
+    assert!(
+        engine::db::list_tombstones(&pool)
+            .await?
+            .contains(&note.id.to_string())
+    );
+
+    // Wipe is a clean slate: tombstones are user data too.
+    let deleted = engine::db::delete_all_user_data(&pool, "alice").await?;
+    assert_eq!(deleted, 1, "wipe removes the tombstone row");
+    assert!(
+        !engine::db::is_tombstoned(&pool, &note.id).await?,
+        "wipe clears tombstones"
+    );
+    assert!(engine::db::list_tombstones(&pool).await?.is_empty());
+    Ok(())
+}
+
+#[sqlx::test]
+async fn test_expired_tombstones_are_pruned(pool: DbPool) -> anyhow::Result<()> {
+    migrate(&pool).await?;
+
+    let fresh = Uuid::new_v4();
+    let stale = Uuid::new_v4();
+    engine::db::record_tombstone(&pool, &fresh).await?;
+    let ancient = (chrono::Utc::now()
+        - chrono::Duration::days(engine::db::TOMBSTONE_RETENTION_DAYS + 1))
+    .to_rfc3339();
+    sqlx::query("INSERT INTO deleted_tombstones (entry_id, deleted_at) VALUES (?1, ?2)")
+        .bind(stale.to_string())
+        .bind(&ancient)
+        .execute(&pool)
+        .await?;
+
+    let live = engine::db::list_tombstones(&pool).await?;
+    assert!(
+        live.contains(&fresh.to_string()),
+        "fresh tombstone survives"
+    );
+    assert!(
+        !live.contains(&stale.to_string()),
+        "tombstone older than retention is pruned"
+    );
+    let remaining: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM deleted_tombstones")
+        .fetch_one(&pool)
+        .await?;
+    assert_eq!(remaining, 1, "pruning physically deletes expired rows");
+    Ok(())
+}

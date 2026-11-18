@@ -4,9 +4,10 @@
 //! Strategy:
 //! - Every create/update/delete also fires an async push to the server
 //!   (fire-and-forget; failures log to console, local state stays usable).
-//! - On boot, `sync_from_server` pulls full state and REPLACES the local
-//!   cache (so deletes stick), or — first run with local data — pushes
-//!   everything up as a one-time migration.
+//! - On boot, `sync_from_server` pulls full state and MERGES it into the
+//!   local cache by id (newest wins), minus tombstoned ids the user deleted,
+//!   or — first run with local data — pushes everything up as a one-time
+//!   migration.
 
 use crate::state::db;
 use engine::models::*;
@@ -139,10 +140,14 @@ struct ServerState {
     stacks: Vec<Stack>,
     notes: Vec<Note>,
     catalog: Vec<CatalogItem>,
+    /// Ids the user deleted server-side; deletion wins over any local copy.
+    #[serde(default)]
+    tombstones: Vec<String>,
 }
 
-/// Pull server state and replace the local cache; or migrate local → server
-/// on first run. Fire-and-forget — the app renders from localStorage
+/// Pull server state and merge it into the local cache (tombstoned ids are
+/// dropped so deletes propagate); or migrate local → server on first run.
+/// Fire-and-forget — the app renders from localStorage
 /// immediately and refreshes when this lands.
 pub fn sync_from_server() {
     spawn_local(async move {
@@ -169,7 +174,10 @@ pub fn sync_from_server() {
             && state.vitals_entries.is_empty()
             && state.alerts.is_empty()
             && state.stacks.is_empty()
-            && state.notes.is_empty();
+            && state.notes.is_empty()
+            // A server that only knows deletions still has an opinion:
+            // migrate-up would ignore it and keep stale rows alive forever.
+            && state.tombstones.is_empty();
 
         let local_has_data = db::get_log_entries()
             .map(|v| !v.is_empty())
@@ -206,11 +214,11 @@ pub fn sync_from_server() {
         //   pushes below; nothing local is ever dropped.
         // - Server rows the client hasn't seen (other device / API writes)
         //   flow down into the cache.
-        let merged_logs = merge_by_id(
+        let mut merged_logs = merge_by_id(
             db::get_log_entries().unwrap_or_default(),
             state.log_entries.clone(),
         );
-        let merged_vitals = merge_by_id(
+        let mut merged_vitals = merge_by_id(
             db::get_vitals_entries(&Default::default()).unwrap_or_default(),
             state.vitals_entries.clone(),
         );
@@ -222,9 +230,20 @@ pub fn sync_from_server() {
             .unwrap_or_default(),
             state.alerts.clone(),
         );
-        let merged_stacks =
+        let mut merged_stacks =
             merge_stacks(db::get_stacks().unwrap_or_default(), state.stacks.clone());
-        let merged_notes = merge_by_id(db::get_notes().unwrap_or_default(), state.notes.clone());
+        let mut merged_notes =
+            merge_by_id(db::get_notes().unwrap_or_default(), state.notes.clone());
+
+        // Tombstoned ids were deleted by the user (another device or the API):
+        // drop them before store/push so a stale cache neither survives here
+        // nor flows back up. Deletion is an explicit act and outranks merge.
+        let tombstoned: std::collections::HashSet<&str> =
+            state.tombstones.iter().map(|s| s.as_str()).collect();
+        merged_logs.retain(|e| !tombstoned.contains(e.id.to_string().as_str()));
+        merged_vitals.retain(|e| !tombstoned.contains(e.id.to_string().as_str()));
+        merged_stacks.retain(|e| !tombstoned.contains(e.id.to_string().as_str()));
+        merged_notes.retain(|e| !tombstoned.contains(e.id.to_string().as_str()));
 
         // Push any local rows the server doesn't have yet (one-time
         // migration AND any rows written while the server was down).

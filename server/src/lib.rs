@@ -52,6 +52,52 @@ fn bad_request(msg: &str) -> Response {
     err_response(StatusCode::BAD_REQUEST, msg)
 }
 
+fn conflict(msg: &str) -> Response {
+    err_response(StatusCode::CONFLICT, msg)
+}
+
+/// Single-entity upsert guard: an id the user deleted server-side must not
+/// come back from a stale client replica (see engine::db::record_tombstone).
+async fn reject_tombstoned(pool: &DbPool, id: uuid::Uuid) -> Result<(), Response> {
+    if db::is_tombstoned(pool, &id).await.map_err(internal)? {
+        return Err(conflict(
+            "entry was deleted; refusing to resurrect a stale copy",
+        ));
+    }
+    Ok(())
+}
+
+/// Entity kinds carried by sync; the id lets bulk and single upserts check
+/// tombstones before re-inserting.
+trait IdKeyed {
+    fn entity_id(&self) -> uuid::Uuid;
+}
+impl IdKeyed for LogEntry {
+    fn entity_id(&self) -> uuid::Uuid {
+        self.id
+    }
+}
+impl IdKeyed for VitalsEntry {
+    fn entity_id(&self) -> uuid::Uuid {
+        self.id
+    }
+}
+impl IdKeyed for Alert {
+    fn entity_id(&self) -> uuid::Uuid {
+        self.id
+    }
+}
+impl IdKeyed for Stack {
+    fn entity_id(&self) -> uuid::Uuid {
+        self.id
+    }
+}
+impl IdKeyed for Note {
+    fn entity_id(&self) -> uuid::Uuid {
+        self.id
+    }
+}
+
 // ── query param structs ───────────────────────────────────────────────────────
 
 #[derive(Deserialize)]
@@ -123,6 +169,7 @@ async fn create_log_entry(
     State(state): State<AppState>,
     Json(entry): Json<LogEntry>,
 ) -> Result<(StatusCode, Json<LogEntry>), Response> {
+    reject_tombstoned(&state.pool, entry.id).await?;
     db::create_log_entry(&state.pool, &entry)
         .await
         .map(|_| (StatusCode::CREATED, Json(entry)))
@@ -173,6 +220,7 @@ async fn create_stack(
     State(state): State<AppState>,
     Json(stack): Json<Stack>,
 ) -> Result<(StatusCode, Json<Stack>), Response> {
+    reject_tombstoned(&state.pool, stack.id).await?;
     db::create_stack(&state.pool, &stack)
         .await
         .map(|_| (StatusCode::CREATED, Json(stack)))
@@ -183,6 +231,7 @@ async fn update_stack(
     State(state): State<AppState>,
     Json(stack): Json<Stack>,
 ) -> Result<StatusCode, Response> {
+    reject_tombstoned(&state.pool, stack.id).await?;
     db::update_stack(&state.pool, &stack)
         .await
         .map(|_| StatusCode::OK)
@@ -226,6 +275,7 @@ async fn create_vitals_entry(
     State(state): State<AppState>,
     Json(entry): Json<VitalsEntry>,
 ) -> Result<(StatusCode, Json<VitalsEntry>), Response> {
+    reject_tombstoned(&state.pool, entry.id).await?;
     db::create_vitals_entry(&state.pool, &entry)
         .await
         .map(|_| (StatusCode::CREATED, Json(entry)))
@@ -282,6 +332,7 @@ async fn create_note(
     State(state): State<AppState>,
     Json(note): Json<Note>,
 ) -> Result<(StatusCode, Json<Note>), Response> {
+    reject_tombstoned(&state.pool, note.id).await?;
     db::create_note(&state.pool, &note)
         .await
         .map(|_| (StatusCode::CREATED, Json(note)))
@@ -292,6 +343,7 @@ async fn update_note(
     State(state): State<AppState>,
     Json(note): Json<Note>,
 ) -> Result<StatusCode, Response> {
+    reject_tombstoned(&state.pool, note.id).await?;
     db::update_note(&state.pool, &note)
         .await
         .map(|_| StatusCode::OK)
@@ -391,6 +443,10 @@ async fn full_state(state: &AppState) -> anyhow::Result<serde_json::Value> {
         db::get_catalog_items(&state.pool),
     )?;
 
+    // Live tombstone ids (pruned): tells every client — and the FR-021
+    // export — which entries deletion has removed for good.
+    let tombstones = db::list_tombstones(&state.pool).await.unwrap_or_default();
+
     Ok(serde_json::json!({
         "log_entries": entries,
         "vitals_entries": vitals,
@@ -398,6 +454,7 @@ async fn full_state(state: &AppState) -> anyhow::Result<serde_json::Value> {
         "stacks": stacks,
         "notes": notes,
         "catalog": catalog,
+        "tombstones": tombstones,
     }))
 }
 
@@ -509,7 +566,7 @@ async fn upsert_entity<'a, T, Fut>(
     insert: impl Fn(&'a DbPool, T) -> Fut + 'a,
 ) -> u64
 where
-    T: serde::de::DeserializeOwned,
+    T: serde::de::DeserializeOwned + IdKeyed,
     Fut: std::future::Future<Output = anyhow::Result<()>> + 'a,
 {
     let Some(arr) = payload.get(key).and_then(|v| v.as_array()) else {
@@ -517,9 +574,17 @@ where
     };
     let mut n = 0u64;
     for e in arr {
-        if let Ok(row) = serde_json::from_value::<T>(e.clone())
-            && insert(pool, row).await.is_ok()
+        let Ok(row) = serde_json::from_value::<T>(e.clone()) else {
+            continue;
+        };
+        // Deletion wins over stale replicas: skip ids the user deleted.
+        if db::is_tombstoned(pool, &row.entity_id())
+            .await
+            .unwrap_or(false)
         {
+            continue;
+        }
+        if insert(pool, row).await.is_ok() {
             n += 1;
         }
     }
