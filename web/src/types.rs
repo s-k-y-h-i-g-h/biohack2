@@ -67,7 +67,19 @@ impl HistoryEntry {
                     Some(parts.join(" · "))
                 }
             }
-            HistoryEntry::Note(_) => None,
+            HistoryEntry::Note(e) => {
+                // Sidebar rows have no other clue to a note's content; show a
+                // whitespace-collapsed snippet.
+                let flat = e.content.split_whitespace().collect::<Vec<_>>().join(" ");
+                let count = flat.chars().count();
+                if flat.is_empty() {
+                    None
+                } else if count > 60 {
+                    Some(flat.chars().take(57).collect::<String>() + "…")
+                } else {
+                    Some(flat)
+                }
+            }
         }
     }
 
