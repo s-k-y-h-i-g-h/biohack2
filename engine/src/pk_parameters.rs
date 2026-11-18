@@ -138,7 +138,7 @@ pub const SEED_PK_PARAMETERS: &[Parameterized] = &[
         half_life_range: Some((6.74, 24.92)),
         citation: "pubmed:42225688 — Kim et al. 2026, Sci Rep",
         range_citation: "pubmed:11712783 — Cheng et al. 2001, Anticancer Res (serum peak 1-2 h, decline within 12 h after dosing up to 8 g/day); pubmed:9619120 — Shoba et al. 1998, Planta Med (piperine raises curcumin bioavailability 2000%; shortens apparent half-life)",
-        params_note: "Terminal t1/2 24.92 h for free curcumin vs 6.74 h for a nano-liposomal formulation; the study itself cautions the long free-curcumin t1/2 is apparent/absorption-linked (pubmed:42225688 — Kim et al. 2026, Sci Rep). Plain curcumin is often undetectable in serum at <=2 g (pubmed:9619120 — Shoba et al. 1998, Planta Med).",
+        params_note: "Terminal t1/2 24.92 h for free curcumin vs 6.74 h for a nano-liposomal formulation; the study itself cautions the long free-curcumin t1/2 is apparent/absorption-linked (pubmed:42225688 — Kim et al. 2026, Sci Rep) — measured after LIPOSOMAL dosing, so the tail is flip kinetics (depot release), not elimination [see issue #184]. Plain curcumin is often undetectable in serum at <=2 g (pubmed:9619120 — Shoba et al. 1998, Planta Med) and a 12 g plain-dose study found no measurable plasma levels at all (PMC3925623 — Klickovic et al.); do NOT mine tmax from that paper, its 5-6 h peaks are HO-1 mRNA expression, not PK.",
     },
     Parameterized {
         name: "Quercetin",
