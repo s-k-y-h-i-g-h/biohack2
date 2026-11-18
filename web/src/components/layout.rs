@@ -63,6 +63,12 @@ pub fn Layout(children: Children) -> impl IntoView {
                     aria-current=move || if is_active("#/vitals") { "page" } else { "" }
                 >"Vitals"</a>
                 <a
+                    href="#/food"
+                    class="nav-link"
+                    aria-label="Go to Food page"
+                    aria-current=move || if is_active("#/food") { "page" } else { "" }
+                >"Food"</a>
+                <a
                     href="#/insights"
                     class="nav-link"
                     aria-label="Go to Insights page"

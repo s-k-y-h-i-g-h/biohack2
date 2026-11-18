@@ -1130,3 +1130,115 @@ nav::-webkit-scrollbar {
 .candidate-review:hover { border-color: var(--accent, #0ea5e9); color: var(--accent, #0ea5e9); }
 .candidate-review:disabled { opacity: .45; cursor: not-allowed; }
 .candidate-review:disabled:hover { border-color: var(--border, #e5e7eb); color: var(--text-secondary, #475569); }
+
+/* ── Food page (spec 007 T006) ─────────────────────────────────────────── */
+.food-today {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 12px 16px;
+  box-shadow: var(--shadow-sm);
+}
+
+.food-today h3 {
+  margin: 0 0 8px 0;
+  font-size: 0.95rem;
+  color: var(--text-secondary);
+}
+
+.food-totals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.food-total-chip {
+  background: var(--primary-glow);
+  color: var(--text-primary);
+  border-left: 3px solid var(--cat-food);
+  border-radius: var(--radius-sm);
+  padding: 4px 10px;
+  font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.food-entry-count,
+.food-empty {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.food-incomplete {
+  color: var(--warning);
+  font-size: 0.85rem;
+}
+
+.food-search {
+  display: flex;
+  gap: 8px;
+}
+
+.food-search .search-input {
+  flex: 1;
+}
+
+.food-results {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 420px;
+  overflow-y: auto;
+}
+
+.food-result {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  text-align: left;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 10px 14px;
+  cursor: pointer;
+  color: var(--text-primary);
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.food-result:hover {
+  background: var(--bg-hover);
+  border-color: var(--cat-food);
+}
+
+.food-result.selected {
+  border-color: var(--cat-food);
+  background: var(--primary-glow);
+}
+
+.food-result-name {
+  font-weight: 600;
+}
+
+.food-result-meta {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.food-preview {
+  margin: 8px 0 12px 0;
+}
+
+.food-preview-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.food-preview-item {
+  background: var(--bg-input);
+  border-radius: var(--radius-sm);
+  padding: 3px 8px;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}

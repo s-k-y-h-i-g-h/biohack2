@@ -34,7 +34,7 @@ fn log_warn(msg: &str) {
 /// (`http status: 500`) with no JavaScript error in the log. Every failure
 /// mode here — no window, no fetch, sync throw, async rejection — collapses
 /// into a regular `Err` the fire-and-forget callers already log.
-async fn fetch_safe(
+pub(crate) async fn fetch_safe(
     method: &str,
     url: &str,
     body: Option<String>,

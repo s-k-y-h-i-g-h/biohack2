@@ -21,3 +21,6 @@ pub use dashboard_page::DashboardPage as dashboard_page;
 
 pub mod insights_page;
 pub use insights_page::InsightsPage as insights_page;
+
+pub mod food_page;
+pub use food_page::FoodPage as food_page;
