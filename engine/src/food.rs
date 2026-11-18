@@ -265,7 +265,7 @@ mod tests {
     fn set_then_read_roundtrips_and_preserves_other_fields() {
         let mut e = food_entry("Salmon", "2026-11-18", None);
         e.custom_fields = Some(serde_json::json!({"mood": 4}));
-        set_nutrition(&mut e, &vec![ni("Energy", 208.0, "kcal")]);
+        set_nutrition(&mut e, &[ni("Energy", 208.0, "kcal")]);
         assert_eq!(
             e.custom_fields
                 .as_ref()

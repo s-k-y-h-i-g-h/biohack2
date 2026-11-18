@@ -207,14 +207,12 @@ pub fn LogPage() -> impl IntoView {
                                 };
                                 if let Err(e) = outcome {
                                     eprintln!("Failed to delete entry: {}", e);
-                                } else if matches!(kind, DeleteKind::Log) {
-                                    if let Err(e) =
-                                        refresh_pharmacokinetic_alerts(chrono::Utc::now())
-                                    {
-                                        web_sys::console::error_1(
-                                            &format!("PK alert refresh failed: {}", e).into(),
-                                        );
-                                    }
+                                } else if matches!(kind, DeleteKind::Log)
+                                    && let Err(e) = refresh_pharmacokinetic_alerts(chrono::Utc::now())
+                                {
+                                    web_sys::console::error_1(
+                                        &format!("PK alert refresh failed: {}", e).into(),
+                                    );
                                 }
                                 refresh();
                             };

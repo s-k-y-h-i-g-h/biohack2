@@ -40,7 +40,7 @@ pub(crate) async fn fetch_safe(
     url: &str,
     body: Option<String>,
 ) -> Result<gloo_net::http::Response, JsValue> {
-    let mut init = web_sys::RequestInit::new();
+    let init = web_sys::RequestInit::new();
     init.set_method(method);
     if let Some(b) = body {
         let headers = js_sys::Object::new();

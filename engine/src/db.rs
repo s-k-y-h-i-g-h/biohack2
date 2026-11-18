@@ -72,6 +72,41 @@ pub async fn migrate(pool: &DbPool) -> anyhow::Result<()> {
     .execute(pool)
     .await?;
 
+    // Wearable ingest layer (spec-004 T301/T304/T305). The ledger is the
+    // idempotency key (FR-052): (source_id, source_record_id) is unique, and
+    // re-ingesting an existing record is a no-op.
+    sqlx::query(
+        "CREATE TABLE IF NOT EXISTS ingest_sources (
+            id TEXT PRIMARY KEY,
+            kind TEXT NOT NULL,
+            device_label TEXT,
+            platform TEXT,
+            first_seen TEXT NOT NULL,
+            last_seen TEXT NOT NULL
+        )",
+    )
+    .execute(pool)
+    .await?;
+
+    sqlx::query(
+        "CREATE TABLE IF NOT EXISTS raw_reading_ledger (
+            source_id TEXT NOT NULL,
+            source_record_id TEXT NOT NULL,
+            observed_at TEXT NOT NULL,
+            vitals_entry_id TEXT NOT NULL,
+            ingested_at TEXT NOT NULL,
+            payload TEXT,
+            PRIMARY KEY (source_id, source_record_id)
+        )",
+    )
+    .execute(pool)
+    .await?;
+    let _ = sqlx::query(
+        "CREATE INDEX IF NOT EXISTS idx_ledger_source_time ON raw_reading_ledger (source_id, observed_at)",
+    )
+    .execute(pool)
+    .await;
+
     // mechanism_tags added 2026-10-02 (mechanism-class taxonomy). SQLite has no
     // IF NOT EXISTS for ADD COLUMN, so tolerate the duplicate-column error.
     let _ = sqlx::query("ALTER TABLE catalog_items ADD COLUMN mechanism_tags TEXT")
@@ -1246,4 +1281,256 @@ fn row_to_insight(row: SqliteRow) -> Insight {
             .and_then(|s| serde_json::from_str(&s).ok())
             .unwrap_or_default(),
     }
+}
+
+// ── Wearable ingest (spec-004 Phase 1) ───────────────────────────────────────
+
+/// Persist `IngestSource` records (create-or-touch; `last_seen` advances).
+pub async fn upsert_ingest_sources(
+    pool: &DbPool,
+    sources: &[crate::ingest::IngestSource],
+) -> anyhow::Result<()> {
+    for s in sources {
+        sqlx::query(
+            "INSERT INTO ingest_sources (id, kind, device_label, platform, first_seen, last_seen)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+             ON CONFLICT(id) DO UPDATE SET
+                 kind = excluded.kind,
+                 device_label = excluded.device_label,
+                 platform = excluded.platform,
+                 last_seen = MAX(ingest_sources.last_seen, excluded.last_seen)",
+        )
+        .bind(&s.id)
+        .bind(
+            serde_json::to_string(&s.kind)?
+                .trim_matches('"')
+                .to_string(),
+        )
+        .bind(&s.device_label)
+        .bind(&s.platform)
+        .bind(s.first_seen.to_rfc3339())
+        .bind(s.last_seen.to_rfc3339())
+        .execute(pool)
+        .await?;
+    }
+    Ok(())
+}
+
+/// Idempotent, definition-gated ingest (FR-050..FR-056).
+///
+/// Guarantees:
+/// - duplicate (`source_id`, `source_record_id`) records are no-ops (FR-052);
+/// - readings are grouped by (`source_id`, `observed_at`) into one
+///   `VitalsEntry` per group; different sources never merge into a single
+///   value (FR-056) — each keeps its own attributed row;
+/// - metrics whose definition/unit have no native home land in
+///   `custom_metrics` carrying their definition (FR-055);
+/// - implausible timestamps are quarantined in the report, never stored
+///   (T307); their verbatim payloads let the caller retain them (FR-059).
+///
+/// Rows written here flow through the existing vitals pipeline (alerts,
+/// dashboards read `vitals_entries`) — no parallel alerting path (FR-057).
+pub async fn ingest_readings(
+    pool: &DbPool,
+    user_id: &str,
+    readings: &[crate::ingest::RawReading],
+) -> anyhow::Result<crate::ingest::IngestReport> {
+    use crate::ingest::{
+        IngestReport, NativeField, custom_key, custom_metric_json, resolve_native,
+    };
+    use crate::models::SleepQuality;
+    use std::collections::BTreeMap;
+
+    let mut report = IngestReport::default();
+    let now = chrono::Utc::now();
+    let future_limit =
+        now + chrono::Duration::minutes(crate::ingest::FUTURE_SKEW_TOLERANCE_MINUTES);
+    let past_floor = chrono::NaiveDate::from_ymd_opt(2000, 1, 1)
+        .unwrap()
+        .and_hms_opt(0, 0, 0)
+        .unwrap()
+        .and_utc();
+
+    // Deduplicate against the ledger first (FR-052), then quarantine-check.
+    let mut fresh: Vec<&crate::ingest::RawReading> = Vec::new();
+    for r in readings {
+        let seen: i64 = sqlx::query_scalar(
+            "SELECT COUNT(*) FROM raw_reading_ledger WHERE source_id = ?1 AND source_record_id = ?2",
+        )
+        .bind(&r.source_id)
+        .bind(&r.source_record_id)
+        .fetch_one(pool)
+        .await?;
+        if seen > 0 {
+            report.duplicates_skipped += 1;
+            continue;
+        }
+        if r.observed_at > future_limit || r.observed_at < past_floor {
+            report.quarantined.push((
+                r.source_record_id.clone(),
+                "implausible timestamp".to_string(),
+            ));
+            continue;
+        }
+        fresh.push(r);
+    }
+
+    // Group by (source_id, observed_at): one vitals row per measurement
+    // moment per source. Sources are never grouped together (FR-056).
+    let mut groups: BTreeMap<(String, String), Vec<&crate::ingest::RawReading>> =
+        Default::default();
+    for r in &fresh {
+        groups
+            .entry((r.source_id.clone(), r.observed_at.to_rfc3339()))
+            .or_default()
+            .push(r);
+    }
+
+    for ((source_id, observed), group) in groups {
+        // Did a previous ingest already create a row for this moment?
+        let existing: Option<String> = sqlx::query_scalar(
+            "SELECT vitals_entry_id FROM raw_reading_ledger WHERE source_id = ?1 AND observed_at = ?2 LIMIT 1",
+        )
+        .bind(&source_id)
+        .bind(&observed)
+        .fetch_optional(pool)
+        .await?;
+
+        let mut bp_sys: Option<i32> = None;
+        let mut bp_dia: Option<i32> = None;
+        let mut hr: Option<i32> = None;
+        let mut weight: Option<f64> = None;
+        let mut glucose: Option<f64> = None;
+        let mut temp: Option<f64> = None;
+        let mut spo2: Option<i32> = None;
+        let mut hrv: Option<f64> = None;
+        let mut sleep: Option<SleepQuality> = None;
+        let mut custom: serde_json::Map<String, serde_json::Value> = Default::default();
+
+        for r in &group {
+            match resolve_native(&r.metric, &r.metric_definition, &r.unit, r.value) {
+                Some((NativeField::BpSystolic, v)) => bp_sys = Some(v.round() as i32),
+                Some((NativeField::BpDiastolic, v)) => bp_dia = Some(v.round() as i32),
+                Some((NativeField::HeartRate, v)) => hr = Some(v.round() as i32),
+                Some((NativeField::WeightKg, v)) => weight = Some(v),
+                Some((NativeField::GlucoseMgDl, v)) => glucose = Some(v),
+                Some((NativeField::TemperatureC, v)) => temp = Some(v),
+                Some((NativeField::Spo2, v)) => spo2 = Some(v.round() as i32),
+                Some((NativeField::HrvRmssdMs, v)) => hrv = Some(v),
+                Some((NativeField::SleepQuality, v)) => {
+                    sleep = Some(match v as i32 {
+                        0 => SleepQuality::Poor,
+                        1 => SleepQuality::Fair,
+                        2 => SleepQuality::Good,
+                        _ => SleepQuality::Excellent,
+                    });
+                }
+                None => {
+                    custom.insert(
+                        custom_key(&r.metric, &r.metric_definition),
+                        custom_metric_json(r),
+                    );
+                    report.custom_metrics += 1;
+                }
+            }
+        }
+
+        let entry_id = match existing {
+            Some(id) => {
+                let id_uuid = uuid::Uuid::parse_str(&id)?;
+                let merged_custom: Option<String> = if custom.is_empty() {
+                    None
+                } else {
+                    let cur: Option<String> = sqlx::query_scalar(
+                        "SELECT custom_metrics FROM vitals_entries WHERE id = ?1",
+                    )
+                    .bind(id.to_string())
+                    .fetch_optional(pool)
+                    .await?;
+                    let mut merged: serde_json::Map<String, serde_json::Value> = cur
+                        .and_then(|s| serde_json::from_str::<serde_json::Value>(&s).ok())
+                        .and_then(|v| v.as_object().cloned())
+                        .unwrap_or_default();
+                    merged.extend(custom.clone());
+                    Some(serde_json::to_string(&merged)?)
+                };
+                // COALESCE: this batch's fields win; untouched fields stay.
+                sqlx::query(
+                    "UPDATE vitals_entries SET
+                        bp_systolic = COALESCE(?1, bp_systolic),
+                        bp_diastolic = COALESCE(?2, bp_diastolic),
+                        heart_rate = COALESCE(?3, heart_rate),
+                        weight = COALESCE(?4, weight),
+                        blood_glucose = COALESCE(?5, blood_glucose),
+                        temperature = COALESCE(?6, temperature),
+                        spo2 = COALESCE(?7, spo2),
+                        hrv = COALESCE(?8, hrv),
+                        sleep_quality = COALESCE(?9, sleep_quality),
+                        custom_metrics = COALESCE(?10, custom_metrics)
+                     WHERE id = ?11",
+                )
+                .bind(bp_sys)
+                .bind(bp_dia)
+                .bind(hr)
+                .bind(weight)
+                .bind(glucose)
+                .bind(temp)
+                .bind(spo2)
+                .bind(hrv)
+                .bind(match &sleep {
+                    Some(q) => Some(serde_json::to_string(&Some(q))?),
+                    None => None,
+                })
+                .bind(merged_custom)
+                .bind(id.clone())
+                .execute(pool)
+                .await?;
+                id_uuid
+            }
+            None => {
+                let entry = crate::models::VitalsEntry {
+                    id: uuid::Uuid::new_v4(),
+                    user_id: user_id.to_string(),
+                    timestamp: group[0].observed_at,
+                    bp_systolic: bp_sys,
+                    bp_diastolic: bp_dia,
+                    heart_rate: hr,
+                    weight,
+                    blood_glucose: glucose,
+                    temperature: temp,
+                    spo2,
+                    hrv,
+                    sleep_quality: sleep,
+                    custom_metrics: if custom.is_empty() {
+                        None
+                    } else {
+                        Some(serde_json::Value::Object(custom.clone()))
+                    },
+                    notes: None,
+                };
+                create_vitals_entry(pool, &entry).await?;
+                entry.id
+            }
+        };
+
+        for r in &group {
+            sqlx::query(
+                "INSERT OR IGNORE INTO raw_reading_ledger
+                    (source_id, source_record_id, observed_at, vitals_entry_id, ingested_at, payload)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            )
+            .bind(&r.source_id)
+            .bind(&r.source_record_id)
+            .bind(&observed)
+            .bind(entry_id.to_string())
+            .bind(r.ingested_at.to_rfc3339())
+            .bind(&r.payload)
+            .execute(pool)
+            .await?;
+            report.ingested += 1;
+        }
+        report.vitals_rows += 1;
+    }
+
+    Ok(report)
 }

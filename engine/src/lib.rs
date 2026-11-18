@@ -16,6 +16,7 @@ pub mod catalog;
 pub mod dashboard;
 pub mod explain;
 pub mod food;
+pub mod ingest;
 pub mod insights;
 pub mod mechanisms;
 pub mod models;

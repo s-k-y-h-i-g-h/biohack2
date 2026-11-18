@@ -20,10 +20,10 @@ fn clear_test_storage() {
     // only the app's namespace.
     let mut doomed: Vec<String> = Vec::new();
     for i in 0..storage.length().expect("storage length") {
-        if let Some(key) = storage.key(i).expect("storage key") {
-            if key.starts_with("biohack2_") {
-                doomed.push(key);
-            }
+        if let Some(key) = storage.key(i).expect("storage key")
+            && key.starts_with("biohack2_")
+        {
+            doomed.push(key);
         }
     }
     for key in doomed {

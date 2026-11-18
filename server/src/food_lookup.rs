@@ -189,10 +189,10 @@ impl FoodLookup {
         if key.is_empty() {
             return Err(anyhow!("empty query"));
         }
-        if let Some(hit) = self.cache.read().await.get(&key) {
-            if hit.at.elapsed() < CACHE_TTL {
-                return Ok(hit.results.clone());
-            }
+        if let Some(hit) = self.cache.read().await.get(&key)
+            && hit.at.elapsed() < CACHE_TTL
+        {
+            return Ok(hit.results.clone());
         }
 
         let off = self.search_off(query);
@@ -253,10 +253,10 @@ impl FoodLookup {
         // while v2 is both the stable API and markedly more available.
         // Unknown/unreachable codes fall through to text search — the digits
         // might still be part of a product name.
-        if is_barcode(query.trim()) {
-            if let Ok(Some(p)) = self.product_by_barcode(query.trim()).await {
-                return Ok(vec![p]);
-            }
+        if is_barcode(query.trim())
+            && let Ok(Some(p)) = self.product_by_barcode(query.trim()).await
+        {
+            return Ok(vec![p]);
         }
         // OFF's search.pl 503s intermittently (~50% under light load; verified
         // 2026-11-18 with plain curl, client-independent). The 503 bursts last

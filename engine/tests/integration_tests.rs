@@ -395,3 +395,213 @@ fn test_every_catalog_substance_has_an_assigned_model_class() {
     println!("COVERAGE catalog={} missing={:?}", cat.len(), missing);
     assert!(missing.is_empty());
 }
+
+// ── spec-004 Phase 1: wearable ingest ────────────────────────────────────────
+
+use engine::ingest::{RawReading, normalise_timestamp};
+
+fn reading(record: &str, metric: &str, def: &str, value: f64, unit: &str, at: &str) -> RawReading {
+    RawReading {
+        source_id: "watch-1".to_string(),
+        source_record_id: record.to_string(),
+        metric: metric.to_string(),
+        metric_definition: def.to_string(),
+        value,
+        unit: unit.to_string(),
+        observed_at: at.parse::<chrono::DateTime<chrono::Utc>>().unwrap(),
+        source_timezone: None,
+        ingested_at: at.parse::<chrono::DateTime<chrono::Utc>>().unwrap(),
+        payload: Some(format!("{{\"id\":\"{record}\"}}")),
+    }
+}
+
+#[sqlx::test]
+async fn test_ingest_idempotent_and_grouped(pool: DbPool) -> anyhow::Result<()> {
+    migrate(&pool).await?;
+    let batch = vec![
+        reading(
+            "r1",
+            "heart_rate",
+            "instantaneous",
+            62.0,
+            "bpm",
+            "2026-11-18T07:00:00Z",
+        ),
+        reading(
+            "r2",
+            "bp_systolic",
+            "korotkoff_1",
+            118.0,
+            "mmHg",
+            "2026-11-18T07:00:00Z",
+        ),
+        reading(
+            "r3",
+            "bp_diastolic",
+            "korotkoff_5",
+            76.0,
+            "mmHg",
+            "2026-11-18T07:00:00Z",
+        ),
+    ];
+    let rep = engine::db::ingest_readings(&pool, "u1", &batch).await?;
+    assert_eq!(rep.ingested, 3);
+    assert_eq!(rep.vitals_rows, 1, "same moment must merge into one row");
+
+    // Re-ingesting the identical batch is a full no-op (FR-052).
+    let rep2 = engine::db::ingest_readings(&pool, "u1", &batch).await?;
+    assert_eq!(rep2.ingested, 0);
+    assert_eq!(rep2.duplicates_skipped, 3);
+    assert_eq!(rep2.vitals_rows, 0);
+
+    // One new metric for the same moment updates the existing row (COALESCE).
+    let late = vec![reading(
+        "r4",
+        "spo2",
+        "pulse_oximetry",
+        98.0,
+        "%",
+        "2026-11-18T07:00:00Z",
+    )];
+    let rep3 = engine::db::ingest_readings(&pool, "u1", &late).await?;
+    assert_eq!(rep3.vitals_rows, 1);
+
+    let rows = engine::db::get_vitals_entries(&pool, &engine::models::VitalsEntryFilter::default())
+        .await?;
+    assert_eq!(rows.len(), 1);
+    let row = &rows[0];
+    assert_eq!(row.heart_rate, Some(62));
+    assert_eq!(row.bp_systolic, Some(118));
+    assert_eq!(row.bp_diastolic, Some(76));
+    assert_eq!(row.spo2, Some(98), "late reading must land on the same row");
+    Ok(())
+}
+
+#[sqlx::test]
+async fn test_ingest_definition_gating_and_custom(pool: DbPool) -> anyhow::Result<()> {
+    migrate(&pool).await?;
+    let batch = vec![
+        reading("h1", "hrv", "rmssd", 42.0, "ms", "2026-11-18T06:00:00Z"),
+        reading("h2", "hrv", "sdnn", 60.0, "ms", "2026-11-18T06:00:00Z"),
+        reading(
+            "w1",
+            "weight",
+            "body_weight",
+            150.0,
+            "lb",
+            "2026-11-18T06:00:00Z",
+        ),
+    ];
+    let rep = engine::db::ingest_readings(&pool, "u1", &batch).await?;
+    assert_eq!(rep.custom_metrics, 1, "sdnn is custom, rmssd native");
+
+    let rows = engine::db::get_vitals_entries(&pool, &engine::models::VitalsEntryFilter::default())
+        .await?;
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0].hrv, Some(42.0));
+    assert!(
+        (rows[0].weight.unwrap() - 68.0388555).abs() < 1e-6,
+        "lb normalised to kg"
+    );
+    let custom = rows[0].custom_metrics.clone().unwrap();
+    assert_eq!(custom["hrv:sdnn"]["value"], 60.0);
+    assert_eq!(custom["hrv:sdnn"]["definition"], "sdnn");
+    Ok(())
+}
+
+#[sqlx::test]
+async fn test_ingest_quarantines_implausible_never_stores(pool: DbPool) -> anyhow::Result<()> {
+    migrate(&pool).await?;
+    let future = reading(
+        "bad1",
+        "heart_rate",
+        "instantaneous",
+        62.0,
+        "bpm",
+        "2099-01-01T00:00:00Z",
+    );
+    let ancient = reading(
+        "bad2",
+        "heart_rate",
+        "instantaneous",
+        62.0,
+        "bpm",
+        "1970-01-01T00:00:00Z",
+    );
+    let good = reading(
+        "ok1",
+        "heart_rate",
+        "instantaneous",
+        62.0,
+        "bpm",
+        "2026-11-18T06:00:00Z",
+    );
+    let rep = engine::db::ingest_readings(&pool, "u1", &[future, ancient, good]).await?;
+    assert_eq!(rep.quarantined.len(), 2);
+    assert_eq!(rep.ingested, 1);
+
+    let rows = engine::db::get_vitals_entries(&pool, &engine::models::VitalsEntryFilter::default())
+        .await?;
+    assert_eq!(rows.len(), 1);
+    let ledger: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM raw_reading_ledger WHERE source_record_id LIKE 'bad%'",
+    )
+    .fetch_one(&pool)
+    .await?;
+    assert_eq!(ledger, 0, "quarantined records never enter the ledger");
+    Ok(())
+}
+
+#[sqlx::test]
+async fn test_ingest_sources_upsert_advances_last_seen(pool: DbPool) -> anyhow::Result<()> {
+    migrate(&pool).await?;
+    use engine::ingest::{IngestSource, SourceKind};
+    let t1 = "2026-11-01T00:00:00Z".parse().unwrap();
+    let t2 = "2026-11-18T00:00:00Z".parse().unwrap();
+    engine::db::upsert_ingest_sources(
+        &pool,
+        &[IngestSource {
+            id: "watch-1".into(),
+            kind: SourceKind::Companion,
+            device_label: Some("Pixel Watch".into()),
+            platform: Some("android".into()),
+            first_seen: t1,
+            last_seen: t1,
+        }],
+    )
+    .await?;
+    engine::db::upsert_ingest_sources(
+        &pool,
+        &[IngestSource {
+            id: "watch-1".into(),
+            kind: SourceKind::Companion,
+            device_label: Some("Pixel Watch".into()),
+            platform: Some("android".into()),
+            first_seen: t2, // stale first_seen must NOT move first_seen backwards
+            last_seen: t2,
+        }],
+    )
+    .await?;
+    let (first, last): (String, String) =
+        sqlx::query_as("SELECT first_seen, last_seen FROM ingest_sources WHERE id = 'watch-1'")
+            .fetch_one(&pool)
+            .await?;
+    assert!(
+        first.starts_with("2026-11-01"),
+        "first_seen preserved: {first}"
+    );
+    assert!(last.starts_with("2026-11-18"), "last_seen advanced: {last}");
+    Ok(())
+}
+
+#[test]
+fn test_timestamp_contract_edge_cases() {
+    let now: chrono::DateTime<chrono::Utc> = "2026-11-18T12:00:00Z".parse().unwrap();
+    // Offset in the label is recorded, not silently dropped (T306).
+    let (utc, off) = normalise_timestamp("2026-11-18T09:30:00+02:00", None, now).unwrap();
+    assert_eq!(utc.to_rfc3339(), "2026-11-18T07:30:00+00:00");
+    assert_eq!(off.as_deref(), Some("+02:00"));
+    // Naive local time with explicit zone (the Garmin CSV case).
+    let (utc2, _) = normalise_timestamp("2026-11-18 09:30", Some("+02:00"), now).unwrap();
+    assert_eq!(utc2, utc);
+}

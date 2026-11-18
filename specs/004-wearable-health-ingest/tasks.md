@@ -23,16 +23,24 @@
 
 **Purpose**: One pipeline. No vendor-specific code reaches the dashboard, the safety engine, or the data model.
 
-- [ ] T300 Define the ingest contract in `engine/src/ingest.rs`: `RawReading` (source_id, source_record_id, metric, metric_definition, value, unit, observed_at, ingested_at, verbatim payload)
-- [ ] T301 Define `IngestSource` entity (kind: `file` | `companion` | `api`; device label; platform; first/last seen)
-- [ ] T302 Implement the metric registry: metric name + definition (`hrv: rmssd` vs `sdnn`; sleep score scale) — FR-055. Values with incompatible definitions must never be compared
-- [ ] T303 Implement `RawReading` → `VitalsEntry` mapping, with unmappable metrics routed to `custom_metrics` carrying their definition
-- [ ] T304 Persist `IngestSource` and the raw-reading ledger (SQLite + WASM storage paths)
-- [ ] T305 Implement idempotency: unique constraint on (`source_id`, `source_record_id`); re-ingest is a no-op, verified by test (FR-052, SC-051)
-- [ ] T306 Implement timestamp normalisation: explicit source-timezone → UTC conversion, with the source timezone recorded (edge case; this is the class of bug that broke all write flows 2026-09-09)
-- [ ] T307 Implement implausible-timestamp quarantine (future, absurdly old) → quarantined + reported, never stored
+<!-- 2026-11-18: contract + persistence landed. engine/src/ingest.rs
+(pure/WASM-safe: RawReading, IngestSource, registry, unit + timestamp
+normalisation); engine/src/db.rs (ingest_sources, raw_reading_ledger with
+PRIMARY KEY(source_id, source_record_id), ingest_readings with per-
+(source, observed_at) grouping and quarantining). Tests: 7 unit tests in
+ingest.rs + 4 integration tests (idempotency, merge-on-same-moment,
+definition gating, quarantine, source upsert). Remaining: T304 WASM
+storage path, T308 retention-for-retry at the caller edge. -->
+- [x] T300 Define the ingest contract in `engine/src/ingest.rs`: `RawReading` (source_id, source_record_id, metric, metric_definition, value, unit, observed_at, ingested_at, verbatim payload)
+- [x] T301 Define `IngestSource` entity (kind: `file` | `companion` | `api`; device label; platform; first/last seen)
+- [x] T302 Implement the metric registry: metric name + definition (`hrv: rmssd` vs `sdnn`; sleep score scale) — FR-055. Values with incompatible definitions must never be compared
+- [x] T303 Implement `RawReading` → `VitalsEntry` mapping, with unmappable metrics routed to `custom_metrics` carrying their definition
+- [ ] T304 Persist `IngestSource` and the raw-reading ledger (SQLite + WASM storage paths) — SQLite path done; WASM/IndexedDB path pending
+- [x] T305 Implement idempotency: unique constraint on (`source_id`, `source_record_id`); re-ingest is a no-op, verified by test (FR-052, SC-051)
+- [x] T306 Implement timestamp normalisation: explicit source-timezone → UTC conversion, with the source timezone recorded (edge case; this is the class of bug that broke all write flows 2026-09-09)
+- [x] T307 Implement implausible-timestamp quarantine (future, absurdly old) → quarantined + reported, never stored
 - [ ] T308 Implement failure reporting: file/source + reason, input retained for retry, never silently dropped (FR-059)
-- [ ] T309 Unit tests: mapping, idempotency, timezone conversion, quarantine, failure retention
+- [ ] T309 Unit tests: mapping, idempotency, timezone conversion, quarantine, failure retention — first four done; failure-retention test waits on T308
 
 **Checkpoint**: A reading can enter the system through one path, is attributed, is idempotent, and its timezone is explicit.
 
