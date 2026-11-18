@@ -229,7 +229,35 @@ impl FoodLookup {
         Ok(results)
     }
 
+    /// OFF v2 product by exact barcode. Ok(None) = valid lookup, unknown
+    /// code (v2 answers `{"status":0}` / HTTP 404 — both land here via
+    /// Err for 404, None for status 0).
+    async fn product_by_barcode(&self, code: &str) -> Result<Option<FoodSearchResult>> {
+        let resp = self
+            .http
+            .get(format!("{OFF_API_BASE}/api/v2/product/{code}"))
+            .query(&[("fields", "code,product_name,brands,nutriments")])
+            .send()
+            .await
+            .context("OFF barcode lookup failed")?;
+        if !resp.status().is_success() {
+            return Err(anyhow!("OpenFoodFacts HTTP {}", resp.status()));
+        }
+        let body: serde_json::Value = resp.json().await.context("OFF parse")?;
+        Ok(parse_off_product(&body, code))
+    }
+
     async fn search_off(&self, query: &str) -> Result<Vec<FoodSearchResult>> {
+        // Barcode queries go to the documented v2 product endpoint first:
+        // search.pl answers them with its HTML 503 page (verified 2026-11-18),
+        // while v2 is both the stable API and markedly more available.
+        // Unknown/unreachable codes fall through to text search — the digits
+        // might still be part of a product name.
+        if is_barcode(query.trim()) {
+            if let Ok(Some(p)) = self.product_by_barcode(query.trim()).await {
+                return Ok(vec![p]);
+            }
+        }
         // OFF's search.pl 503s intermittently (~50% under light load; verified
         // 2026-11-18 with plain curl, client-independent). The 503 bursts last
         // seconds, not milliseconds (live smoke: 2/3 calls failed at ~1s
@@ -294,42 +322,13 @@ impl FoodLookup {
     /// Details by id: 8-14 digit numeric → OFF barcode, else USDA FDC id.
     pub async fn details(&self, id: &str) -> Result<FoodSearchResult> {
         let id = id.trim();
-        let is_barcode = id.len() >= 8 && id.len() <= 14 && id.chars().all(|c| c.is_ascii_digit());
-        if is_barcode {
-            let resp = self
-                .http
-                .get(format!("{OFF_API_BASE}/api/v2/product/{id}"))
-                .send()
-                .await
-                .context("OFF details request failed")?;
-            if !resp.status().is_success() {
-                return Err(anyhow!("OpenFoodFacts HTTP {}", resp.status()));
-            }
-            let body: serde_json::Value = resp.json().await.context("OFF parse")?;
-            let product = body.get("product").unwrap_or(&body);
-            let code = product
-                .get("code")
-                .and_then(|v| v.as_str())
-                .unwrap_or(id)
-                .to_string();
-            let description = product
-                .get("product_name")
-                .and_then(|v| v.as_str())
-                .unwrap_or("Unknown product")
-                .to_string();
-            Ok(FoodSearchResult {
-                id: code,
-                description,
-                brand: product
-                    .get("brands")
-                    .and_then(|v| v.as_str())
-                    .map(|s| s.to_string()),
-                source: FoodSource::OpenFoodFacts,
-                nutrients_per_100g: (!off_nutriments_to_infos(product.get("nutriments"))
-                    .is_empty())
-                .then(|| off_nutriments_to_infos(product.get("nutriments"))),
-            })
-        } else {
+        if is_barcode(id) {
+            return self
+                .product_by_barcode(id)
+                .await?
+                .ok_or_else(|| anyhow!("OpenFoodFacts: no product with code {id}"));
+        }
+        {
             let api_key = self
                 .usda_api_key
                 .as_deref()
@@ -360,6 +359,49 @@ impl FoodLookup {
             })
         }
     }
+}
+
+/// OFF v2 product payload → single result. v2 answers unknown codes with
+/// `{"status":0}` or a null `product`; every "no such product" shape → None.
+/// Split out for fixture testing (no network).
+pub fn parse_off_product(
+    body: &serde_json::Value,
+    fallback_code: &str,
+) -> Option<FoodSearchResult> {
+    let product = body.get("product").filter(|p| p.is_object())?;
+    let name = product
+        .get("product_name")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .trim()
+        .to_string();
+    let infos = off_nutriments_to_infos(product.get("nutriments"));
+    if name.is_empty() && infos.is_empty() {
+        return None;
+    }
+    Some(FoodSearchResult {
+        id: product
+            .get("code")
+            .and_then(|v| v.as_str())
+            .unwrap_or(fallback_code)
+            .to_string(),
+        description: if name.is_empty() {
+            "Unknown product".to_string()
+        } else {
+            name
+        },
+        brand: product
+            .get("brands")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string()),
+        source: FoodSource::OpenFoodFacts,
+        nutrients_per_100g: (!infos.is_empty()).then_some(infos),
+    })
+}
+
+/// EAN/UPC-ish: 8-14 digits. Same shape rule details() routes on.
+fn is_barcode(s: &str) -> bool {
+    s.len() >= 8 && s.len() <= 14 && s.chars().all(|c| c.is_ascii_digit())
 }
 
 /// OFF search payload → results. Split out for fixture testing (no network).
@@ -494,5 +536,64 @@ mod tests {
         assert!(parse_usda_search(&serde_json::json!({"foods": null})).is_empty());
         assert!(off_nutriments_to_infos(None).is_empty());
         assert!(usda_nutrients_to_infos(Some(&serde_json::json!("nope"))).is_empty());
+    }
+
+    #[test]
+    fn parse_off_product_hit() {
+        // Fixture shaped from the real 2026-11-18 v2 response for 6111242102941
+        // (fields=code,product_name,brands,nutriments; *_100g keys verified live).
+        let body = serde_json::json!({"status": 1, "product": {
+            "code": "6111242102941", "product_name": "Yogurt Bnine BANANA",
+            "brands": "Jaouda",
+            "nutriments": {"energy-kcal_100g": 88.1, "proteins_100g": 3.9, "salt_100g": 0}
+        }});
+        let r = parse_off_product(&body, "fallback").expect("hit");
+        assert_eq!(r.id, "6111242102941");
+        assert_eq!(r.description, "Yogurt Bnine BANANA");
+        assert_eq!(r.brand.as_deref(), Some("Jaouda"));
+        let n = r.nutrients_per_100g.expect("nutrients");
+        // salt_100g == 0 must drop ("not reported" != zero) → exactly 2 infos
+        assert_eq!(n.len(), 2);
+        assert!(
+            n.iter()
+                .any(|i| i.name == "Energy" && (i.amount - 88.1).abs() < 1e-9)
+        );
+        assert!(
+            n.iter()
+                .any(|i| i.name == "Protein" && (i.amount - 3.9).abs() < 1e-9)
+        );
+    }
+
+    #[test]
+    fn parse_off_product_misses_are_none_not_panic() {
+        assert!(
+            parse_off_product(
+                &serde_json::json!({"status": 0, "status_verbose": "product not found"}),
+                "1"
+            )
+            .is_none()
+        );
+        assert!(
+            parse_off_product(&serde_json::json!({"status": 1, "product": null}), "1").is_none()
+        );
+        assert!(parse_off_product(&serde_json::json!({}), "1").is_none());
+        // present but contentless product is a miss too
+        assert!(
+            parse_off_product(
+                &serde_json::json!({"product": {"code": "12345678"}}),
+                "12345678"
+            )
+            .is_none()
+        );
+    }
+
+    #[test]
+    fn barcode_shape_rule() {
+        assert!(is_barcode("6111242102941")); // EAN-13
+        assert!(is_barcode("12345678")); // EAN-8
+        assert!(!is_barcode("1234567")); // too short: text search
+        assert!(!is_barcode("123456789012345")); // too long: text search
+        assert!(!is_barcode("banana"));
+        assert!(!is_barcode("12345 678")); // spaces disqualify
     }
 }
