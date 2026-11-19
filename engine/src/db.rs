@@ -1604,7 +1604,8 @@ async fn scan_ingested_vitals_safety(
     entry_ids: &[Uuid],
 ) -> anyhow::Result<usize> {
     use crate::safety::{
-        PROTOCOL_HYPERTENSIVE_PREFIX, PROTOCOL_TACHYCARDIA_PREFIX, RecentSubstance, SafetyEngine,
+        PROTOCOL_HYPERTENSIVE_PREFIX, PROTOCOL_TACHYCARDIA_PREFIX, RecentSubstance,
+        RecoveryContext, SafetyEngine, contextual_advice_with_recovery,
     };
 
     let recent = get_log_entries(
@@ -1630,7 +1631,14 @@ async fn scan_ingested_vitals_safety(
         .await?;
         let Some(row) = row else { continue };
         let entry = row_to_vitals_entry(row);
-        for alert in engine.check_vitals(&entry, &substances).alerts {
+        // B4/T327: provenance comes from the ledger (which sources produced
+        // this row), so advice can cite "measured sleep 4.2 h on 18 Nov
+        // (from whoop)". Manually recorded rows have no ledger rows → no
+        // source label, and recovery fields are whatever the entry carries.
+        let sources = entry_sources(pool, *id).await?;
+        let source_refs: Vec<&str> = sources.iter().map(String::as_str).collect();
+        let recovery = RecoveryContext::from_entry(&entry, &source_refs);
+        for mut alert in engine.check_vitals(&entry, &substances).alerts {
             let prefix = PROTOCOL_PREFIXES
                 .iter()
                 .find(|p| alert.message.starts_with(**p));
@@ -1656,11 +1664,30 @@ async fn scan_ingested_vitals_safety(
                     continue;
                 }
             }
+            // Same enrichment shape the server handler and the vitals page
+            // apply (FR-009): recommendation, then "Context: …".
+            if let Some(advice) =
+                contextual_advice_with_recovery(&alert, &substances, recovery.as_ref())
+            {
+                let rec = alert.recommendation.take().unwrap_or_default();
+                alert.recommendation = Some(format!("{rec} Context: {advice}"));
+            }
             create_alert(pool, &alert).await?;
             raised += 1;
         }
     }
     Ok(raised)
+}
+
+/// Which ingest sources produced a vitals row (FR-056 provenance). Empty for
+/// manually recorded rows — the ledger only knows ingested ones.
+pub async fn entry_sources(pool: &DbPool, entry_id: Uuid) -> anyhow::Result<Vec<String>> {
+    Ok(sqlx::query_scalar(
+        "SELECT DISTINCT source_id FROM raw_reading_ledger WHERE vitals_entry_id = ?1 ORDER BY source_id",
+    )
+    .bind(entry_id.to_string())
+    .fetch_all(pool)
+    .await?)
 }
 
 /// Retain a record that failed **before** it could become a `RawReading`

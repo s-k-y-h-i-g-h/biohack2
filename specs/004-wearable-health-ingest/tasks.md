@@ -90,8 +90,8 @@ storage path, T308 retention-for-retry at the caller edge. -->
 
 - [x] T325 Route ingested readings through `SafetyEngine::check_vitals()` on landing (FR-057) — reuse spec 001's alert path (`db::ingest_readings` → `scan_ingested_vitals_safety`; substance context via `RecentSubstance::from_log_entries`, identical to the server handler and vitals page)
 - [x] T326 Test: an ingested out-of-range reading triggers the existing alert banner (`test_ingest_triggers_existing_alert_path`, plus in-range-silent and logged-stimulant tachycardia cases)
-- [ ] T327 Extend `contextual_advice()` to cite measured sleep/HRV context with source and date (B4, FR-009 extension)
-- [ ] T328 Test: advice falls back to log-derived context when no ingest data exists (B4/AC-2)
+- [x] T327 Extend `contextual_advice()` to cite measured sleep/HRV context with source and date (B4, FR-009 extension) — `RecoveryContext::from_entry` + `contextual_advice_with_recovery`; provenance via `db::entry_sources` (ledger); advisory bounds: sleep < 6 h, HRV < 25 ms, poor quality
+- [x] T328 Test: advice falls back to log-derived context when no ingest data exists (B4/AC-2) — `test_advice_falls_back_without_recovery_data`; the `contextual_advice()` wrapper delegates with `recovery: None`, so existing call sites are unchanged by construction
 - [x] T329 Test: alert volume under continuous ingest is bounded — no alert storm from 288 readings/day (dedup/coalesce policy documented) — policy: **one alert per user, per protocol, per UTC day of observation time**, coalesced by the `PROTOCOL_*_PREFIX` constants in `safety.rs`; unregistered protocols fail open (created uncoalesced). Tested by `test_ingest_alert_storm_coalesced_per_day`
 
 **Checkpoint**: Continuous data makes the existing safety engine a monitor, with bounded alert volume.

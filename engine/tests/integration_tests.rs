@@ -873,3 +873,107 @@ async fn test_ingest_in_range_readings_stay_silent(pool: DbPool) -> anyhow::Resu
     );
     Ok(())
 }
+
+#[sqlx::test]
+async fn test_ingest_advice_cites_measured_sleep(pool: DbPool) -> anyhow::Result<()> {
+    migrate(&pool).await?;
+    let entry = LogEntry {
+        id: Uuid::new_v4(),
+        user_id: "u1".to_string(),
+        item_type: engine::models::ItemType::Supplement,
+        item_id: None,
+        name: "caffeine".to_string(),
+        quantity: Some(200.0),
+        unit: Some("mg".to_string()),
+        route: None,
+        timestamp: chrono::Utc::now() - chrono::Duration::minutes(30),
+        stack_id: None,
+        notes: None,
+        acknowledged_interaction: false,
+        custom_fields: None,
+    };
+    engine::db::create_log_entry(&pool, &entry).await?;
+
+    // B4 independent test: high HR on a night that measured 4.2 h of sleep.
+    // Sleep duration lands as a custom metric (no native field); same
+    // observed_at as the HR row so they merge into one vitals entry.
+    let at = (chrono::Utc::now() - chrono::Duration::minutes(5)).to_rfc3339();
+    let batch = vec![
+        reading("h1", "heart_rate", "instantaneous", 132.0, "bpm", &at),
+        reading("h2", "sleep_hours", "total_sleep_time", 4.2, "h", &at),
+    ];
+    let rep = engine::db::ingest_readings(&pool, "u1", &batch).await?;
+    assert_eq!(rep.safety_alerts, 1);
+    assert_eq!(rep.custom_metrics, 1, "sleep_hours must land as custom");
+
+    let alerts = engine::db::get_alerts(
+        &pool,
+        &engine::models::AlertFilter {
+            user_id: Some("u1".into()),
+            acknowledged: None,
+        },
+    )
+    .await?;
+    let rec = alerts[0].recommendation.clone().unwrap_or_default();
+    // AC-1: cites the measured value with its source (date is asserted by
+    // the "on DD Mon" fragment around the same clause).
+    assert!(
+        rec.contains("Recovery context: measured sleep 4.2 h on "),
+        "{rec}"
+    );
+    assert!(rec.contains("(from watch-1)"), "{rec}");
+    // Log-derived context still rides along (advice is additive, not replaced).
+    assert!(
+        rec.contains("Recent stimulants in your log: caffeine"),
+        "{rec}"
+    );
+    Ok(())
+}
+
+#[sqlx::test]
+async fn test_advice_falls_back_without_recovery_data(pool: DbPool) -> anyhow::Result<()> {
+    migrate(&pool).await?;
+    // AC-2 / T328: no ingested recovery data → advice is exactly the
+    // log-derived text of before, with no Recovery context clause.
+    let at = (chrono::Utc::now() - chrono::Duration::minutes(5)).to_rfc3339();
+    let batch = vec![reading(
+        "h1",
+        "heart_rate",
+        "instantaneous",
+        132.0,
+        "bpm",
+        &at,
+    )];
+    let rep = engine::db::ingest_readings(&pool, "u1", &batch).await?;
+    assert_eq!(
+        rep.safety_alerts, 0,
+        "no stimulant logged -> protocol 1 stays quiet"
+    );
+
+    // Hypertensive row with no sleep/HRV data: magnesium advice, no recovery clause.
+    let batch2 = vec![
+        reading("b1", "bp_systolic", "korotkoff_1", 192.0, "mmHg", &at),
+        reading("b2", "bp_diastolic", "korotkoff_5", 124.0, "mmHg", &at),
+    ];
+    assert_eq!(
+        engine::db::ingest_readings(&pool, "u1", &batch2)
+            .await?
+            .safety_alerts,
+        1
+    );
+    let alerts = engine::db::get_alerts(
+        &pool,
+        &engine::models::AlertFilter {
+            user_id: Some("u1".into()),
+            acknowledged: None,
+        },
+    )
+    .await?;
+    let rec = alerts[0].recommendation.clone().unwrap_or_default();
+    assert!(!rec.contains("Recovery context"), "{rec}");
+    assert!(
+        rec.contains("Context:"),
+        "log-derived advice still applies: {rec}"
+    );
+    Ok(())
+}

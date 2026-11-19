@@ -393,12 +393,24 @@ async fn check_vitals_safety(
     let engine_check = engine::safety::SafetyEngine::new();
     let result = engine_check.check_vitals(&entry, &substances);
 
+    // B4/T327: cite measured recovery data (sleep/HRV) with ledger provenance
+    // when the entry carries it; manual rows simply have no source label.
+    let sources = db::entry_sources(&state.pool, entry.id)
+        .await
+        .unwrap_or_default();
+    let source_refs: Vec<&str> = sources.iter().map(String::as_str).collect();
+    let recovery = engine::safety::RecoveryContext::from_entry(&entry, &source_refs);
+
     // Enrich with contextual advice from the same log set
     let alerts: Vec<Alert> = result
         .alerts
         .into_iter()
         .map(|mut alert| {
-            if let Some(advice) = engine::safety::contextual_advice(&alert, &substances) {
+            if let Some(advice) = engine::safety::contextual_advice_with_recovery(
+                &alert,
+                &substances,
+                recovery.as_ref(),
+            ) {
                 let rec = alert.recommendation.clone().unwrap_or_default();
                 alert.recommendation = Some(format!("{rec} Context: {advice}"));
             }

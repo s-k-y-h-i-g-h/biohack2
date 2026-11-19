@@ -48,9 +48,17 @@ pub fn VitalsPage() -> impl IntoView {
 
         let safety_result = engine.check_vitals(&entry, &substances);
 
+        // B4/T327: measured sleep/HRV on the saved row joins the advice with
+        // its date; local storage has no source ledger, so no source label.
+        let recovery = engine::safety::RecoveryContext::from_entry(&entry, &[]);
+
         // Persist any triggered alerts, enriched with log-derived contextual advice (FR-009)
         for mut alert in safety_result.alerts {
-            if let Some(advice) = engine::safety::contextual_advice(&alert, &substances) {
+            if let Some(advice) = engine::safety::contextual_advice_with_recovery(
+                &alert,
+                &substances,
+                recovery.as_ref(),
+            ) {
                 let rec = alert.recommendation.clone().unwrap_or_default();
                 alert.recommendation = Some(format!("{} Context: {}", rec, advice));
             }

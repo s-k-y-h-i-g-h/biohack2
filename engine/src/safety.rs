@@ -7,11 +7,11 @@
 
 use std::collections::HashSet;
 
-use chrono::{Duration, Utc};
+use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::models::{
-    Alert, AlertSeverity, AlertType, CatalogItem, ItemType, LogEntry, VitalsEntry,
+    Alert, AlertSeverity, AlertType, CatalogItem, ItemType, LogEntry, SleepQuality, VitalsEntry,
 };
 
 /// Normalize a substance name for identity comparison: lowercase, punctuation
@@ -573,12 +573,111 @@ pub fn run_safety_check(
     engine.check_vitals(entry, recent_substances)
 }
 
+/// Advisory thresholds for recovery context (B4/FR-009 extension). These are
+/// talking points for the advice text, not medical diagnoses: crossing them
+/// only earns a citation in the alert's context line.
+pub const LOW_SLEEP_THRESHOLD_HOURS: f64 = 6.0;
+pub const LOW_HRV_THRESHOLD_MS: f64 = 25.0;
+
+/// Measured recovery data available when an alert is rendered (spec-004
+/// B4/T327): sleep and HRV as *measured*, with provenance. Built from a
+/// [`VitalsEntry`] plus the ledger-derived sources behind it, so advice can
+/// cite "measured sleep 4.2 h on 18 Nov (from whoop)" instead of guessing
+/// from the log.
+#[derive(Debug, Clone)]
+pub struct RecoveryContext {
+    pub sleep_hours: Option<f64>,
+    pub sleep_quality: Option<SleepQuality>,
+    pub hrv: Option<f64>,
+    pub measured_at: DateTime<Utc>,
+    pub sources: Vec<String>,
+}
+
+impl RecoveryContext {
+    /// Extract recovery fields from a vitals row. Sleep duration follows the
+    /// custom-metric contract: any `custom_metrics` key containing
+    /// `sleep_hours` (the `{metric}:{definition}` shape from
+    /// [`crate::ingest::custom_key`]); minutes/seconds units are converted.
+    /// Returns `None` when the row carries no recovery signal at all — that
+    /// is what makes advice fall back to log-derived context unchanged
+    /// (B4/AC-2, T328).
+    pub fn from_entry(entry: &VitalsEntry, sources: &[&str]) -> Option<Self> {
+        let sleep_hours = entry.custom_metrics.as_ref().and_then(|cm| {
+            cm.as_object()?.iter().find_map(|(k, v)| {
+                if !k.to_lowercase().contains("sleep_hours") {
+                    return None;
+                }
+                let value = v.get("value")?.as_f64()?;
+                let unit = v.get("unit").and_then(|u| u.as_str()).unwrap_or("h");
+                Some(match unit.to_lowercase().as_str() {
+                    "min" | "mins" | "minutes" => value / 60.0,
+                    "s" | "sec" | "secs" | "seconds" => value / 3600.0,
+                    _ => value,
+                })
+            })
+        });
+        if sleep_hours.is_none() && entry.hrv.is_none() && entry.sleep_quality.is_none() {
+            return None;
+        }
+        Some(Self {
+            sleep_hours,
+            sleep_quality: entry.sleep_quality.clone(),
+            hrv: entry.hrv,
+            measured_at: entry.timestamp,
+            sources: sources.iter().map(|s| s.to_string()).collect(),
+        })
+    }
+
+    /// One sentence citing whichever measured values are in deficit. Returns
+    /// `None` when everything measured is within advisory bounds — recovery
+    /// data that is fine earns no comment.
+    pub fn deficit_clause(&self) -> Option<String> {
+        let provenance = if self.sources.is_empty() {
+            String::new()
+        } else {
+            format!(" (from {})", self.sources.join(", "))
+        };
+        let date = self.measured_at.format("%d %b");
+        let mut bits = Vec::new();
+        if let Some(h) = self.sleep_hours.filter(|h| *h < LOW_SLEEP_THRESHOLD_HOURS) {
+            bits.push(format!(
+                "measured sleep {h:.1} h on {date}{provenance} — insufficient sleep elevates resting heart rate and blood pressure"
+            ));
+        }
+        if matches!(self.sleep_quality, Some(SleepQuality::Poor)) {
+            bits.push(format!(
+                "sleep quality logged as poor on {date}{provenance}"
+            ));
+        }
+        if let Some(hrv) = self.hrv.filter(|v| *v < LOW_HRV_THRESHOLD_MS) {
+            bits.push(format!(
+                "measured HRV {hrv:.0} ms on {date}{provenance} — low HRV indicates impaired recovery"
+            ));
+        }
+        if bits.is_empty() {
+            return None;
+        }
+        Some(format!("Recovery context: {}", bits.join("; ")))
+    }
+}
+
 /// Contextual advice derived from the user's recent consumption log (FR-009).
 ///
 /// Cross-references recent supplements/medications/actions to enrich an
 /// alert's recommendation with log-derived context (e.g. "no magnesium this
 /// week" for hypertension, "recent stimulant use" for tachycardia).
 pub fn contextual_advice(alert: &Alert, recent_substances: &[RecentSubstance]) -> Option<String> {
+    contextual_advice_with_recovery(alert, recent_substances, None)
+}
+
+/// [`contextual_advice`] plus measured recovery context (B4/T327). With
+/// `recovery: None` — or recovery data within advisory bounds — the output is
+/// identical to the log-only advice of today (B4/AC-2, T328).
+pub fn contextual_advice_with_recovery(
+    alert: &Alert,
+    recent_substances: &[RecentSubstance],
+    recovery: Option<&RecoveryContext>,
+) -> Option<String> {
     let now = Utc::now();
     let week_ago = now - Duration::days(7);
 
@@ -588,6 +687,7 @@ pub fn contextual_advice(alert: &Alert, recent_substances: &[RecentSubstance]) -
         .collect();
 
     let msg = alert.message.to_lowercase();
+    let recovery_clause = recovery.and_then(|r| r.deficit_clause());
 
     // Hypertension → check magnesium (relaxation of vascular smooth muscle)
     if msg.contains("hypertens") {
@@ -598,6 +698,9 @@ pub fn contextual_advice(alert: &Alert, recent_substances: &[RecentSubstance]) -
         let has_stimulant_use = taken_last_week.iter().any(|s| s.is_stimulant);
 
         let mut parts = Vec::new();
+        if let Some(clause) = recovery_clause {
+            parts.push(clause);
+        }
         if !has_magnesium {
             parts.push(
                 "Your magnesium intake has been low this week — consider magnesium glycinate 200-400mg"
@@ -616,20 +719,28 @@ pub fn contextual_advice(alert: &Alert, recent_substances: &[RecentSubstance]) -
         return Some(parts.join(". "));
     }
 
-    // Tachycardia → stimulant context
+    // Tachycardia → stimulant context, then measured recovery context
     if msg.contains("tachycardia") {
+        let mut parts = Vec::new();
+        if let Some(clause) = recovery_clause {
+            parts.push(clause);
+        }
         let recent_stimulants: Vec<&str> = taken_last_week
             .iter()
             .filter(|s| s.is_stimulant)
             .map(|s| s.name.as_str())
             .collect();
         if !recent_stimulants.is_empty() {
-            return Some(format!(
-                "Recent stimulants in your log: {}. Allow 6+ hours before any further stimulant use.",
+            parts.push(format!(
+                "Recent stimulants in your log: {}. Allow 6+ hours before any further stimulant use"
+                ,
                 recent_stimulants.join(", ")
             ));
         }
-        return None;
+        if parts.is_empty() {
+            return None;
+        }
+        return Some(parts.join(". "));
     }
 
     // Interaction alerts → list co-ingested agents
