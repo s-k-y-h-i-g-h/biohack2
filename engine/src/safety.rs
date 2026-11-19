@@ -64,6 +64,16 @@ impl RecentSubstance {
     }
 }
 
+/// Stable message prefixes for the vitals protocols emitted by
+/// [`SafetyEngine::check_vitals`].
+///
+/// These are a wire contract, not prose: the ingest safety scan
+/// (spec-004 T325/T329, `db::ingest_readings`) coalesces repeat episodes by
+/// matching these prefixes against stored alert messages. A new vitals
+/// protocol must register its prefix here or it will not be coalesced.
+pub const PROTOCOL_TACHYCARDIA_PREFIX: &str = "Stimulant-associated tachycardia";
+pub const PROTOCOL_HYPERTENSIVE_PREFIX: &str = "Hypertensive urgency";
+
 /// Results from running safety protocols against vitals.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SafetyResult {
@@ -418,8 +428,8 @@ impl SafetyEngine {
             alert_type: AlertType::Vital,
             severity: AlertSeverity::Critical,
             message: format!(
-                "Stimulant-associated tachycardia: HR {} bpm with recent stimulant use",
-                hr
+                "{}: HR {} bpm with recent stimulant use",
+                PROTOCOL_TACHYCARDIA_PREFIX, hr
             ),
             recommendation: Some(
                 "Consider: cold face immersion (30s), hydrate with electrolytes, \
@@ -451,8 +461,12 @@ impl SafetyEngine {
             alert_type: AlertType::Vital,
             severity: AlertSeverity::Critical,
             message: format!(
-                "Hypertensive urgency: BP {}/{} mmHg (threshold: {}/{})",
-                sbp, dbp, self.hypertensive_sbp_threshold, self.hypertensive_dbp_threshold
+                "{}: BP {}/{} mmHg (threshold: {}/{})",
+                PROTOCOL_HYPERTENSIVE_PREFIX,
+                sbp,
+                dbp,
+                self.hypertensive_sbp_threshold,
+                self.hypertensive_dbp_threshold
             ),
             recommendation: Some(
                 "Seek medical attention if symptoms present (chest pain, dyspnea, \

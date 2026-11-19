@@ -642,3 +642,234 @@ async fn test_ingest_failure_retention_clears_on_retry(pool: DbPool) -> anyhow::
     assert!(engine::db::list_ingest_failures(&pool).await?.is_empty());
     Ok(())
 }
+
+// ── spec-004 T325/T326/T329: ingested rows reach the safety engine ──────────
+
+#[sqlx::test]
+async fn test_ingest_triggers_existing_alert_path(pool: DbPool) -> anyhow::Result<()> {
+    migrate(&pool).await?;
+    let batch = vec![
+        reading(
+            "b1",
+            "bp_systolic",
+            "korotkoff_1",
+            192.0,
+            "mmHg",
+            "2026-11-18T09:00:00Z",
+        ),
+        reading(
+            "b2",
+            "bp_diastolic",
+            "korotkoff_5",
+            124.0,
+            "mmHg",
+            "2026-11-18T09:00:00Z",
+        ),
+    ];
+    let rep = engine::db::ingest_readings(&pool, "u1", &batch).await?;
+    assert_eq!(
+        rep.safety_alerts, 1,
+        "hypertensive row must alert on landing (T326)"
+    );
+
+    let alerts = engine::db::get_alerts(
+        &pool,
+        &engine::models::AlertFilter {
+            user_id: Some("u1".into()),
+            acknowledged: None,
+        },
+    )
+    .await?;
+    assert_eq!(alerts.len(), 1);
+    assert_eq!(alerts[0].alert_type, engine::models::AlertType::Vital);
+    assert!(alerts[0].message.starts_with("Hypertensive urgency"));
+    assert_eq!(alerts[0].severity, engine::models::AlertSeverity::Critical);
+    // The alert must point at the ingested row it came from.
+    let rows = engine::db::get_vitals_entries(&pool, &engine::models::VitalsEntryFilter::default())
+        .await?;
+    assert_eq!(alerts[0].linked_entry_id, Some(rows[0].id));
+
+    // Re-ingest: ledger skips everything, so nothing re-alerts (FR-052 + T329).
+    let rep2 = engine::db::ingest_readings(&pool, "u1", &batch).await?;
+    assert_eq!(rep2.safety_alerts, 0);
+    assert_eq!(
+        engine::db::get_alerts(
+            &pool,
+            &engine::models::AlertFilter {
+                user_id: Some("u1".into()),
+                acknowledged: None
+            },
+        )
+        .await?
+        .len(),
+        1
+    );
+    Ok(())
+}
+
+#[sqlx::test]
+async fn test_ingest_alert_storm_coalesced_per_day(pool: DbPool) -> anyhow::Result<()> {
+    migrate(&pool).await?;
+    // Relative days so the test never depends on wall-clock position: batch 1
+    // is yesterday (every row hypertensive, spread across the day), batch 2 is
+    // today. Both fully in the past — no future-skew rejection.
+    let yesterday = (chrono::Utc::now() - chrono::Duration::days(1))
+        .date_naive()
+        .and_hms_opt(0, 0, 0)
+        .unwrap()
+        .and_utc();
+    let today = chrono::Utc::now()
+        .date_naive()
+        .and_hms_opt(0, 0, 0)
+        .unwrap()
+        .and_utc();
+
+    // The 288-readings-a-day scenario compressed: 12 same-day rows, all
+    // hypertensive.
+    let mut batch = Vec::new();
+    for i in 0..12 {
+        let at = (yesterday + chrono::Duration::hours(i)).to_rfc3339();
+        batch.push(reading(
+            &format!("s{i}"),
+            "bp_systolic",
+            "korotkoff_1",
+            185.0 + i as f64,
+            "mmHg",
+            &at,
+        ));
+        batch.push(reading(
+            &format!("d{i}"),
+            "bp_diastolic",
+            "korotkoff_5",
+            112.0,
+            "mmHg",
+            &at,
+        ));
+    }
+    let rep = engine::db::ingest_readings(&pool, "u1", &batch).await?;
+    assert_eq!(rep.vitals_rows, 12);
+    assert_eq!(
+        rep.safety_alerts, 1,
+        "one protocol, one UTC day -> one alert (T329)"
+    );
+
+    // A new day re-alerts: coalescing bounds volume, it is not a mute.
+    // (today + 10s keeps this deterministic — a run in the first 10 seconds of
+    // a UTC day is acceptable flake-space, but nothing wider.)
+    let at = (today + chrono::Duration::seconds(10)).to_rfc3339();
+    let next_day = vec![
+        reading("e1", "bp_systolic", "korotkoff_1", 190.0, "mmHg", &at),
+        reading("e2", "bp_diastolic", "korotkoff_5", 121.0, "mmHg", &at),
+    ];
+    let rep2 = engine::db::ingest_readings(&pool, "u1", &next_day).await?;
+    assert_eq!(rep2.safety_alerts, 1);
+
+    let alerts = engine::db::get_alerts(
+        &pool,
+        &engine::models::AlertFilter {
+            user_id: Some("u1".into()),
+            acknowledged: None,
+        },
+    )
+    .await?;
+    assert_eq!(alerts.len(), 2, "at most one per observation day");
+    Ok(())
+}
+
+#[sqlx::test]
+async fn test_ingest_tachycardia_uses_logged_stimulant(pool: DbPool) -> anyhow::Result<()> {
+    migrate(&pool).await?;
+    // Caffeine logged in the app 30 minutes ago — inside the 4h stimulant
+    // window the existing protocol uses.
+    let entry = LogEntry {
+        id: Uuid::new_v4(),
+        user_id: "u1".to_string(),
+        item_type: engine::models::ItemType::Supplement,
+        item_id: None,
+        name: "caffeine".to_string(),
+        quantity: Some(200.0),
+        unit: Some("mg".to_string()),
+        route: None,
+        timestamp: chrono::Utc::now() - chrono::Duration::minutes(30),
+        stack_id: None,
+        notes: None,
+        acknowledged_interaction: false,
+        custom_fields: None,
+    };
+    engine::db::create_log_entry(&pool, &entry).await?;
+
+    let at = (chrono::Utc::now() - chrono::Duration::minutes(5)).to_rfc3339();
+    let batch = vec![reading(
+        "h1",
+        "heart_rate",
+        "instantaneous",
+        132.0,
+        "bpm",
+        &at,
+    )];
+    let rep = engine::db::ingest_readings(&pool, "u1", &batch).await?;
+    assert_eq!(
+        rep.safety_alerts, 1,
+        "logged stimulant + HR 132 must fire protocol 1"
+    );
+
+    let alerts = engine::db::get_alerts(
+        &pool,
+        &engine::models::AlertFilter {
+            user_id: Some("u1".into()),
+            acknowledged: None,
+        },
+    )
+    .await?;
+    assert!(
+        alerts[0]
+            .message
+            .starts_with("Stimulant-associated tachycardia")
+    );
+    Ok(())
+}
+
+#[sqlx::test]
+async fn test_ingest_in_range_readings_stay_silent(pool: DbPool) -> anyhow::Result<()> {
+    migrate(&pool).await?;
+    let batch = vec![
+        reading(
+            "n1",
+            "bp_systolic",
+            "korotkoff_1",
+            118.0,
+            "mmHg",
+            "2026-11-18T09:00:00Z",
+        ),
+        reading(
+            "n2",
+            "bp_diastolic",
+            "korotkoff_5",
+            76.0,
+            "mmHg",
+            "2026-11-18T09:00:00Z",
+        ),
+        reading(
+            "n3",
+            "heart_rate",
+            "instantaneous",
+            62.0,
+            "bpm",
+            "2026-11-18T09:00:00Z",
+        ),
+    ];
+    let rep = engine::db::ingest_readings(&pool, "u1", &batch).await?;
+    assert_eq!(rep.safety_alerts, 0);
+    assert!(
+        engine::db::get_alerts(
+            &pool,
+            &engine::models::AlertFilter {
+                user_id: Some("u1".into()),
+                acknowledged: None
+            },
+        )
+        .await?
+        .is_empty()
+    );
+    Ok(())
+}

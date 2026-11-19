@@ -1359,6 +1359,7 @@ pub async fn ingest_readings(
     use std::collections::BTreeMap;
 
     let mut report = IngestReport::default();
+    let mut touched: Vec<uuid::Uuid> = Vec::new();
     let now = chrono::Utc::now();
     let future_limit =
         now + chrono::Duration::minutes(crate::ingest::FUTURE_SKEW_TOLERANCE_MINUTES);
@@ -1570,9 +1571,96 @@ pub async fn ingest_readings(
             report.ingested += 1;
         }
         report.vitals_rows += 1;
+        touched.push(entry_id);
+    }
+
+    // FR-057 / T325: rows that landed go through the existing safety engine
+    // here — the single vitals alerting path, shared with the server handler
+    // and the vitals page. No parallel alerting logic.
+    if !touched.is_empty() {
+        report.safety_alerts = scan_ingested_vitals_safety(pool, user_id, &touched).await?;
     }
 
     Ok(report)
+}
+
+/// spec-004 T325/FR-057: run freshly ingested vitals rows through the
+/// existing [`SafetyEngine::check_vitals`] and persist triggers through the
+/// existing `alerts` path. Recent-substance context is built exactly like
+/// the server handler and the vitals page do (`RecentSubstance::from_log_entries`
+/// over the user's log entries), so a stimulant logged in the app colors an
+/// ingested tachycardia the same way a manually recorded one.
+///
+/// Coalesce policy (T329): **one alert per user, per protocol, per UTC day of
+/// observation time** (the alert's `generated_at`, i.e. the reading's own
+/// timestamp). A wearable streaming 288 readings a day raises at most one
+/// alert per protocol per day; re-ingesting raises nothing at all because the
+/// ledger already skips those records. Protocol identity is the message
+/// prefix constants in [`crate::safety`] — a protocol without a registered
+/// prefix is created uncoalesced (fail-open: visibility over quiet).
+async fn scan_ingested_vitals_safety(
+    pool: &DbPool,
+    user_id: &str,
+    entry_ids: &[Uuid],
+) -> anyhow::Result<usize> {
+    use crate::safety::{
+        PROTOCOL_HYPERTENSIVE_PREFIX, PROTOCOL_TACHYCARDIA_PREFIX, RecentSubstance, SafetyEngine,
+    };
+
+    let recent = get_log_entries(
+        pool,
+        &LogEntryFilter {
+            user_id: Some(user_id.to_string()),
+            ..Default::default()
+        },
+    )
+    .await?;
+    let substances = RecentSubstance::from_log_entries(&recent);
+    let engine = SafetyEngine::new();
+    const PROTOCOL_PREFIXES: [&str; 2] =
+        [PROTOCOL_TACHYCARDIA_PREFIX, PROTOCOL_HYPERTENSIVE_PREFIX];
+
+    let mut raised = 0;
+    for id in entry_ids {
+        let row = sqlx::query(
+            "SELECT id, user_id, timestamp, bp_systolic, bp_diastolic, heart_rate, weight, blood_glucose, temperature, spo2, hrv, sleep_quality, custom_metrics, notes FROM vitals_entries WHERE id = ?1",
+        )
+        .bind(id.to_string())
+        .fetch_optional(pool)
+        .await?;
+        let Some(row) = row else { continue };
+        let entry = row_to_vitals_entry(row);
+        for alert in engine.check_vitals(&entry, &substances).alerts {
+            let prefix = PROTOCOL_PREFIXES
+                .iter()
+                .find(|p| alert.message.starts_with(**p));
+            if let Some(prefix) = prefix {
+                // Same protocol already alerted for this observation day?
+                let day_start = alert
+                    .generated_at
+                    .date_naive()
+                    .and_hms_opt(0, 0, 0)
+                    .unwrap()
+                    .and_utc();
+                let day_end = day_start + chrono::Duration::days(1);
+                let covered: i64 = sqlx::query_scalar(
+                    "SELECT COUNT(*) FROM alerts WHERE user_id = ?1 AND type = 'vital' AND message LIKE ?2 AND generated_at >= ?3 AND generated_at < ?4",
+                )
+                .bind(user_id)
+                .bind(format!("{}%", prefix))
+                .bind(day_start.to_rfc3339())
+                .bind(day_end.to_rfc3339())
+                .fetch_one(pool)
+                .await?;
+                if covered > 0 {
+                    continue;
+                }
+            }
+            create_alert(pool, &alert).await?;
+            raised += 1;
+        }
+    }
+    Ok(raised)
 }
 
 /// Retain a record that failed **before** it could become a `RawReading`

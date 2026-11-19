@@ -301,6 +301,9 @@ pub struct IngestReport {
     pub custom_metrics: usize,
     /// `VitalsEntry` rows created or updated by this batch.
     pub vitals_rows: usize,
+    /// Safety alerts raised by readings that landed (FR-057), after the
+    /// one-per-protocol-per-day coalesce (T329).
+    pub safety_alerts: usize,
 }
 
 #[cfg(test)]

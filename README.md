@@ -90,6 +90,9 @@ biohack2 failures          # retained bad rows, newest first
 - Nothing is dropped silently. Unparseable rows are retained verbatim
   (`biohack2 failures`) and clear once a re-ingest of the fixed file proves
   that position passes.
+- Readings that land go through the existing safety engine: an out-of-range
+  value raises the same alerts the app shows (one per protocol per day, so a
+  day of continuous readings cannot storm the alert banner).
 
 See `specs/004-wearable-health-ingest/research.md` (§R3, §R4, §R4b) for the
 decision record behind this contract.

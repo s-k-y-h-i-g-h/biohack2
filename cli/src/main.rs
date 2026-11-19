@@ -165,6 +165,12 @@ async fn ingest(db_path: &Path, file: &Path, source: Option<String>, user: &str)
         report.custom_metrics,
         report.vitals_rows,
     );
+    if report.safety_alerts > 0 {
+        println!(
+            "safety alerts raised {} — out-of-range readings reached the alert banner (FR-057)",
+            report.safety_alerts
+        );
+    }
     if cleared > 0 {
         println!("cleared {cleared} previously retained failure(s) — fixed on re-ingest");
     }
@@ -196,7 +202,7 @@ async fn failures(db_path: &Path) -> Result<()> {
             r.source_id,
             r.source_record_id,
             r.reason,
-            r.payload.as_deref().map(|p| clip(p)).unwrap_or_default(),
+            r.payload.as_deref().map(clip).unwrap_or_default(),
         );
     }
     println!(
